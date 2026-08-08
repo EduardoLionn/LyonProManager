@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>LyonPro Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body onload="carregarDados()">
+
+    <!-- 1. MODAL INICIAL CORRIGIDO (APENAS NOME E LIGA) -->
+    <div id="setup-screen" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">Configuração da Carreira</h2>
+            <div class="linha-form">
+                <label>Nome do Clube / Seleção</label>
+                <input type="text" id="setup-nome-time" placeholder="Ex: Lyon FC">
+            </div>
+            <div class="linha-form" id="box-setup-temporada">
+                <label>Temporada Inicial (Para Clube)</label>
+                <select id="setup-temporada"></select>
+            </div>
+            <div class="linha-form" id="box-setup-ciclo" style="display:none;">
+                <label>Ciclo Inicial (Para Seleção)</label>
+                <select id="setup-ciclo"></select>
+            </div>
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Selecione a Divisão / Liga (Média OVR)</label>
+                <select id="setup-liga">
+                    <optgroup label="Inglaterra 🏴󠁧󠁢󠁥󠁮󠁧󠁿">
+                        <option value="Premier League (OVR 77)">Premier League (OVR 77)</option>
+                        <option value="Championship (OVR 70)">Championship (OVR 70)</option>
+                        <option value="League One (OVR 64)">League One (OVR 64)</option>
+                        <option value="League Two (OVR 60)">League Two (OVR 60)</option>
+                    </optgroup>
+                    <optgroup label="Brasil 🇧🇷">
+                        <option value="Brasileirão Série A (OVR 74)">Brasileirão Série A (OVR 74)</option>
+                        <option value="Série B (OVR 68)">Série B (OVR 68)</option>
+                        <option value="Série C (OVR 63)">Série C (OVR 63)</option>
+                        <option value="Série D (OVR 58)">Série D (OVR 58)</option>
+                    </optgroup>
+                    <optgroup label="Espanha 🇪🇸">
+                        <option value="LaLiga (OVR 77)">LaLiga (OVR 77)</option>
+                        <option value="LaLiga Hypermotion (OVR 70)">LaLiga Hypermotion (OVR 70)</option>
+                    </optgroup>
+                    <optgroup label="Alemanha 🇩🇪">
+                        <option value="Bundesliga (OVR 76)">Bundesliga (OVR 76)</option>
+                        <option value="2. Bundesliga (OVR 69)">2. Bundesliga (OVR 69)</option>
+                        <option value="3. Liga (OVR 63)">3. Liga (OVR 63)</option>
+                    </optgroup>
+                    <optgroup label="Itália 🇮🇹">
+                        <option value="Serie A (OVR 76)">Serie A (OVR 76)</option>
+                        <option value="Serie B (OVR 69)">Serie B (OVR 69)</option>
+                    </optgroup>
+                    <optgroup label="França 🇫🇷">
+                        <option value="Ligue 1 (OVR 75)">Ligue 1 (OVR 75)</option>
+                        <option value="Ligue 2 (OVR 68)">Ligue 2 (OVR 68)</option>
+                    </optgroup>
+                    <optgroup label="Outras (Europa) 🌍">
+                        <option value="Portugal - Liga Portugal (OVR 74)">Portugal - Liga Portugal (OVR 74)</option>
+                        <option value="Holanda - Eredivisie (OVR 73)">Holanda - Eredivisie (OVR 73)</option>
+                        <option value="Turquia - Süper Lig (OVR 72)">Turquia - Süper Lig (OVR 72)</option>
+                        <option value="Bélgica - Pro League (OVR 71)">Bélgica - Pro League (OVR 71)</option>
+                        <option value="Escócia - Premiership (OVR 70)">Escócia - Premiership (OVR 70)</option>
+                    </optgroup>
+                    <optgroup label="Seleções Nacionais 🌐">
+                        <option value="Seleção Tier 1 Mundial (OVR 82)">Seleção Tier 1 Mundial (OVR 82)</option>
+                        <option value="Seleção Tier 1 Continental (OVR 78)">Seleção Tier 1 Continental (OVR 78)</option>
+                        <option value="Seleção Tier 2 (OVR 74)">Seleção Tier 2 (OVR 74)</option>
+                        <option value="Seleção Tier 3 (OVR 68)">Seleção Tier 3 (OVR 68)</option>
+                        <option value="Seleção Tier 4 (OVR 62)">Seleção Tier 4 (OVR 62)</option>
+                    </optgroup>
+                </select>
+            </div>
+            <button style="width: 100%; margin-top: 15px;" onclick="iniciarSave()">Salvar e Começar</button>
+        </div>
+    </div>
+
+    <!-- MODAL TROCA DE LIGA (MANTIDO INTACTO COMO O SEU) -->
+    <div id="modal-troca-liga" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">Trocar Divisão / Liga</h2>
+            <p style="font-size:12px; color:var(--text-muted);">Altere o contexto da sua equipe. Isso mudará a nota exigida nas avaliações de upgrade.</p>
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Selecione a Nova Divisão</label>
+                <select id="nova-liga-select"></select>
+            </div>
+            <button style="width: 100%; margin-top: 15px;" onclick="confirmarTrocaLiga()">Salvar Alteração</button>
+            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-troca-liga').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- 2. MODAL DA DIRETORIA (1ª VEZ NO SAVE) CORRIGIDO -->
+    <div id="modal-setup-diretoria" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">👔 Setup da Diretoria</h2>
+            <p style="font-size:13px; color:var(--text-muted);">Informe os dados das últimas 5 temporadas para a IA calcular o orçamento inicial e metas.</p>
+            
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Média Gasta nas Últimas 5 Temp. (€M)</label>
+                <input type="number" id="setup-dir-media-gasto" placeholder="Ex: 50">
+            </div>
+            <div class="linha-form">
+                <label>Média Arrecadada nas Últimas 5 Temp. (€M)</label>
+                <input type="number" id="setup-dir-media-arrecadacao" placeholder="Ex: 40">
+            </div>
+            <div class="linha-form">
+                <label>Títulos Conquistados nas Últimas 5 Temp.</label>
+                <input type="number" id="setup-dir-titulos" placeholder="Ex: 2">
+            </div>
+            <div class="linha-form">
+                <label>Posição Média na Liga nas Últimas 5 Temp.</label>
+                <input type="number" id="setup-dir-posicao" placeholder="Ex: 4 (para 4º lugar)">
+            </div>
+            <div class="linha-form" id="box-setup-continental">
+                <label>Competição Continental Atual (Se houver)</label>
+                <select id="setup-dir-continental">
+                    <option value="Nenhuma">Nenhuma / Não classificado</option>
+                    <optgroup label="América do Sul (CONMEBOL)">
+                        <option value="Libertadores">Copa Libertadores</option>
+                        <option value="Sul-Americana">Copa Sul-Americana</option>
+                    </optgroup>
+                    <optgroup label="Europa (UEFA)">
+                        <option value="Champions League">Champions League</option>
+                        <option value="Europa League">Europa League</option>
+                        <option value="Conference League">Conference League</option>
+                    </optgroup>
+                    <optgroup label="Outros Continentes">
+                        <option value="Concacaf Champions Cup">Concacaf Champions</option>
+                        <option value="Leagues Cup">Leagues Cup</option>
+                        <option value="CAF Champions League">Liga dos Campeões da CAF (África)</option>
+                        <option value="AFC Champions League">AFC Champions (Ásia)</option>
+                    </optgroup>
+                </select>
+            </div>
+            
+            <button style="width: 100%; margin-top: 15px;" onclick="salvarSetupDiretoria()">Analisar e Definir Metas (IA)</button>
+        </div>
+    </div>
+
+<!-- 4. MODALS DE CRISE E DEMISSÃO -->
+    <div id="modal-alerta-crise" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.95); justify-content: center; align-items: center; z-index: 2000;">
+        <div class="evento-box" style="border-color: var(--warning); box-shadow: 0 0 30px rgba(255,184,0,0.15); text-align: center;">
+            <h2 style="color: var(--warning); margin-bottom: 10px;">⚠️ ALERTA DA DIRETORIA</h2>
+            <p id="texto-alerta-crise" style="font-size: 16px; margin-bottom: 20px;">Reunião de emergência necessária! Seu cargo periga.</p>
+            <button onclick="document.getElementById('modal-alerta-crise').style.display='none'" style="background: var(--warning); color: black;">Entendido. Tentarei melhorar.</button>
+        </div>
+    </div>
+
+    <div id="modal-demissao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.98); justify-content: center; align-items: center; z-index: 3000;">
+        <div class="evento-box" style="border-color: var(--danger); box-shadow: 0 0 30px rgba(255,107,107,0.3); text-align: center;">
+            <h2 style="color: var(--danger); margin-bottom: 10px;">❌ VOCÊ FOI DEMITIDO!</h2>
+            <p style="font-size: 16px; margin-bottom: 20px;">A diretoria esgotou a paciência. Seu prestígio chegou a zero devido aos péssimos resultados recentes na Liga e falta de evolução técnica.</p>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Fim da linha. O seu contrato foi rompido antecipadamente.</p>
+            <button onclick="resetarSave()" style="background: var(--danger); color: white; width: 100%;">Apagar Carreira e Recomeçar</button>
+        </div>
+    </div>
+
+    <!-- 3. NOVO MODAL: PLANEJAMENTO PÓS-TEMPORADA -->
+    <div id="modal-renovar-diretoria" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.95); justify-content: center; align-items: center; z-index: 1000;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">👔 Planejamento de Nova Temporada</h2>
+            <p style="font-size:13px; color:var(--text-muted);">A temporada anterior acabou. Informe a diretoria sobre sua situação continental para traçar os objetivos deste ano.</p>
+
+            <div class="linha-form" id="box-renovar-continental">
+                <label>Você se classificou para qual Competição Continental?</label>
+                <select id="renovar-dir-continental">
+                    <option value="Nenhuma">Nenhuma / Não classificou</option>
+                    <optgroup label="América do Sul (CONMEBOL)">
+                        <option value="Libertadores">Copa Libertadores</option>
+                        <option value="Sul-Americana">Copa Sul-Americana</option>
+                    </optgroup>
+                    <optgroup label="Europa (UEFA)">
+                        <option value="Champions League">Champions League</option>
+                        <option value="Europa League">Europa League</option>
+                        <option value="Conference League">Conference League</option>
+                    </optgroup>
+                </select>
+            </div>
+            <button id="btn-renovar-dir" style="width: 100%; margin-top: 15px;" onclick="processarRenovacaoDiretoria()">Definir Novas Metas (IA)</button>
+        </div>
+    </div>
+
+    <div id="modal-editar-jogador" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0; color: var(--warning);">✏️ Editar Jogador</h2>
+            <p style="font-size:13px; color:var(--text-muted);">Corrija informações inseridas incorretamente no cadastro ou no meio da temporada.</p>
+            
+            <input type="hidden" id="edit-jog-nome-original">
+            
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Nome do Jogador</label>
+                <input type="text" id="edit-jog-nome">
+            </div>
+            <div class="linha-form">
+    <label>Posição</label>
+    <select id="edit-jog-pos">
+        <option value="Goleiro">Goleiro</option>
+        <optgroup label="Zagueiros">
+            <option value="Zagueiro/Construtor">Zagueiro/Construtor</option>
+            <option value="Zagueiro/Lateral">Zagueiro/Lateral</option>
+            <option value="Zagueiro/Versatil">Zagueiro/Versatil</option>
+            <option value="Zagueiro/Defesa">Zagueiro/Defesa</option>
+        </optgroup>
+        <optgroup label="Laterais">
+            <option value="Lateral/Defesa Direito">Lateral/Defesa Direito</option>
+            <option value="Lateral/Defesa Esquerdo">Lateral/Defesa Esquerdo</option>
+            <option value="Lateral/Ala Direito">Lateral/Ala Direito</option>
+            <option value="Lateral/Ala Esquerdo">Lateral/Ala Esquerdo</option>
+            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
+            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
+            <option value="Lateral/Defesa Versatil">Lateral/Defesa Versatil</option>
+            <option value="Lateral/Ala Versatil">Lateral/Ala Versatil</option>
+            <option value="Lateral/Construtor Versatil">Lateral/Construtor Versatil</option>
+        </optgroup>
+        <optgroup label="Volantes">
+            <option value="Volante/Zaga">Volante/Zaga</option>
+            <option value="Volante/Contenção">Volante/Contenção</option>
+            <option value="Volante/Armação">Volante/Armação</option>
+        </optgroup>
+        <optgroup label="Meio-Campo">
+            <option value="MeioCampo/Equilibrado">MeioCampo/Equilibrado</option>
+            <option value="MeioCampo/Armador">MeioCampo/Armador</option>
+            <option value="MeioCampo/Abertura">MeioCampo/Abertura</option>
+            <option value="MeioCampo/Ataque">MeioCampo/Ataque</option>
+            <option value="MeioCampo/Versátil">MeioCampo/Versátil</option>
+        </optgroup>
+        <optgroup label="Pontas">
+            <option value="Ponta/Ala Direita">Ponta/Ala Direita</option>
+            <option value="Ponta/Ala Esquerda">Ponta/Ala Esquerda</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Armador">Ponta/Armador</option>
+            <option value="Ponta/Versátil">Ponta/Versátil</option>
+        </optgroup>
+        <optgroup label="Atacantes">
+            <option value="Atacante/Aberto">Atacante/Aberto</option>
+            <option value="Atacante/Fisico">Atacante/Fisico</option>
+            <option value="Atacante/Armador">Atacante/Armador</option>
+            <option value="Atacante/Velocidade">Atacante/Velocidade</option>
+            <option value="Atacante/Versátil">Atacante/Versátil</option>
+        </optgroup>
+    </select>
+</div>
+            <div class="linha-form">
+                <label>Overall Atual (OVR)</label>
+                <input type="number" id="edit-jog-ovr">
+            </div>
+            
+            <button style="width: 100%; margin-top: 15px; background: var(--warning); color: black;" onclick="salvarEdicaoJogador()">Salvar Alterações</button>
+            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-editar-jogador').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="modal-evento" style="display: none;">
+        <div class="evento-box">
+            <h2 style="color: var(--warning); margin-bottom: 10px;">⚠️ Evento Inesperado</h2>
+            <p id="evento-texto" style="font-size: 16px; margin-bottom: 20px;">Um jogador pediu para sair...</p>
+            <button onclick="document.getElementById('modal-evento').style.display='none'">Entendido</button>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h1>⚽ LyonPro Manager</h1>
+        <button class="nav-btn active" onclick="mudarAba('tab-dashboard')">📊 Dashboard & Partidas</button>
+        <button class="nav-btn" id="nav-btn-plantel" onclick="mudarAba('tab-plantel')">📋 Elenco do Time</button>
+        <button class="nav-btn" id="nav-btn-mercado" onclick="mudarAba('tab-mercado')">💰 Transferências</button>
+        <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
+        <button class="nav-btn" onclick="mudarAba('tab-historico')">🏆 Sala de Troféus</button>
+        <button class="nav-btn" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
+        <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
+        <button class="nav-btn" onclick="mudarAba('tab-social')">📱 Feed Social & Mídia</button>
+
+        <div class="save-controls">
+            <label style="color:white; font-size: 12px;">Slot de Save:</label>
+            <select id="select-save" onchange="trocarSave()">
+                <option value="clube">Time Principal (Clube)</option>
+                <option value="selecao">Seleção Nacional</option>
+            </select>
+            <button class="btn-backup" onclick="exportarBackup()">📥 Baixar Backup</button>
+            <button class="btn-backup" style="background:var(--warning); color:black;" onclick="document.getElementById('input-import').click()">📤 Carregar Save</button>
+            <input type="file" id="input-import" style="display:none" accept=".json" onchange="importarBackup(event)">
+            <button class="btn-reset" onclick="resetarSave()">Resetar Slot Atual</button>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <div class="main-content">
+
+        <!-- DASHBOARD -->
+        <!-- DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content active">
+            
+            <!-- CABEÇALHO DO DASHBOARD -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin:0; font-size:28px; color:white; display: flex; align-items: center;">
+                    <span id="header-nome-time">Nome do Time</span>
+                    <div id="header-forma-recente" class="forma-recente"></div> <!-- Bolinhas aqui -->
+                </h2>
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size:14px; color:var(--text-muted);">Ciclo/Temporada: <strong id="header-temp-ano" style="color:var(--primary); font-size:16px;">25/26</strong></span>
+                    <button onclick="concluirTemporadaAutomatica()" style="background: var(--gold); color: black;">🏁 Concluir Temporada</button>
+                    <!-- Botão alterado para começar fechado e verde -->
+                    <button id="btn-toggle-video" onclick="toggleModoVideo()" style="background: var(--primary); border: none; color: black; font-weight: bold;">
+                        ✏️ Mostrar Controles
+                    </button>
+                </div>
+            </div>
+
+            <!-- NOVOS CARDS DE RESUMO RÁPIDO (KPIs) -->
+            <div class="kpi-container" id="dashboard-kpis">
+                <div class="kpi-card" style="border-top-color: var(--primary);"><span style="color: var(--primary);">Aproveitamento</span><strong id="kpi-aproveitamento">0%</strong></div>
+                <div class="kpi-card" style="border-top-color: var(--accent);"><span style="color: var(--accent);">Saldo de Gols</span><strong id="kpi-saldo">0</strong></div>
+                <div class="kpi-card" style="border-top-color: var(--gold);"><span style="color: var(--gold);">Artilheiro</span><strong id="kpi-artilheiro">-</strong></div>
+                <div class="kpi-card" style="border-top-color: var(--warning);"><span style="color: var(--warning);">Assistências</span><strong id="kpi-garcom">-</strong></div>
+            </div>
+
+            <!-- ÁREA DE INSERÇÃO (IA VISÍVEL, MANUAL ESCONDIDO) -->
+            <div class="grid-2" id="controles-insercao">
+                
+                <!-- 1. JOGADORES -->
+                <div class="panel" style="padding: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="font-size: 20px; margin:0;">1. Atuação dos Jogadores</h2>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span id="loader-jogador-text" style="font-size:12px; color:var(--warning); font-weight:bold;"></span>
+                            <div class="loader" id="loader-jogador" style="margin:0; display:none; width: 15px; height: 15px;"></div>
+                            <!-- Botão IA SEMPRE visível -->
+                            <label class="btn-upload" style="margin:0; cursor:pointer; background: rgba(0, 163, 255, 0.1);">
+                                📸 Ler Lote de Stats (IA)
+                                <input type="file" multiple style="display:none;" accept="image/*" onchange="lerImagensIAJogadores(event)">
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- ESCONDIDO POR PADRÃO -->
+                    <div id="manual-jogador-form" style="display: none;">
+                        <div class="grid-3" style="margin-bottom: 12px;">
+                            <div class="linha-form" style="grid-column: span 2;">
+                                <label>Adição Manual - Buscar Jogador</label>
+                                <input type="text" id="jog-nome-input" placeholder="Digite para buscar..." list="datalist-jogadores" oninput="preencherDadosJogador()">
+                                <datalist id="datalist-jogadores"></datalist>
+                            </div>
+                            <div class="linha-form" id="box-jog-ovr"><label>OVR Atual</label><input type="number" id="jog-ovr-atual"></div>
+                        </div>
+                        
+                        <div class="grid-2" style="margin-bottom: 12px;">
+    <div class="linha-form">
+        <label>Posição</label>
+        <select id="jog-pos">
+            <option value="Goleiro">Goleiro</option>
+            <optgroup label="Zagueiros">
+                <option value="Zagueiro/Construtor">Zagueiro/Construtor</option>
+                <option value="Zagueiro/Lateral">Zagueiro/Lateral</option>
+                <option value="Zagueiro/Versatil">Zagueiro/Versatil</option>
+                <option value="Zagueiro/Defesa">Zagueiro/Defesa</option>
+            </optgroup>
+            <optgroup label="Laterais">
+                <option value="Lateral/Defesa Direito">Lateral/Defesa Direito</option>
+                <option value="Lateral/Defesa Esquerdo">Lateral/Defesa Esquerdo</option>
+                <option value="Lateral/Ala Direito">Lateral/Ala Direito</option>
+                <option value="Lateral/Ala Esquerdo">Lateral/Ala Esquerdo</option>
+                <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
+                <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
+                <option value="Lateral/Defesa Versatil">Lateral/Defesa Versatil</option>
+                <option value="Lateral/Ala Versatil">Lateral/Ala Versatil</option>
+                <option value="Lateral/Construtor Versatil">Lateral/Construtor Versatil</option>
+            </optgroup>
+            <optgroup label="Volantes">
+                <option value="Volante/Zaga">Volante/Zaga</option>
+                <option value="Volante/Contenção">Volante/Contenção</option>
+                <option value="Volante/Armação">Volante/Armação</option>
+            </optgroup>
+            <optgroup label="Meio-Campo">
+                <option value="MeioCampo/Equilibrado">MeioCampo/Equilibrado</option>
+                <option value="MeioCampo/Armador">MeioCampo/Armador</option>
+                <option value="MeioCampo/Abertura">MeioCampo/Abertura</option>
+                <option value="MeioCampo/Ataque">MeioCampo/Ataque</option>
+                <option value="MeioCampo/Versátil">MeioCampo/Versátil</option>
+            </optgroup>
+            <optgroup label="Pontas">
+                <option value="Ponta/Ala Direita">Ponta/Ala Direita</option>
+                <option value="Ponta/Ala Esquerda">Ponta/Ala Esquerda</option>
+                <option value="Ponta/Invertido">Ponta/Invertido</option>
+                <option value="Ponta/Armador">Ponta/Armador</option>
+                <option value="Ponta/Versátil">Ponta/Versátil</option>
+            </optgroup>
+            <optgroup label="Atacantes">
+                <option value="Atacante/Aberto">Atacante/Aberto</option>
+                <option value="Atacante/Fisico">Atacante/Fisico</option>
+                <option value="Atacante/Armador">Atacante/Armador</option>
+                <option value="Atacante/Velocidade">Atacante/Velocidade</option>
+                <option value="Atacante/Versátil">Atacante/Versátil</option>
+            </optgroup>
+        </select>
+    </div>
+    <!-- AQUI ESTÁ O CAMPO DE NOTA E O FECHAMENTO DA DIV QUE HAVIAM SUMIDO -->
+    <div class="linha-form"><label>Nota (0-10)</label><input type="number" step="0.1" id="jog-nota" value="7.0"></div>
+</div>
+
+                        <div class="grid-5" style="margin-top: 10px;">
+                            <div class="linha-form"><label>Gols</label><input type="number" id="din-gols" value="0"></div>
+                            <div class="linha-form"><label>Assist.</label><input type="number" id="din-assist" value="0"></div>
+                            <div class="linha-form"><label>Finaliz.</label><input type="number" id="din-fin" value="0"></div>
+                            <div class="linha-form"><label>Prec. Fin(%)</label><input type="number" id="din-prec-fin" value="0"></div>
+                            <div class="linha-form"><label>Passes</label><input type="number" id="din-passes" value="0"></div>
+                        </div>
+
+                        <div class="grid-5" style="margin-top: 5px;">
+                            <div class="linha-form"><label>Prec. Passe(%)</label><input type="number" id="din-prec-passe" value="85"></div>
+                            <div class="linha-form"><label>Dribles</label><input type="number" id="din-dribles" value="0"></div>
+                            <div class="linha-form"><label>Taxa Drib(%)</label><input type="number" id="din-taxa-drible" value="0"></div>
+                            <div class="linha-form"><label>Divididas</label><input type="number" id="din-div-total" value="0"></div>
+                            <div class="linha-form"><label>Taxa Div(%)</label><input type="number" id="din-div-ganhas" value="70"></div>
+                        </div>
+
+                        <div class="grid-4" style="margin-top: 5px;">
+                            <div class="linha-form"><label>Posses Ganh</label><input type="number" id="din-posses" value="0"></div>
+                            <div class="linha-form"><label>Perdas Posse</label><input type="number" id="din-perdas-posse" value="0"></div>
+                            <div class="linha-form"><label>Faltas</label><input type="number" id="din-faltas" value="0"></div>
+                            <div class="linha-form"><label>Defesas (GL)</label><input type="number" id="din-defesas" value="0"></div>
+                        </div>
+
+                        <label style="display:flex; align-items:center; gap:8px; margin: 18px 0; color: var(--warning); font-size: 14px; font-weight:bold; cursor:pointer;">
+                            <input type="checkbox" id="jog-mvp" style="width:18px; height:18px;"> Eleito Melhor em Campo (MVP)
+                        </label>
+                        <button style="width:100%; padding: 12px;" onclick="addJogadorPartida()">+ Inserir Manualmente</button>
+                    </div> <!-- FIM DO ESCONDIDO -->
+                    
+                    <!-- Lista de quem já foi lido (deve aparecer sempre) -->
+                    <div id="titulo-lista-temp" style="margin-top: 25px; font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 8px; font-size: 16px;">Lista de Jogadores nesta Partida (0):</div>
+                    <div id="lista-jogadores-temp" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;"></div>
+                </div>
+
+                <!-- 2. PARTIDA -->
+                <div class="panel" style="padding: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="font-size: 20px; margin:0;">2. Estatísticas da Partida</h2>
+                        <!-- Botão IA SEMPRE visível -->
+                        <label class="btn-upload" style="margin:0; cursor:pointer;">
+                            📸 Ler Placar TV (IA)
+                            <input type="file" style="display:none;" accept="image/*" onchange="lerImagemIA(event, 'partida')">
+                        </label>
+                    </div>
+                    <div class="loader" id="loader-partida"></div>
+
+                    <!-- ESCONDIDO POR PADRÃO -->
+                    <div id="manual-partida-form" style="display: none;">
+                        <div class="grid-3">
+                            <div class="linha-form"><label>Competição</label><select id="partida-comp"></select></div>
+                            <div class="linha-form"><label>Adversário</label><input type="text" id="adversario" placeholder="Ex: Real Madrid"></div>
+                            <div class="linha-form"><label>Mando</label><select id="partida-mando"><option>Casa</option><option>Fora</option><option>Neutro</option></select></div>
+                        </div>
+                        
+                        <div class="grid-2">
+                            <div class="linha-form"><label>Sua Posição na Tabela / Fase da Copa</label><input type="text" id="partida-contexto" placeholder="Ex: 3º lugar, Quartas de final, Final"></div>
+                            <div class="linha-form"><label style="color:var(--warning);">Dias para a Próxima Partida</label><input type="number" id="partida-dias-proxima" value="3" placeholder="Ex: 3"></div>
+                        </div>
+                        
+                        <div class="grid-2">
+                            <div class="linha-form"><label style="color:var(--primary)">Gols Pró (Meus)</label><input type="number" id="gols-pro" value="0"></div>
+                            <div class="linha-form"><label class="label-adv">Gols Contra (Adv)</label><input type="number" id="gols-contra" value="0"></div>
+                            <div class="linha-form"><label style="color:var(--accent)">Fin. Total (Minhas)</label><input type="number" id="fin-pro" value="0"></div>
+                            <div class="linha-form"><label class="label-adv">Fin. Total (Adv)</label><input type="number" id="fin-adv" value="0"></div>
+                            <div class="linha-form"><label>Minha Posse (%)</label><input type="number" id="posse-pro"></div>
+                            <div class="linha-form"><label class="label-adv">Posse Adv (%)</label><input type="number" id="posse-adv"></div>
+                        </div>
+
+                        <label style="display:flex; align-items:center; gap:8px; margin-top: 15px; color: #ffb800; font-size: 14px; cursor:pointer; font-weight:bold;">
+                            <input type="checkbox" id="vitoria-penaltis" style="width:16px; height:16px;"> Vitória nos Pênaltis (Marque em caso de empate na Copa)
+                        </label>
+                    </div> <!-- FIM DO ESCONDIDO -->
+
+                    <!-- Botão de Salvar Partida SEMPRE visível -->
+                    <button class="btn-salvar" style="padding: 14px; margin-top: 20px; font-size:16px;" onclick="salvarPartida()">💾 Finalizar e Salvar Partida</button>
+                </div>
+            </div>
+
+            <!-- CENTRAL DE ANÁLISE -->
+            <div class="panel" style="padding: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <h2 style="margin:0; font-size: 24px;">3. Central de Análise Tática Avançada</h2>
+                    <div style="display: flex; gap:10px;">
+                        <select id="filtro-top-jogadores" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
+                            <option value="5">Top 5 Jogadores</option>
+                            <option value="10">Top 10 Jogadores</option>
+                            <option value="999">Todos os Jogadores</option>
+                        </select>
+                        <select id="filtro-ordem-grafico" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
+                            <option value="desc">Maiores ⬇️</option>
+                            <option value="asc">Menores ⬆️</option>
+                        </select>
+                        <select id="filtro-temporada" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;"></select>
+                        <select id="seletor-grafico" onchange="mudarGrafico()" style="width: 320px; font-weight: bold; color: var(--primary); border-radius:8px; padding: 10px;">
+    <option value="view-calendario">📅 0. Calendário e Detalhes da Partida</option>
+    <option value="view-efetividade">🎯 1. Efetividade das Finalizações (%)</option>
+    <option value="view-eficiencia">⚡ 2. Domínio (Posse x Finalizações)</option>
+    <option value="view-artilheiros">⚽ 3. Artilharia (Gols por Jogador)</option>
+    <option value="view-assistentes">🎯 4. Assistentes (Passes para Gol)</option>
+    <option value="view-criacao">📈 5. Desgaste Físico & Média Geral</option>
+    <option value="view-defesa">🛡️ 6. Muralha Defensiva e Goleiros</option>
+    <option value="view-radar">🔍 7. Central de Criação (Passes)</option>
+    <option value="view-finalizacoes">🎯 8. Precisão e Volume de Finalizações</option>
+    <option value="view-dribles">🤹 9. Habilidade e Dribles</option>
+    <option value="view-raiox" id="opt-raiox-dash">🕸️ 10. Raio-X do Atleta (Radar)</option>
+</select>
+                    </div>
+                </div>
+
+                <div id="view-calendario" class="chart-container active">
+                    <h3 style="margin-top:0; margin-bottom:20px; font-size:18px;">Últimas Partidas (Ordem Cronológica)</h3>
+                    <div id="lista-calendario" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                </div>
+                <div id="view-efetividade" class="chart-container"><h3>Efetividade das Finalizações (Conversão em Gol %)</h3><canvas id="graficoEfetividade"></canvas></div>
+                <div id="view-eficiencia" class="chart-container"><h3>Domínio Geral (Posse x Finalizações)</h3><canvas id="graficoEficiencia"></canvas></div>
+                <div id="view-artilheiros" class="chart-container"><h3>Artilharia (Gols por Jogador)</h3><canvas id="graficoArtilheiros"></canvas></div>
+                <div id="view-assistentes" class="chart-container"><h3>Assistentes (Líderes em Assistências)</h3><canvas id="graficoAssistentes"></canvas></div>
+                <div id="view-criacao" class="chart-container"><h3>Desgaste Físico & Média Geral de Notas do Time</h3><canvas id="graficoCriacao"></canvas></div>
+                <div id="view-defesa" class="chart-container"><h3>Muralha Defensiva (Desarmes e Divididas Ganhas por Jogador)</h3><canvas id="graficoDefesa"></canvas></div>
+                <div id="view-radar" class="chart-container"><h3>Central de Criação (Passes Certos por Jogador)</h3><canvas id="graficoRadarSetor"></canvas></div>
+                <div id="view-finalizacoes" class="chart-container"><h3>Volume de Finalizações por Jogador</h3><canvas id="graficoFinalizacoes"></canvas></div>
+                <div id="view-dribles" class="chart-container"><h3>Volume de Dribles por Jogador</h3><canvas id="graficoDribles"></canvas></div>
+                
+                <div id="view-raiox" class="chart-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin:0;">Raio-X de Atributos Médios</h3>
+                        <input type="text" id="select-raio-x-input" placeholder="Buscar Jogador..." list="datalist-raiox" onchange="acionarRaioXDashboard()" style="width: 250px;">
+                        <datalist id="datalist-raiox"></datalist>
+                    </div>
+                    <div class="raiox-container">
+                        <div id="raiox-dados-dash" style="background: var(--bg-dark); padding: 20px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;">
+                            <p style="color:var(--text-muted); text-align:center; margin: 0;">Selecione um jogador acima</p>
+                        </div>
+                        <div><canvas id="graficoRaioXRadarDash"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA: ELENCO -->
+        <div id="tab-plantel" class="tab-content">
+            <div class="panel" style="border-left: 4px solid var(--primary);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin:0;">Cadastrar Jogador (Base / Elenco Inicial)</h2>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span id="loader-plantel-text" style="font-size:12px; color:var(--warning); font-weight:bold;"></span>
+                        <label class="btn-upload" style="margin:0; cursor:pointer; background: rgba(0, 163, 255, 0.1);">
+                            📸 Ler Elenco (IA)
+                            <input type="file" multiple style="display:none;" accept="image/*" onchange="lerImagensIAPlantel(event)">
+                        </label>
+                    </div>
+                </div>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Use este campo para criar seu time inicial ou promover garotos da base <strong>sem descontar dinheiro do caixa</strong>.</p>
+                <div class="grid-3">
+                    <div class="linha-form">
+    <label>Posição</label>
+    <select id="cad-pos">
+        <option value="Goleiro">Goleiro</option>
+        <optgroup label="Zagueiros">
+            <option value="Zagueiro/Construtor">Zagueiro/Construtor</option>
+            <option value="Zagueiro/Lateral">Zagueiro/Lateral</option>
+            <option value="Zagueiro/Versatil">Zagueiro/Versatil</option>
+            <option value="Zagueiro/Defesa">Zagueiro/Defesa</option>
+        </optgroup>
+        <optgroup label="Laterais">
+            <option value="Lateral/Defesa Direito">Lateral/Defesa Direito</option>
+            <option value="Lateral/Defesa Esquerdo">Lateral/Defesa Esquerdo</option>
+            <option value="Lateral/Ala Direito">Lateral/Ala Direito</option>
+            <option value="Lateral/Ala Esquerdo">Lateral/Ala Esquerdo</option>
+            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
+            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
+            <option value="Lateral/Defesa Versatil">Lateral/Defesa Versatil</option>
+            <option value="Lateral/Ala Versatil">Lateral/Ala Versatil</option>
+            <option value="Lateral/Construtor Versatil">Lateral/Construtor Versatil</option>
+        </optgroup>
+        <optgroup label="Volantes">
+            <option value="Volante/Zaga">Volante/Zaga</option>
+            <option value="Volante/Contenção">Volante/Contenção</option>
+            <option value="Volante/Armação">Volante/Armação</option>
+        </optgroup>
+        <optgroup label="Meio-Campo">
+            <option value="MeioCampo/Equilibrado">MeioCampo/Equilibrado</option>
+            <option value="MeioCampo/Armador">MeioCampo/Armador</option>
+            <option value="MeioCampo/Abertura">MeioCampo/Abertura</option>
+            <option value="MeioCampo/Ataque">MeioCampo/Ataque</option>
+            <option value="MeioCampo/Versátil">MeioCampo/Versátil</option>
+        </optgroup>
+        <optgroup label="Pontas">
+            <option value="Ponta/Ala Direita">Ponta/Ala Direita</option>
+            <option value="Ponta/Ala Esquerda">Ponta/Ala Esquerda</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Armador">Ponta/Armador</option>
+            <option value="Ponta/Versátil">Ponta/Versátil</option>
+        </optgroup>
+        <optgroup label="Atacantes">
+            <option value="Atacante/Aberto">Atacante/Aberto</option>
+            <option value="Atacante/Fisico">Atacante/Fisico</option>
+            <option value="Atacante/Armador">Atacante/Armador</option>
+            <option value="Atacante/Velocidade">Atacante/Velocidade</option>
+            <option value="Atacante/Versátil">Atacante/Versátil</option>
+        </optgroup>
+    </select>
+</div>
+                    <div class="linha-form"><label>Overall (OVR)</label><input type="number" id="cad-ovr" value="70"></div>
+                </div>
+                <button style="width:100%; margin-top:20px; font-size:15px; padding:12px;" onclick="cadastrarJogadorBase()">+ Cadastrar no Elenco</button>
+            </div>
+
+            <div class="panel">
+                <h2>📋 Gestão do Elenco Atual</h2>
+                <table id="tabela-plantel">
+                    <thead><tr>
+                        <th class="th-sortable" onclick="ordenarPlantel('posicao')">Posição ↕️</th>
+                        <th class="th-sortable" onclick="ordenarPlantel('nome')">Nome ↕️</th>
+                        <th class="th-sortable" onclick="ordenarPlantel('ovr')">OVR ↕️</th>
+                        <th>Ações / Raio-X</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ABA: MERCADO & TRANSFERÊNCIAS -->
+        <div id="tab-mercado" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 25px;">
+                <h2 style="margin:0; font-size: 26px;">💰 Central de Negociações</h2>
+                <div style="display:flex; gap:15px; align-items:center;">
+                    <span style="background:var(--panel-bg); padding:12px 25px; border-radius:10px; border:1px solid var(--primary); font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Saldo em Caixa: <strong id="info-orcamento" style="color:var(--primary);">€0M</strong></span>
+                    <button onclick="atualizarOrcamentoMercado()" style="padding: 12px 15px; font-size: 14px;">🔄 Atualizar</button>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <!-- PAINEL COMPRA -->
+                <div class="panel" style="border-top: 4px solid var(--accent); margin-bottom: 0;">
+                    <h3 style="margin-top:0;">📥 Comprar Reforço</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Adiciona o jogador ao elenco e debita do caixa.</p>
+                    <div class="grid-2">
+                        <div class="linha-form">
+    <label>Posição</label>
+    <select id="add-pos">
+        <option value="Goleiro">Goleiro</option>
+        <optgroup label="Zagueiros">
+            <option value="Zagueiro/Construtor">Zagueiro/Construtor</option>
+            <option value="Zagueiro/Lateral">Zagueiro/Lateral</option>
+            <option value="Zagueiro/Versatil">Zagueiro/Versatil</option>
+            <option value="Zagueiro/Defesa">Zagueiro/Defesa</option>
+        </optgroup>
+        <optgroup label="Laterais">
+            <option value="Lateral/Defesa Direito">Lateral/Defesa Direito</option>
+            <option value="Lateral/Defesa Esquerdo">Lateral/Defesa Esquerdo</option>
+            <option value="Lateral/Ala Direito">Lateral/Ala Direito</option>
+            <option value="Lateral/Ala Esquerdo">Lateral/Ala Esquerdo</option>
+            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
+            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
+            <option value="Lateral/Defesa Versatil">Lateral/Defesa Versatil</option>
+            <option value="Lateral/Ala Versatil">Lateral/Ala Versatil</option>
+            <option value="Lateral/Construtor Versatil">Lateral/Construtor Versatil</option>
+        </optgroup>
+        <optgroup label="Volantes">
+            <option value="Volante/Zaga">Volante/Zaga</option>
+            <option value="Volante/Contenção">Volante/Contenção</option>
+            <option value="Volante/Armação">Volante/Armação</option>
+        </optgroup>
+        <optgroup label="Meio-Campo">
+            <option value="MeioCampo/Equilibrado">MeioCampo/Equilibrado</option>
+            <option value="MeioCampo/Armador">MeioCampo/Armador</option>
+            <option value="MeioCampo/Abertura">MeioCampo/Abertura</option>
+            <option value="MeioCampo/Ataque">MeioCampo/Ataque</option>
+            <option value="MeioCampo/Versátil">MeioCampo/Versátil</option>
+        </optgroup>
+        <optgroup label="Pontas">
+            <option value="Ponta/Ala Direita">Ponta/Ala Direita</option>
+            <option value="Ponta/Ala Esquerda">Ponta/Ala Esquerda</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Armador">Ponta/Armador</option>
+            <option value="Ponta/Versátil">Ponta/Versátil</option>
+        </optgroup>
+        <optgroup label="Atacantes">
+            <option value="Atacante/Aberto">Atacante/Aberto</option>
+            <option value="Atacante/Fisico">Atacante/Fisico</option>
+            <option value="Atacante/Armador">Atacante/Armador</option>
+            <option value="Atacante/Velocidade">Atacante/Velocidade</option>
+            <option value="Atacante/Versátil">Atacante/Versátil</option>
+        </optgroup>
+    </select>
+</div>
+                        <div class="linha-form"><label>Overall (OVR)</label><input type="number" id="add-ovr" value="70"></div>
+                    </div>
+                    <!-- NOVO: Formato unificado de Compra/Empréstimo -->
+                    <div class="linha-form">
+                        <label>Tipo de Negócio</label>
+                        <select id="add-tipo" onchange="toggleFormCompra()">
+                            <option value="Comprado">Compra Definitiva</option>
+                            <option value="EmprestadoIn">Empréstimo (Chegando)</option>
+                        </select>
+                    </div>
+
+                    <div class="linha-form" id="box-add-custo">
+                        <label>Custo da Compra (€M)</label>
+                        <input type="number" id="add-custo" value="0">
+                    </div>
+
+                    <div class="linha-form" id="box-add-duracao" style="display:none;">
+                        <label>Duração do Empréstimo</label>
+                        <select id="add-duracao">
+                            <option value="1">1 Temporada</option>
+                            <option value="2">2 Temporadas</option>
+                        </select>
+                    </div>
+
+                    <button id="btn-confirmar-compra" style="width:100%; margin-top:20px; background: var(--accent); color: white; padding: 12px; font-size: 15px;" onclick="adicionarAoPlantel()">Confirmar Negócio</button>
+                </div>
+
+                <!-- PAINEL VENDA / EMPRÉSTIMO -->
+                <div class="panel" style="border-top: 4px solid var(--danger); margin-bottom: 0;">
+                    <h3 style="margin-top:0; color:var(--danger)">📤 Saídas (Venda / Empréstimo)</h3>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">O valor da venda alimenta o <strong>Valor Arrecadado</strong> da temporada na Diretoria. Não vai para o Orçamento Disponível.</p>
+                    
+                    <!-- CAMPO CORRIGIDO: Busca o jogador no elenco atual -->
+                    <div class="linha-form">
+                        <label>Buscar Jogador no Elenco</label>
+                        <input type="text" id="saida-nome-input" placeholder="Digite para buscar..." list="datalist-jogadores">
+                    </div>
+                    
+                    <div class="linha-form">
+                        <label>Tipo de Negócio</label>
+                        <select id="saida-tipo" onchange="toggleFormSaida()">
+                            <option value="Venda">Venda Definitiva</option>
+                            <option value="Emprestimo">Empréstimo</option>
+                            <option value="Dispensa">Dispensa (Fim de Contrato)</option>
+                        </select>
+                    </div>
+
+                    <!-- CAMPO CORRIGIDO: Apenas um valor de venda -->
+                    <div class="linha-form" id="box-saida-valor">
+                        <label>Valor da Venda (€M) - Vai para Arrecadação</label>
+                        <input type="number" id="saida-valor" value="0">
+                    </div>
+
+                    <div class="linha-form" id="box-saida-duracao" style="display:none;">
+                        <label>Duração do Empréstimo</label>
+                        <select id="saida-duracao">
+                            <option value="1">1 Temporada</option>
+                            <option value="2">2 Temporadas</option>
+                        </select>
+                    </div>
+
+                    <button style="width:100%; margin-top:20px; background: var(--danger); color: white; padding: 12px; font-size: 15px;" onclick="processarSaida()">Confirmar Saída</button>
+                </div>
+            </div>
+
+            <!-- HISTÓRICO -->
+            <!-- HISTÓRICO -->
+   <div class="filtros-plantel" style="flex-wrap: wrap;">
+       <button class="btn-filtro active" onclick="filtrarMercado('Vendido', this)">🔴 Vendidos</button>
+       <button class="btn-filtro" onclick="filtrarMercado('Emprestado', this)">🟡 Emprestados (Saindo)</button>
+       <button class="btn-filtro" onclick="filtrarMercado('Aposentado', this)">⚪ Dispensados / Aposentados</button>
+       <button class="btn-filtro" onclick="filtrarMercado('Comprado', this)">🟢 Comprados</button>
+       <button class="btn-filtro" onclick="filtrarMercado('EmprestadoIn', this)">🔵 Emprestados (Chegando)</button>
+   </div>
+   
+   <div class="filtros-plantel" id="container-botoes-filtro-transf" style="flex-wrap: wrap; margin-top: 5px; display: none;">
+       <span style="align-self: center; font-size: 12px; color: var(--text-muted); margin-right: 5px;">Ordenar por:</span>
+       <button class="btn-filtro" onclick="ordenarTransferencias('nome')">Nome ↕️</button>
+       <button class="btn-filtro" onclick="ordenarTransferencias('posicao')">Posição ↕️</button>
+       <button class="btn-filtro" onclick="ordenarTransferencias('ovr')">OVR ↕️</button>
+       <button class="btn-filtro" onclick="ordenarTransferencias('valor')">Valor ↕️</button>
+   </div>
+                <table id="tabela-mercado">
+                    <thead><tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Ações / Raio-X</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+        </div>
+
+        <!-- ABA: UPGRADES -->
+        <div id="tab-upgrades" class="tab-content">
+            <div class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin:0;">⭐ Upgrades e Downgrades (A cada 5 jogos)</h2>
+                    <button style="background:var(--accent); color:white; font-size:13px; padding:10px 15px;" onclick="abrirModalTrocaLiga()">🔄 Trocar Divisão / Liga</button>
+                </div>
+                <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 25px; margin-top:10px;">O sistema avalia a média das <strong>últimas 5 partidas</strong> e usa as <strong>Prateleiras</strong> (Highest a Lowest) baseadas na liga atual: <span id="info-liga-atual" style="color:var(--primary);font-weight:bold;"></span>.</p>
+                
+                <div style="background: rgba(255, 184, 0, 0.1); border-left: 4px solid var(--warning); padding: 18px; border-radius: 8px; margin-bottom: 15px; cursor: pointer; transition:0.2s;" onclick="toggleSection('sec-acao')" onmouseover="this.style.background='rgba(255,184,0,0.15)'" onmouseout="this.style.background='rgba(255,184,0,0.1)'">
+                    <h3 style="margin:0; color:var(--warning); font-size: 18px;">⚠️ Aguardando Decisão (Alterações Pendentes) ↕️</h3>
+                </div>
+                <div id="sec-acao" style="display: block;">
+                    <table id="tabela-upgrades-acao">
+                        <thead><tr><th>Posição</th><th>Jogador</th><th>Prateleira / Meta</th><th>Média (Últ 5)</th><th>OVR Atual</th><th>Ação</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div style="background: rgba(148, 163, 184, 0.1); border-left: 4px solid var(--text-muted); padding: 18px; border-radius: 8px; margin-top: 30px; margin-bottom: 15px; cursor: pointer; transition:0.2s;" onclick="toggleSection('sec-progresso')" onmouseover="this.style.background='rgba(148,163,184,0.15)'" onmouseout="this.style.background='rgba(148,163,184,0.1)'">
+                    <h3 style="margin:0; color:var(--text-muted); font-size: 18px;">⏳ Em Progresso de Avaliação ↕️</h3>
+                </div>
+                <div id="sec-progresso" style="display: block;">
+                    <table id="tabela-upgrades-progresso">
+                        <thead><tr><th>Posição</th><th>Jogador</th><th>Progresso</th><th>OVR Atual</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA: HISTÓRICO E TROFÉUS -->
+        <div id="tab-historico" class="tab-content">
+            <div class="panel" style="border-left: 4px solid var(--gold);">
+                <h2>🏆 Galeria de Troféus</h2>
+                <div id="lista-trofeus-geral" style="display:flex; flex-wrap:wrap; gap:20px; margin-top:20px;">
+                    <!-- Trofeus renderizados aqui -->
+                </div>
+            </div>
+
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin:0;">📖 Histórico de Temporadas / Ciclos</h2>
+                    <select id="seletor-hist-temporada" onchange="mostrarDetalhesTemporada(this.value)" style="width: 250px; background:var(--bg-dark); color:white; border-radius: 8px; padding:10px;"></select>
+                </div>
+                <div id="detalhes-temporada-selecionada" style="background: var(--input-bg); padding: 25px; border-radius: 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                    <!-- Detalhes da temporada -->
+                </div>
+            </div>
+        </div>
+
+                <!-- ABAS DE IA -->
+        <div id="tab-diretoria" class="tab-content">
+            <!-- DASHBOARD DIRETORIA -->
+            <div id="diretoria-dashboard" style="display:none;">
+                <div class="panel grid-3" style="border-top: 4px solid var(--gold); margin-bottom: 20px;"> 
+                    <div>
+<span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Orçamento Disponível</span>
+                        <div style="font-size:20px; font-weight:bold; color:var(--accent); margin-top:5px;" id="dash-dir-orcamento">€0M</div>
+                    </div>
+                    <div>
+                        <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Média Gasto (5 Temp)</span>
+                        <div style="font-size:20px; font-weight:bold; color:var(--danger); margin-top:5px;" id="dir-media-gasto">€0M</div>
+                    </div>
+                    <div>
+                        <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Média Arrecadação (5 Temp)</span>
+                        <div style="font-size:20px; font-weight:bold; color:var(--primary); margin-top:5px;" id="dir-media-arrecadado">€0M</div>
+                    </div>
+                    <div>
+                        <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Nota de Prestígio</span>
+                        <div style="font-size:20px; font-weight:bold; color:var(--primary); margin-top:5px;" id="dir-nota-diretoria">6.5 / 10</div>
+                    </div>
+                    <div>
+                        <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Valor Gasto (Nesta Temp.)</span>
+                        <div style="font-size:20px; font-weight:bold; color:var(--danger); margin-top:5px;" id="dash-dir-gasto-atual">€0M</div>
+                    </div>
+                    <div>
+                        <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Valor Arrecadado (Nesta Temp.)</span>
+                        <div style="font-size:20px; font-weight:bold; color:var(--primary); margin-top:5px;" id="dash-dir-arrecadado-atual">€0M</div>
+                    </div>
+                    <div style="grid-column: span 3; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+                        <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Metas e Objetivos da Temporada</span>
+                        <div style="font-size:16px; color:var(--warning); line-height: 1.6; margin-top: 10px; font-weight: 500;" id="dir-objetivos-texto">---</div>
+                    </div>
+                </div>
+
+                <!-- BOTÃO PARA EXIBIR/OCULTAR CHAT DA DIRETORIA -->
+                <button id="btn-toggle-chat-dir" onclick="toggleChatDiretoria()" style="width: 100%; margin-top: 15px; background: var(--panel-bg); border: 1px solid var(--gold); color: var(--gold); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
+                    👔 Solicitar Reunião com a Diretoria (Chat)
+                </button>
+            </div>
+
+            <!-- PAINEL DE CHAT DA DIRETORIA (ESCONDIDO POR PADRÃO) -->
+            <div id="panel-chat-diretoria" class="panel chat-container" style="height: 400px; margin-top: 20px; display: none;">
+                <div style="padding: 15px 20px; background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0; font-size:18px;">👔 Reunião com a Diretoria / Conselho</h2>
+                    <button onclick="apagarChat('diretoria')" style="background: var(--danger); color: white; padding: 6px 12px; font-size: 12px;">🗑️ Apagar Conversa</button>
+                </div>
+                <div class="chat-log" id="chat-log-diretoria"></div>
+                <div class="chat-input-area">
+                    <div class="quick-replies" id="quick-diretoria"></div>
+                    <div class="chat-input-row">
+                        <button class="btn-mic" id="mic-btn-diretoria" onclick="iniciarGravacao('input-diretoria', 'mic-btn-diretoria')">🎤</button>
+                        <textarea id="input-diretoria" placeholder="Responda à diretoria, negocie verbas ou justifique resultados..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('diretoria'); }"></textarea>
+                        <button onclick="enviarChat('diretoria')" style="padding: 10px 20px; font-size:14px; background: var(--gold); color: black;">Conversar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+                <div id="tab-auxiliar" class="tab-content">
+            <div class="panel">
+                <h2 style="margin: 0 0 20px 0; font-size:24px;">🤖 Auxiliar Técnico e Táticas</h2>
+                
+                <div style="background: rgba(0, 255, 136, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--primary); margin-bottom: 20px;">
+                    <h3 style="margin-top:0; font-size: 16px; color: var(--primary);">📋 Minha Filosofia Tática</h3>
+                    <div class="grid-3">
+                        <div class="linha-form">
+                            <label style="color:var(--primary);">Formação Preferida</label>
+                            <select id="tatica-primaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
+                                <option value="4-3-3">4-3-3 (Ofensivo)</option>
+                                <option value="4-4-2">4-4-2 (Clássico)</option>
+                                <option value="3-5-2">3-5-2 (Alas)</option>
+                                <option value="4-2-3-1" selected>4-2-3-1 (Moderna)</option>
+                                <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
+                                <option value="3-4-3">3-4-3 (Agressiva)</option>
+                                <option value="5-3-2">5-3-2 (Defensiva)</option>
+                            </select>
+                        </div>
+                        <div class="linha-form">
+                            <label style="color:var(--primary);">Formação Secundária</label>
+                            <select id="tatica-secundaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
+                                <option value="4-3-3">4-3-3 (Ofensivo)</option>
+                                <option value="4-4-2">4-4-2 (Clássico)</option>
+                                <option value="3-5-2">3-5-2 (Alas)</option>
+                                <option value="4-2-3-1">4-2-3-1 (Moderna)</option>
+                                <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
+                                <option value="3-4-3">3-4-3 (Agressiva)</option>
+                                <option value="5-3-2" selected>5-3-2 (Defensiva)</option>
+                            </select>
+                        </div>
+                        <div class="linha-form">
+                            <label style="color:var(--primary);">Estilo de Jogo da Equipe</label>
+                            <select id="tatica-estilo" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
+                                <option value="Posse de bola e cadência (Tiki-taka)">Posse de Bola (Tiki-Taka)</option>
+                                <option value="Jogadas rápidas pelas laterais e pontas (Amplitude)">Explorar Laterais/Pontas</option>
+                                <option value="Transição rápida e jogo vertical direto">Transição Rápida (Vertical)</option>
+                                <option value="Contra-ataque letal esperando o adversário">Contra-ataque Letal</option>
+                                <option value="Retranca total, linhas baixas e compactas">Retranca Total</option>
+                                <option value="Pressão alta sufocante (Gegenpressing)">Pressão Total (Gegenpressing)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(0, 163, 255, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--accent); margin-bottom: 20px;">
+                    <h3 style="margin-top:0; font-size: 16px; color: var(--accent);">⚔️ Preparação para o Próximo Jogo</h3>
+                    <div class="grid-2">
+                        <div class="linha-form">
+                            <label style="color:var(--accent);">Próximo Adversário</label>
+                            <input type="text" id="auxiliar-adv" placeholder="Ex: Real Madrid" style="background: var(--bg-dark);">
+                        </div>
+                        <div class="linha-form">
+                            <label style="color:var(--warning);">Diretriz Estratégica</label>
+                            <select id="auxiliar-diretriz" style="background: var(--bg-dark);">
+                                <option value="Força máxima dentro do possível (Respeitando limites de cansaço)">Força Máxima Possível (Recomendado)</option>
+                                <option value="Rodízio extremo (Poupar os titulares para o jogo seguinte)">Rodízio Extremo (Poupar titulares)</option>
+                                <option value="Força total absoluta (Ignorar cansaço, ir pro tudo ou nada)">Força Total Absoluta (Risco de Lesão)</option>
+                                <option value="Explorar base e reservas (Dar experiência)">Explorar Jovens/Reservas</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-pedir-ia" onclick="pedirEscalacaoIA()" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 15px; background: var(--accent); color: white;">
+                        ⚙️ Gerar Escalação e Funções Táticas (IA)
+                    </button>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-bottom: 20px; background: rgba(255, 107, 107, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border); flex-wrap: wrap; align-items: flex-end;">
+                    <div style="flex:1; min-width: 180px;">
+                        <label style="color:var(--danger);">Atleta para Condição</label>
+                        <select id="select-jogador-condicao" style="width: 100%; box-sizing: border-box; background: var(--bg-dark);">
+                            <option value="">Selecione o jogador...</option>
+                        </select>
+                    </div>
+                    <div style="width: 160px;">
+                        <label style="color:var(--danger);">Dias Lesionado</label>
+                        <input type="number" id="input-dias-lesao" placeholder="Ex: 7" style="width: 100%; box-sizing: border-box;" value="0">
+                    </div>
+                    <div>
+                        <button onclick="declararLesao()" style="background: var(--danger); color: white; padding: 10px 15px;">🏥 Declarar Lesão</button>
+                    </div>
+                    <div>
+                        <button onclick="aplicarCartaoVermelho()" style="background: var(--warning); color: black; padding: 10px 15px;">🟥 Cartão Vermelho</button>
+                    </div>
+                </div>
+
+                                <p style="text-align:center; font-size: 13px; color: var(--text-muted); margin-bottom: 5px;">Passe o mouse (ou segure) no jogador para ler as ordens da IA.</p>
+                <div class="campo-futebol-grande" id="campo-futebol-ui">
+                    <div class="area-penalti-top"></div>
+                    <div class="area-penalti-bot"></div>
+                </div>
+
+                <!-- BOTÃO PARA EXIBIR/OCULTAR CHAT -->
+                <button id="btn-toggle-chat-aux" onclick="toggleChatAuxiliar()" style="width: 100%; margin-top: 15px; background: var(--panel-bg); border: 1px solid var(--accent); color: var(--accent); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
+                    💬 Abrir Painel de Instruções Diretas e Conversa (Chat)
+                </button>
+            </div>
+
+            <!-- CHAT DO AUXILIAR (AGORA ESCONDIDO POR PADRÃO com display: none) -->
+            <div id="panel-chat-auxiliar" class="panel chat-container" style="height: 400px; margin-top: 20px; display: none;">
+                <div style="padding: 15px 20px; background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0; font-size:18px;">💬 Dar Ordens ao Auxiliar Técnico</h2>
+                    <button onclick="apagarChat('auxiliar')" style="background: var(--danger); color: white; padding: 6px 12px; font-size: 12px;">🗑️ Apagar Conversa</button>
+                </div>
+                <div class="chat-log" id="chat-log-auxiliar"></div>
+                <div class="chat-input-area">
+                    <div class="quick-replies" id="quick-auxiliar"></div>
+                    <div class="chat-input-row">
+                        <button class="btn-mic" id="mic-btn-auxiliar" onclick="iniciarGravacao('input-auxiliar', 'mic-btn-auxiliar')">🎤</button>
+                        <textarea id="input-auxiliar" placeholder="Digite ordens ou escolha uma opção rápida acima..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('auxiliar'); }"></textarea>
+                        <button onclick="enviarChat('auxiliar')" style="padding: 10px 20px; font-size:14px;">Conversar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <!-- ABA: FEED SOCIAL DA TORCIDA (SUBSTITUI IMPRENSA E NOTÍCIAS) -->
+        <div id="tab-social" class="tab-content">
+            <div class="social-header">
+    <div>
+        <h2 style="margin: 0; font-size: 24px;">📱 Feed Social</h2>
+        <span style="font-size: 13px; color: var(--text-muted);">A voz da torcida e da mídia esportiva</span>
+    </div>
+    <div class="termometro-container">
+        <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: bold;">Aprovação da Torcida</span>
+        <div class="termometro-bar">
+            <div id="barra-torcida" class="termometro-fill" style="width: 50%; background: var(--warning);"></div>
+        </div>
+        <div id="texto-torcida" style="font-size: 18px; font-weight: bold; color: white; margin-top: 5px;">50% (Dividida)</div>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button style="background: var(--bg-dark); color: white; border: 1px solid var(--border);" onclick="apagarSocialFeed()">🗑️ Limpar Feed</button>
+        <!-- BOTÃO DE ATUALIZAR FEED FOI REMOVIDO DAQUI -->
+    </div>
+</div>
+            
+            <div id="loader-social" class="loader" style="margin: 20px auto; border-top-color: var(--accent);"></div>
+            <div id="feed-social-container" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Os cards do feed vão aparecer aqui -->
+            </div>
+        </div>
+
+    </div>
+
+    <script src="js/core-estado.js"></script>
+    <script src="js/core-utilidades.js"></script>
+    <script src="js/diretoria-partidas.js"></script>
+    <script src="js/temporada-mercado.js"></script>
+    <script src="js/plantel-ui.js"></script>
+    <script src="js/graficos-historico.js"></script>
+    <script src="js/chat-ia.js"></script>
+    <script src="js/auxiliar-eventos.js"></script>
+    <script src="js/feed-social.js"></script>
+
+    <!-- Indicador genérico de "carregando" para chamadas de IA que ainda não tinham um -->
+    <div id="loader-ia-global" style="display:none; position:fixed; bottom:20px; right:20px; background:var(--accent); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:9999; box-shadow:0 4px 14px rgba(0,0,0,0.45);"></div>
+</body>
+</html>
