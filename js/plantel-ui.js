@@ -1,0 +1,440 @@
+        function atualizarOrcamentoMercado() {
+            let el = document.getElementById('info-orcamento');
+            if(el) el.innerText = `€${db.clube.orcamento.toFixed(2)}M`;
+            checarEmbargoMercado();
+        }
+
+        function atualizarPlantelUI() {
+            if(currentSave !== 'clube') return;
+            atualizarOrcamentoMercado();
+            let tbody = document.querySelector('#tabela-plantel tbody'); tbody.innerHTML = '';
+            
+            let plantelSort = [...db.clube.plantel];
+            plantelSort.sort((a, b) => {
+                let valA = a[ordemAtualPlantel.coluna]; let valB = b[ordemAtualPlantel.coluna];
+                if (ordemAtualPlantel.coluna === 'posicao') { valA = ordemPosicoes[a.posicao] || 6; valB = ordemPosicoes[b.posicao] || 6; }
+                if (valA < valB) return ordemAtualPlantel.ascendente ? -1 : 1;
+                if (valA > valB) return ordemAtualPlantel.ascendente ? 1 : -1;
+                return 0;
+            });
+
+            plantelSort.filter(p => p.status === 'Ativo').forEach((p, idx) => {
+                let isListado = db.clube.exigenciasDiretoria.includes(p.nome) ? `<span class="badge bg-vendido" style="margin-left:10px;">⚠️ Listado Pela Diretoria</span>` : '';
+                
+                // --- NOVAS BADGES DE LESÃO E CARTÃO VERMELHO ---
+                let badgeCondicao = '';
+                if (p.diasLesao && p.diasLesao > 0) {
+                    badgeCondicao += ` <span class="badge" style="background: rgba(255, 107, 107, 0.2); color: var(--danger);">🏥 Lesionado (${p.diasLesao} dias)</span>`;
+                }
+                if (p.suspensoVermelho) {
+                    badgeCondicao += ` <span class="badge" style="background: rgba(255, 184, 0, 0.2); color: var(--warning);">🟥 Suspenso</span>`;
+                }
+
+                let optionsSelect = `<option>Mover...</option>`;
+                if (p.origem === 'EmprestadoIn') {
+                    optionsSelect += `<option value="EncerrarEmprestimo">Encerrar Empréstimo</option>`;
+                } else {
+                    optionsSelect += `<option value="Aposentado">Aposentar</option>`;
+                }
+                optionsSelect += `<option value="Excluir">Excluir (Erro)</option>`;
+
+                tbody.innerHTML += `
+                <tr id="linha-jogador-${idx}">
+                    <td>${p.posicao}</td><td><strong>${p.nome}</strong> ${isListado} ${badgeCondicao}</td>
+                    <td style="${getOvrClass(p.ovr)} font-weight:bold; font-size:16px;">${p.ovr}</td>
+                    <td style="display:flex; gap: 10px; align-items: center;">
+                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXPlantel('${p.nome}', ${idx})">📊 Raio-X</button>
+                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; border-color: var(--warning); color: var(--warning);" onclick="abrirModalEditarJogador('${p.nome}')">✏️ Editar</button>
+                        <select onchange="alterarStatus('${p.nome}', this.value)" style="padding:6px; font-size:13px; width: 120px;">
+                            ${optionsSelect}
+                        </select>
+                    </td>
+                </tr>
+                <tr id="raiox-row-${idx}" class="row-raiox" style="display:none;">
+                    <td colspan="4">
+                        <div class="raiox-container">
+                            <div id="raiox-dados-plantel-${idx}" style="background: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"></div>
+                            <div style="height: 350px;"><canvas id="canvas-raiox-plantel-${idx}"></canvas></div>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            atualizarSelectCondicaoAuxiliar();
+        }
+
+        function toggleRaioXPlantel(nome, idx) {
+            let row = document.getElementById(`raiox-row-${idx}`);
+            if (row.style.display === 'none') { document.querySelectorAll('.row-raiox').forEach(el => el.style.display = 'none'); row.style.display = 'table-row'; renderizarDadosRaioX(nome, `canvas-raiox-plantel-${idx}`, `raiox-dados-plantel-${idx}`); } 
+            else { row.style.display = 'none'; }
+        }
+
+        let ordemAtualMercado = { coluna: 'nome', ascendente: true };
+
+   function ordenarTransferencias(coluna) {
+       if (ordemAtualMercado.coluna === coluna) { 
+           ordemAtualMercado.ascendente = !ordemAtualMercado.ascendente; 
+       } else { 
+           ordemAtualMercado.coluna = coluna; 
+           ordemAtualMercado.ascendente = true; 
+       }
+       filtrarMercado(statusFiltroMercado);
+   }
+
+   function filtrarMercado(status, btn) {
+       if(currentSave !== 'clube') return;
+       statusFiltroMercado = status;
+       if(btn) { document.querySelectorAll('#tab-mercado .btn-filtro').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+       
+       let containerFiltros = document.getElementById('container-botoes-filtro-transf');
+       if (containerFiltros) {
+           containerFiltros.style.display = (status === 'Vendido' || status === 'Comprado') ? 'flex' : 'none';
+       }
+
+       let thead = document.querySelector('#tabela-mercado thead');
+       let tbody = document.querySelector('#tabela-mercado tbody'); 
+       tbody.innerHTML = '';
+       
+       let mostrarColunaValor = (status === 'Vendido' || status === 'Comprado');
+       
+       if (mostrarColunaValor) {
+           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Valor (€M)</th><th>Ações / Raio-X</th></tr>`;
+       } else {
+           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Ações / Raio-X</th></tr>`;
+       }
+       
+       let achou = false;
+       let jogadoresFiltrados = db.clube.plantel.filter(p => {
+           if (status === 'Comprado' || status === 'EmprestadoIn') return p.origem === status;
+           return p.status === status;
+       });
+
+       jogadoresFiltrados.sort((a, b) => {
+           let valA = a[ordemAtualMercado.coluna]; 
+           let valB = b[ordemAtualMercado.coluna];
+           if (ordemAtualMercado.coluna === 'posicao') { valA = ordemPosicoes[a.posicao] || 6; valB = ordemPosicoes[b.posicao] || 6; }
+           if (ordemAtualMercado.coluna === 'valor') { valA = a.valor || 0; valB = b.valor || 0; }
+           if (valA < valB) return ordemAtualMercado.ascendente ? -1 : 1;
+           if (valA > valB) return ordemAtualMercado.ascendente ? 1 : -1;
+           return 0;
+       });
+
+       jogadoresFiltrados.forEach((p, idx) => {
+           achou = true;
+           let extraInfo = status === 'Emprestado' ? `<br><span style="font-size:11px; color:var(--text-muted)">Retorna em: ${p.temporadasEmprestimo} temp.</span>` : '';
+           let badgeClass = 'bg-aposentado'; 
+           if (status === 'Vendido') badgeClass = 'bg-vendido';
+           if (status === 'Emprestado') badgeClass = 'bg-emprestado';
+           if (status === 'Comprado' || status === 'EmprestadoIn') badgeClass = 'bg-ativo';
+
+           let nomeStatus = p.status;
+           if (status === 'Comprado') nomeStatus = 'Comprado';
+           if (status === 'EmprestadoIn') nomeStatus = 'Chegou Emp.';
+
+           let tdValor = mostrarColunaValor ? `<td>€${(p.valor || 0).toFixed(1)}M</td>` : '';
+
+            // NOVO: Botões extras para o mercado (Editar Valor e Excluir)
+            let btnEdit = mostrarColunaValor ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--warning); border-color:var(--warning);" onclick="editarValorTransferencia('${p.nome}')">✏️ Editar Valor</button>` : '';
+            let btnExc = `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--danger); border-color:var(--danger);" onclick="excluirJogadorTransferencia('${p.nome}')">🗑️ Excluir</button>`;
+            
+            // NOVO: Botão de Chamar de Volta para quem está Emprestado fora
+            let btnChamarVolta = (status === 'Emprestado') ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--primary); border-color:var(--primary);" onclick="alterarStatus('${p.nome}', 'ChamarDeVolta')">🔙 Chamar de Volta</button>` : '';
+
+            tbody.innerHTML += `
+            <tr>
+                <td><span class="badge ${badgeClass}">${nomeStatus}</span>${extraInfo}</td>
+                <td>${p.posicao}</td><td><strong>${p.nome}</strong></td>
+                <td><strong style="${getOvrClass(p.ovr)} font-size:15px;">${p.ovr}</strong></td>
+                ${tdValor}
+                <td style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXMercado('${p.nome}', ${idx})">📊 Raio-X</button>
+                    ${btnEdit}
+                    ${btnChamarVolta}
+                    ${btnExc}
+                </td>
+            </tr>
+            <tr id="raiox-mercado-row-${idx}" class="row-raiox" style="display:none;">
+                <td colspan="${mostrarColunaValor ? 6 : 5}">
+                    <div class="raiox-container"><div id="raiox-dados-mercado-${idx}"></div><div style="height: 350px;"><canvas id="canvas-raiox-mercado-${idx}"></canvas></div></div>
+                </td>
+            </tr>`;
+       });
+       if(!achou) tbody.innerHTML = `<tr><td colspan="${mostrarColunaValor ? 6 : 5}" style="text-align:center; padding: 25px;">Nenhum jogador.</td></tr>`;
+   }
+
+        function toggleRaioXMercado(nome, idx) {
+            let row = document.getElementById(`raiox-mercado-row-${idx}`);
+            if (row.style.display === 'none') { document.querySelectorAll('.row-raiox').forEach(el => el.style.display = 'none'); row.style.display = 'table-row'; renderizarDadosRaioX(nome, `canvas-raiox-mercado-${idx}`, `raiox-dados-mercado-${idx}`); } 
+            else { row.style.display = 'none'; }
+        }
+
+        function toggleSection(id) { let el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
+        function abrirModalTrocaLiga() { document.getElementById('nova-liga-select').innerHTML = document.getElementById('setup-liga').innerHTML; document.getElementById('nova-liga-select').value = db[currentSave].liga; document.getElementById('modal-troca-liga').style.display = 'flex'; }
+        function confirmarTrocaLiga() { db[currentSave].liga = document.getElementById('nova-liga-select').value; salvarDados(); document.getElementById('modal-troca-liga').style.display = 'none'; atualizarUpgradesUI(); }
+
+        function atualizarUpgradesUI() {
+            let tbodyAcao = document.querySelector('#tabela-upgrades-acao tbody'); tbodyAcao.innerHTML = '';
+            let tbodyProg = document.querySelector('#tabela-upgrades-progresso tbody'); tbodyProg.innerHTML = '';
+            
+            let ligaStr = db[currentSave].liga; document.getElementById('info-liga-atual').innerText = ligaStr;
+            let ligaInfo = Number(ligaStr.match(/\d+/g)?.pop() || 70); 
+            
+            let aguardandoCount = 0, progressoCount = 0;
+            db[currentSave].plantel.filter(p => p.status === 'Ativo').forEach(jogador => {
+                let pJogadas = []; db[currentSave].partidas.forEach(p => { let at = p.jogadores.find(j => j.nome === jogador.nome); if(at) pJogadas.push(at); });
+                let nAvaliados = pJogadas.length - (jogador.jogosAvaliacao || 0);
+                
+                if (nAvaliados >= 5) {
+                    let ultimos = pJogadas.slice((jogador.jogosAvaliacao || 0), (jogador.jogosAvaliacao || 0) + 5);
+                    let media = ultimos.reduce((a,c) => a + c.nota, 0) / 5;
+                    let diff = jogador.ovr - ligaInfo;
+                    let tier = ''; let upLimit = 0, downLimit = 0;
+                    
+                    // --- NOVA LÓGICA: OVR MERECIDO ---
+                    // Calcula um OVR hipotético: Cada 0.1 acima de 6.5 de nota equivale a +1 no OVR merecido (ajuste como preferir)
+                    let variacaoOVR = (media - 6.5) * 8; 
+                    let ovrMerecido = Math.round(jogador.ovr + variacaoOVR);
+                    if(ovrMerecido > 99) ovrMerecido = 99; // Teto
+                    if(ovrMerecido < 40) ovrMerecido = 40; // Piso
+                    
+                    let badgeMerecido = media >= 6.5 
+                        ? `<span style="font-size:11px; color:var(--primary); font-weight:bold;">Merecido: ${ovrMerecido} 📈</span>` 
+                        : `<span style="font-size:11px; color:var(--danger); font-weight:bold;">Merecido: ${ovrMerecido} 📉</span>`;
+                    // ---------------------------------
+                    
+                    if (diff >= 6) { tier = 'Highest'; upLimit = 7.5; downLimit = 6.4; }
+                    else if (diff >= 1) { tier = 'High'; upLimit = 7.0; downLimit = 6.1; }
+                    else if (diff >= -4) { tier = 'Average'; upLimit = 6.7; downLimit = 5.8; }
+                    else if (diff >= -9) { tier = 'Low'; upLimit = 6.4; downLimit = 5.5; }
+                    else { tier = 'Lowest'; upLimit = 6.1; downLimit = 5.0; }
+
+                    if(media >= upLimit) { 
+                        let btn = `<button style="padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome}', 1)">+1 OVR</button>`; 
+                        tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong><br>${badgeMerecido}</td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
+                        aguardandoCount++;
+                    }
+                    else if(media <= downLimit) { 
+                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome}', -1)">-1 OVR</button>`; 
+                        tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong><br>${badgeMerecido}</td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
+                        aguardandoCount++;
+                    }
+                    else if(media <= downLimit) { 
+                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome}', -1)">-1 OVR</button>`; 
+                        tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
+                        aguardandoCount++;
+                    }
+                    else { 
+                        jogador.jogosAvaliacao = (jogador.jogosAvaliacao || 0) + 5; salvarDados();
+                        tbodyProg.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td style="color:var(--primary); font-weight:bold;">${tier}: Mantido ✅</td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td></tr>`;
+                        progressoCount++;
+                    }
+                } else {
+                    tbodyProg.innerHTML += `<tr><td>${jogador.posicao}</td><td>${jogador.nome}</td><td style="color:var(--text-muted)">${nAvaliados} / 5 jg</td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td></tr>`;
+                    progressoCount++;
+                }
+            });
+            if(aguardandoCount === 0) tbodyAcao.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:25px;">Nenhum jogador aguardando.</td></tr>`;
+            if(progressoCount === 0) tbodyProg.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:25px;">Nenhum jogador em progresso.</td></tr>`;
+        }
+
+        function aplicarUp(nome, val) {
+            let j = db[currentSave].plantel.find(p => p.nome === nome);
+            if(j) {
+                j.ovr += val; j.jogosAvaliacao = (j.jogosAvaliacao || 0) + 5;
+                salvarDados(); atualizarUpgradesUI(); atualizarPlantelUI();
+            }
+        }
+
+        Chart.defaults.color = '#93A39A'; Chart.defaults.borderColor = '#2A3B34';
+        function limparGraficos() { ['efetividade', 'eficiencia', 'artilheiros', 'assistentes', 'criacao', 'defesa', 'radarSetor', 'finalizacoes', 'dribles'].forEach(k => { if(charts[k]) { charts[k].destroy(); charts[k] = null; } }); }
+
+        function mudarGrafico() {
+            document.querySelectorAll('.chart-container').forEach(el => el.classList.remove('active'));
+            document.getElementById(document.getElementById('seletor-grafico').value).classList.add('active');
+            if(document.getElementById('seletor-grafico').value === 'view-raiox') acionarRaioXDashboard();
+        }
+
+        function renderizarCalendarioPartidas(pFiltradas) {
+    let div = document.getElementById('lista-calendario');
+    if(!pFiltradas || pFiltradas.length === 0) { div.innerHTML = '<p style="text-align:center;">Nenhuma partida.</p>'; return; }
+
+    let partidasSort = [...pFiltradas].sort((a,b) => b.id - a.id);
+    div.innerHTML = partidasSort.map((p, idx) => {
+        let vitoria = p.golsPro > p.golsContra || (p.golsPro === p.golsContra && p.penaltis);
+        let empate = p.golsPro === p.golsContra && !p.penaltis;
+        let txtColor = vitoria ? 'var(--primary)' : (empate ? 'var(--warning)' : 'var(--danger)');
+        
+        let tabelaJogadores = `
+        <div style="overflow-x:auto;">
+            <table style="width:100%; font-size:12px; margin-top:15px; background: rgba(0,0,0,0.2); border-radius:8px;">
+                <thead><tr><th>Jogador</th><th>Nota</th><th>Gols</th><th>Ast</th><th>Fin</th><th>Passes</th><th>Posse G.</th><th>Defesas</th></tr></thead>
+                <tbody>
+                    ${p.jogadores.map(j => `<tr>
+                        <td><strong>${j.nome}</strong> ${j.mvp ? '⭐' : ''}</td>
+                        <td style="color:var(--warning); font-weight:bold;">${j.nota.toFixed(1)}</td>
+                        <td>${j.gols}</td><td>${j.assist}</td><td>${j.fin}</td><td>${j.passes}</td><td>${j.posses}</td><td>${j.defesas}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
+
+        return `
+        <div class="match-card" style="border-left: 5px solid ${txtColor};">
+            <div style="padding: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03);">
+                <div style="display: flex; align-items: center; gap: 15px; cursor: pointer; flex: 1;" onclick="toggleMatchDetails(${idx})">
+                    <span style="font-size: 24px;">${vitoria ? '✅' : (empate ? '➖' : '❌')}</span>
+                    <div>
+                        <strong style="font-size: 18px; color: white;">vs ${p.adversario}</strong>
+                        <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">${p.comp} | Clique para ver detalhes</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="font-size: 24px; font-weight: bold; color: ${txtColor}; cursor: pointer;" onclick="toggleMatchDetails(${idx})">${p.golsPro} x ${p.golsContra}</div>
+                    <button onclick="excluirPartida(${p.id})" style="background: var(--danger); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer;" title="Excluir Partida">🗑️</button>
+                </div>
+            </div>
+            <div id="match-details-${idx}" style="display: none; padding: 25px; background: var(--panel-bg); border-top: 1px solid var(--border);">
+                <div class="grid-2" style="margin-bottom: 10px;">
+                    <div class="stat-card"><span>Posse de Bola</span><strong>Nós ${p.possePro}% x ${p.posseAdv}% Adv</strong></div>
+                    <div class="stat-card"><span>Finalizações Totais</span><strong>Nós ${p.finPro} x ${p.finAdv} Adv</strong></div>
+                </div>
+                <h4 style="margin:20px 0 5px 0; color:var(--accent);">Estatísticas Individuais</h4>
+                ${tabelaJogadores}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+        function excluirPartida(idPartida) {
+            if (confirm("Tem certeza que deseja excluir esta partida do histórico?")) {
+                db[currentSave].partidas = db[currentSave].partidas.filter(p => p.id !== idPartida);
+                salvarDados();
+                desenharGraficos();
+            }
+        }
+
+        // Função Auxiliar para Processar Dados dos Jogadores nos Gráficos de Barras
+        function getPlayerAggregates(pFiltradas, statKey) {
+            let map = {};
+            pFiltradas.forEach(p => {
+                p.jogadores.forEach(j => {
+                    map[j.nome] = (map[j.nome] || 0) + (j[statKey] || 0);
+                });
+            });
+            return map;
+        }
+
+        function toggleMatchDetails(idx) {
+    let el = document.getElementById('match-details-' + idx);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function getAdvancedPlayerAggregates(pFiltradas) {
+    let map = {};
+    pFiltradas.forEach(p => {
+        p.jogadores.forEach(j => {
+            if (!map[j.nome]) {
+                map[j.nome] = {
+                    jogos: 0, passes: 0, sumPrecPasse: 0, fin: 0, sumPrecFin: 0,
+                    dribles: 0, sumTaxaDrible: 0, posses: 0, defesas: 0, gols: 0, assist: 0
+                };
+            }
+            map[j.nome].jogos += 1;
+            map[j.nome].passes += (j.passes || 0);
+            map[j.nome].sumPrecPasse += (j.precPasse || 0);
+            map[j.nome].fin += (j.fin || 0);
+            map[j.nome].sumPrecFin += (j.precFin || 0);
+            map[j.nome].dribles += (j.dribles || 0);
+            map[j.nome].sumTaxaDrible += (j.taxaDribles || 0);
+            map[j.nome].posses += (j.posses || 0);
+            map[j.nome].defesas += (j.defesas || 0);
+            map[j.nome].gols += (j.gols || 0);
+            map[j.nome].assist += (j.assist || 0);
+        });
+    });
+    return map;
+}
+
+function processMultiChartData(advancedMap, mainSortKey) {
+    let limit = parseInt(document.getElementById('filtro-top-jogadores').value);
+    let order = document.getElementById('filtro-ordem-grafico').value;
+
+    let arr = Object.keys(advancedMap).map(nome => {
+        let d = advancedMap[nome];
+        
+        // Calculando as médias básicas brutas
+        let avgPasses = d.jogos > 0 ? (d.passes / d.jogos) : 0;
+        let avgPrecPasse = d.jogos > 0 ? (d.sumPrecPasse / d.jogos) : 0;
+        
+        let avgFin = d.jogos > 0 ? (d.fin / d.jogos) : 0;
+        let avgPrecFin = d.jogos > 0 ? (d.sumPrecFin / d.jogos) : 0;
+        
+        let avgDribles = d.jogos > 0 ? (d.dribles / d.jogos) : 0;
+        let avgTaxaDrible = d.jogos > 0 ? (d.sumTaxaDrible / d.jogos) : 0;
+
+        let avgPosses = d.jogos > 0 ? (d.posses / d.jogos) : 0;
+        let avgDefesas = d.jogos > 0 ? (d.defesas / d.jogos) : 0;
+
+        return {
+            nome: nome,
+            jogos: d.jogos,
+            gols: d.gols,
+            assist: d.assist,
+            
+            // Totais mantidos (Volume Bruto)
+            passes: d.passes,
+            fin: d.fin,
+            dribles: d.dribles,
+            posses: d.posses,
+            defesas: d.defesas,
+            
+            // Percentuais mantidos (Exibição nas labels)
+            precPasse: avgPrecPasse.toFixed(1),
+            precFin: avgPrecFin.toFixed(1),
+            taxaDrible: avgTaxaDrible.toFixed(1),
+
+            // Novos valores "Por Jogo" aplicando a matemática do Raio-X: Média * (Taxa / 100)
+            passesPorJogo: d.jogos > 0 ? (avgPasses * (avgPrecPasse / 100)).toFixed(1) : 0,
+            finPorJogo: d.jogos > 0 ? (avgFin * (avgPrecFin / 100)).toFixed(1) : 0,
+            driblesPorJogo: d.jogos > 0 ? (avgDribles * (avgTaxaDrible / 100)).toFixed(1) : 0,
+            
+            // Posses e defesas no Raio-X usam a média pura
+            possesPorJogo: avgPosses.toFixed(1),
+            defesasPorJogo: avgDefesas.toFixed(1)
+        };
+    });
+
+    arr = arr.filter(x => parseFloat(x[mainSortKey]) > 0);
+    arr.sort((a, b) => order === 'desc' ? parseFloat(b[mainSortKey]) - parseFloat(a[mainSortKey]) : parseFloat(a[mainSortKey]) - parseFloat(b[mainSortKey]));
+    return arr.slice(0, limit);
+}
+// Função para reordenar o gráfico ao clicar na legenda
+const sortableLegendClick = function(e, legendItem, legend) {
+    const index = legendItem.datasetIndex;
+    const ci = legend.chart;
+
+    // Esconde ou mostra o item clicado
+    if (ci.isDatasetVisible(index)) { ci.hide(index); legendItem.hidden = true; }
+    else { ci.show(index); legendItem.hidden = false; }
+
+    // Descobre quais barras estão visíveis na tela
+    let visibleIndices = [];
+    ci.data.datasets.forEach((ds, i) => { if (ci.isDatasetVisible(i)) visibleIndices.push(i); });
+    
+    // Se sobrar apenas UMA métrica visível, ordena por ela. Se tiver mais, volta a ordenar pela primeria (Total)
+    let sortIndex = (visibleIndices.length === 1) ? visibleIndices[0] : 0;
+
+    let combined = ci.data.labels.map((label, i) => {
+        let obj = { label: label, sortVal: parseFloat(ci.data.datasets[sortIndex].data[i]) || 0 };
+        ci.data.datasets.forEach((ds, dsIndex) => { obj['val' + dsIndex] = ds.data[i]; });
+        return obj;
+    });
+
+    // Lê se você quer Maiores (desc) ou Menores (asc) lá do filtro do topo
+    let order = document.getElementById('filtro-ordem-grafico').value;
+    combined.sort((a, b) => order === 'desc' ? b.sortVal - a.sortVal : a.sortVal - b.sortVal);
+
+    // Aplica a nova ordem ao gráfico
+    ci.data.labels = combined.map(c => c.label);
+    ci.data.datasets.forEach((ds, dsIndex) => { ds.data = combined.map(c => c['val' + dsIndex]); });
+    ci.update();
+};
