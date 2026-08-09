@@ -126,6 +126,22 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             campo.innerHTML = '<div class="area-penalti-top"></div><div class="area-penalti-bot"></div>';
 
             let dadosSalvos = db[currentSave].escalacaoSalvaIA;
+
+            // Mostra a análise geral do Auxiliar e o alerta de rotação (se houver) acima do campinho
+            let boxAnalise = document.getElementById('auxiliar-analise-ia');
+            if (boxAnalise) {
+                if (dadosSalvos && (dadosSalvos.analiseGeral || dadosSalvos.alertaRotacao)) {
+                    boxAnalise.style.display = 'block';
+                    boxAnalise.innerHTML = `
+                        ${dadosSalvos.analiseGeral ? `<p style="margin:0 0 8px 0;"><strong>🧠 Análise do Auxiliar:</strong> ${dadosSalvos.analiseGeral}</p>` : ''}
+                        ${dadosSalvos.alertaRotacao ? `<p style="margin:0; color: var(--danger); font-weight:bold;">${dadosSalvos.alertaRotacao}</p>` : ''}
+                    `;
+                } else {
+                    boxAnalise.style.display = 'none';
+                    boxAnalise.innerHTML = '';
+                }
+            }
+
             if (dadosSalvos && dadosSalvos.formacao && dadosSalvos.escalacao) {
                 let positions = coordsFormacoes[dadosSalvos.formacao];
                 if (positions) {
@@ -151,7 +167,9 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let estiloJogo = document.getElementById('tatica-estilo').value;
             let adv = document.getElementById('auxiliar-adv').value.trim() || "Adversário Desconhecido";
             let diretriz = document.getElementById('auxiliar-diretriz').value;
-            let diasDescanso = parseInt(document.getElementById('partida-dias-proxima')?.value) || 3;
+            // Lê o descanso direto da fonte oficial (Departamento Médico), já atualizada assim que a
+            // última partida foi salva — não depende mais de um campo solto de outra tela.
+            let diasDescanso = (db[currentSave] && typeof db[currentSave].descansoAntesProxima === 'number') ? db[currentSave].descansoAntesProxima : 3;
             let btn = document.getElementById('btn-pedir-ia');
             
             btn.innerText = "⏳ O Estrategista está montando o plano de jogo..."; btn.disabled = true;
@@ -172,13 +190,22 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 if (p.diasLesao && p.diasLesao > 0) indisponivelStr = " [INDISPONÍVEL: LESIONADO]";
                 if (p.suspensoVermelho) indisponivelStr = " [INDISPONÍVEL: SUSPENSO]";
 
+                // Condição física / fadiga (Departamento Médico)
+                let condFisica = (typeof condicaoJogador === 'function') ? condicaoJogador(p) : { nivel: 'ok' };
+                let fadigaStr = "";
+                if (!indisponivelStr) {
+                    if (condFisica.nivel === 'critico') fadigaStr = ` [FADIGA CRÍTICA - ${p.jogosSeguidos || 0} jogos seguidos - condição ${Math.round(p.stamina)}% - ROTAÇÃO OBRIGATÓRIA]`;
+                    else if (condFisica.nivel === 'risco') fadigaStr = ` [RISCO DE LESÃO - ${p.jogosSeguidos || 0} jogos seguidos - condição ${Math.round(p.stamina)}% - evitar escalar se houver opção]`;
+                    else if (condFisica.nivel === 'alerta') fadigaStr = ` [fadiga moderada - condição ${Math.round(p.stamina)}%]`;
+                }
+
                 let pJogadas = []; 
                 db[currentSave].partidas.forEach(partida => { 
                     let at = partida.jogadores.find(j => j.nome === p.nome); 
                     if(at) pJogadas.push(at.nota); 
                 });
                 let mediaNota = pJogadas.length > 0 ? (pJogadas.reduce((a,b)=>a+b,0)/pJogadas.length).toFixed(1) : "Sem nota";
-                return { nome: p.nome, posicao: p.posicao, ovr: p.ovr, aparicoes: pJogadas.length, mediaNota, indisponivelStr };
+                return { nome: p.nome, posicao: p.posicao, ovr: p.ovr, aparicoes: pJogadas.length, mediaNota, indisponivelStr, fadigaStr };
             });
 
             // Proxy de "jovem/reserva" (o sistema não tem idade): OVR abaixo da média do elenco E poucas aparições
@@ -186,7 +213,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let apMedia = plantelStr.reduce((soma, p) => soma + p.aparicoes, 0) / (plantelStr.length || 1);
             let plantelStrTexto = plantelStr.map(p => {
                 let tagReserva = (p.ovr < ovrMedio && p.aparicoes < apMedia) ? " [RESERVA/JOVEM - pouco utilizado]" : "";
-                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${tagReserva}]`;
+                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${p.fadigaStr}${tagReserva}]`;
             }).join(', ');
             
             let formacoesPossiveisStr = JSON.stringify({
@@ -211,11 +238,14 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             🚨 ORDENS DIRETAS DO TREINADOR APENAS PARA ESTE JOGO: [${pedidosUsuario ? pedidosUsuario : "Nenhuma ordem extra. Crie a melhor estratégia sozinho."}]
             (Se houver ordens acima, obedeça cegamente. Caso contrário, aja por conta própria).
 
+            🏥 BOLETIM DO DEPARTAMENTO MÉDICO (LEIA COM ATENÇÃO): ${(typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "Sem novidades."}
+
             🧠 SEU PAPEL COMO ESTRATEGISTA (MUITO IMPORTANTE):
             1. DINÂMICA DE FORMAÇÃO: Você DEVE analisar o adversário (${adv}) e o nível do seu time. Se o adversário for muito forte, ou se for um jogo que exige postura diferente, USE A FORMAÇÃO SECUNDÁRIA (${formacaoSec}). Se o time estiver cansado e os reservas encaixarem melhor na Secundária, use-a. Caso a Primária seja superior para o contexto, mantenha-a.
             2. INSTRUÇÕES CIRÚRGICAS: Para CADA jogador, crie uma instrução tática baseada no adversário (${adv}) e no ${estiloJogo}. Exemplo: Se for o Racing (time menor), exija pressão na saída deles. Se for o Barcelona, instrua o volante a fechar a linha de passe e dobrar marcação. NADA DE INSTRUÇÕES GENÉRICAS.
-            3. ROTAÇÃO (${diasDescanso} dias de descanso): Se tiver 3 dias ou menos, POUPE PONTAS E LATERAIS (exceto se a Diretriz for Força Total).
-            4. CUMPRIMENTO OBRIGATÓRIO DE DIRETRIZ E ESTILO (NÃO É SUGESTÃO, É REGRA): Traduza literalmente o texto da Diretriz e do Estilo de Jogo em ações concretas na escalação:
+            3. DESCANSO GERAL DO ELENCO (${diasDescanso} dia(s) até este jogo): Se forem 2 dias ou menos, reduza o esforço físico do time como um todo e priorize poupar pontas e laterais (exceto se a Diretriz for Força Total Absoluta).
+            4. ROTAÇÃO INTELIGENTE OBRIGATÓRIA (REGRA DE OURO — SIGA À RISCA): jogadores marcados acima com [FADIGA CRÍTICA] ou "ROTAÇÃO OBRIGATÓRIA" NÃO PODEM ser escalados, a menos que literalmente não exista NENHUM outro jogador apto para aquela posição — nesse caso, escale mesmo assim, mas deixe isso claro na instrução dele (ex: "Jogando no limite físico por falta de opções no elenco"). Jogadores marcados como [RISCO DE LESÃO] só devem ser escalados se não houver alternativa minimamente aceitável na posição; prefira sempre o jogador saudável, mesmo com OVR menor. A ÚNICA exceção a esta regra é se a Diretriz Estratégica for "Força Total Absoluta" — nesse caso o treinador assume o risco conscientemente e você pode escalar o time ideal mesmo cansado.
+            5. CUMPRIMENTO OBRIGATÓRIO DE DIRETRIZ E ESTILO (NÃO É SUGESTÃO, É REGRA): Traduza literalmente o texto da Diretriz e do Estilo de Jogo em ações concretas na escalação:
                - Se mencionar "jovens", "reservas", "dar oportunidade" ou "rodar o elenco": você DEVE escalar preferencialmente jogadores marcados como [RESERVA/JOVEM] acima, nas posições onde eles existirem, mesmo que o OVR seja menor.
                - Se mencionar "explorar laterais", "explorar as pontas" ou "jogar pelos lados": as instruções dos jogadores em LAD/LAE/PD/PE/ALD/ALE DEVEM pedir explicitamente para avançar constantemente, cruzar com frequência e buscar a linha de fundo.
                - Se mencionar qualquer outro pedido específico (ex: "marcação alta", "jogo mais defensivo", "time mais ofensivo"), reflita isso nas instruções individuais de forma clara e verificável, não apenas no estilo geral.
@@ -226,6 +256,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             
             Retorne EXATAMENTE este JSON PURO:
             {
+                "analiseGeral": "2 a 3 frases explicando sua lógica: formação escolhida e por quê, quem foi poupado/priorizado (cite o Departamento Médico se isso pesou na decisão) e o plano tático geral contra o adversário.",
                 "formacaoEscolhida": "4-2-3-1",
                 "escalacao": {
                     "GOL": {"nome": "Nome do Goleiro", "instrucao": "Instrução tática profunda contra o adversário..."},
@@ -243,10 +274,13 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 
                 if (match) {
                     let res = JSON.parse(match[0]);
-                    
+                    let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
+
                     db[currentSave].escalacaoSalvaIA = {
                         formacao: res.formacaoEscolhida,
-                        escalacao: res.escalacao
+                        escalacao: res.escalacao,
+                        analiseGeral: res.analiseGeral || "",
+                        alertaRotacao: alertaRotacao
                     };
                     salvarDados();
                     renderizarCampinhoLimpo();

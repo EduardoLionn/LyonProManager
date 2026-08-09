@@ -29,6 +29,17 @@
                 if (p.suspensoVermelho) {
                     badgeCondicao += ` <span class="badge" style="background: rgba(255, 184, 0, 0.2); color: var(--warning);">🟥 Suspenso</span>`;
                 }
+                // --- BADGE DE FADIGA / RISCO DE LESÃO (Departamento Médico) ---
+                if (!badgeCondicao && typeof condicaoJogador === 'function') {
+                    let condFisica = condicaoJogador(p);
+                    if (condFisica.nivel === 'critico') {
+                        badgeCondicao += ` <span class="badge" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">🚨 Risco Crítico (${p.jogosSeguidos || 0}j)</span>`;
+                    } else if (condFisica.nivel === 'risco') {
+                        badgeCondicao += ` <span class="badge" style="background: rgba(226, 75, 75, 0.15); color: var(--danger);">⚠️ Risco de Lesão (${p.jogosSeguidos || 0}j)</span>`;
+                    } else if (condFisica.nivel === 'alerta') {
+                        badgeCondicao += ` <span class="badge" style="background: rgba(217, 130, 43, 0.15); color: var(--warning);">🟡 Fadiga (${Math.round(p.stamina)}%)</span>`;
+                    }
+                }
 
                 let optionsSelect = `<option>Mover...</option>`;
                 if (p.origem === 'EmprestadoIn') {

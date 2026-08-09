@@ -177,9 +177,12 @@ Exemplo do formato exigido:
             
             let jogador = db[currentSave].plantel.find(p => p.nome === nome);
             if(jogador) {
+                garantirCondicaoFisica(jogador);
                 jogador.diasLesao = dias;
+                jogador.jogosSeguidos = 0;
                 salvarDados();
-                atualizarPlantelUI();
+                if(currentSave === 'clube') atualizarPlantelUI();
+                atualizarDepartamentoMedicoUI();
                 alert(`🏥 ${nome} declarado como lesionado por ${dias} dias.`);
                 document.getElementById('input-dias-lesao').value = '0';
             }
@@ -191,9 +194,11 @@ Exemplo do formato exigido:
             
             let jogador = db[currentSave].plantel.find(p => p.nome === nome);
             if(jogador) {
+                garantirCondicaoFisica(jogador);
                 jogador.suspensoVermelho = true;
                 salvarDados();
-                atualizarPlantelUI();
+                if(currentSave === 'clube') atualizarPlantelUI();
+                atualizarDepartamentoMedicoUI();
                 alert(`🟥 ${nome} está suspenso pelo próximo jogo devido a um Cartão Vermelho.`);
             }
         }
@@ -224,24 +229,8 @@ Exemplo do formato exigido:
             }
         }
 
-        function processarDiasAposPartida(diasPassados) {
-            if(!db[currentSave] || !db[currentSave].plantel) return;
-            
-            db[currentSave].plantel.forEach(p => {
-                // Recuperação de Lesões
-                if (p.diasLesao && p.diasLesao > 0) {
-                    p.diasLesao -= diasPassados;
-                    if (p.diasLesao <= 0) {
-                        p.diasLesao = 0;
-                        adicionarNoticiaAutomatica(`🏥 DM VAZIO: ${p.nome} está de volta!`, `O atleta se recuperou de sua lesão e já treina normalmente com o resto do elenco principal.`);
-                    }
-                }
-                // Limpeza de suspensão após a partida transcorrer
-                if (p.suspensoVermelho) {
-                    p.suspensoVermelho = false;
-                }
-            });
-        }
+        // OBS: o antigo processarDiasAposPartida() foi substituído pelo motor completo de
+        // condição física em js/departamento-medico.js (função processarCondicaoFisicaPosPartida).
 
 // --- MOTOR DO FEED SOCIAL E CAÇA ÀS BRUXAS ---
 

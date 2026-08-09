@@ -330,7 +330,7 @@
             let golsP = Number(document.getElementById('gols-pro').value); let golsC = Number(document.getElementById('gols-contra').value);
             let adv = document.getElementById('adversario').value || "Adversário"; let penaltis = document.getElementById('vitoria-penaltis').checked;
             let diasPassados = parseInt(document.getElementById('partida-dias-proxima')?.value) || 3;
-            processarDiasAposPartida(diasPassados);
+            processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp.map(j => j.nome));
 
             db[currentSave].partidas.push({
                 id: Date.now(), temporada: db[currentSave].temporadaAtual, comp: document.getElementById('partida-comp').value, contexto: document.getElementById('partida-contexto').value,

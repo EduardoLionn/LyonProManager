@@ -83,7 +83,11 @@
                 : "Nenhuma novidade recente.";
 
             let objStr = data.objetivosTemporada ? data.objetivosTemporada.replace(/<br>/g, " ") : "Sem metas definidas.";
-            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${data.notaDiretoria.toFixed(1)}/10 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr}]`;
+
+            // --- NOVO: Boletim do Departamento Médico (lesões, suspensões e fadiga do elenco) ---
+            let boletimMedico = (typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "";
+
+            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${data.notaDiretoria.toFixed(1)}/10 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr} | Departamento Médico: ${boletimMedico || "Sem novidades."}]`;
         }
 
         function toggleModoVideo() {
@@ -226,7 +230,8 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-upgrades') atualizarUpgradesUI();
             if(abaId === 'tab-historico') renderizarHistorico();
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); checarNovidadesIA('diretoria'); }
-            if(abaId === 'tab-auxiliar') { renderizarCampinhoLimpo(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
+            if(abaId === 'tab-medico') { atualizarDepartamentoMedicoUI(); }
+            if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarCampinhoLimpo(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
         }
 
@@ -272,6 +277,7 @@ function toggleChatDiretoria() {
             let comps = currentSave === 'clube' ? ["Liga", "Copa Nacional", "Torneio Continental", "Amistoso"] : ["Copa do Mundo", "Eliminatórias", "Copa Continental", "Amistoso"];
             comps.forEach(c => selectComp.innerHTML += `<option value="${c}">${c}</option>`);
 
+            if (typeof garantirCondicaoFisicaTodos === 'function') garantirCondicaoFisicaTodos();
             preencherDatalistJogadores(); document.getElementById('jog-nome-input').value = '';
             atualizarFiltroTemporadas(); mudarAba('tab-dashboard');
         }
