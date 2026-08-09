@@ -9,8 +9,8 @@
             carregarPreferenciasTaticas();
         }
 
-        function resetarSave() {
-            if(confirm(`Tem certeza que deseja APAGAR TODO O PROGRESSO do slot: ${currentSave}?`)) {
+        async function resetarSave() {
+            if(await confirmarModerno(`Tem certeza que deseja APAGAR TODO O PROGRESSO do slot: ${currentSave}?`, "Apagar Todo o Progresso", { perigo: true, textoConfirmar: "Apagar Tudo" })) {
                 if(currentSave === 'clube') db.clube = { nome: '', liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem<br>💰 Finanças: Manter os salários controlados', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
                 else db.selecao = { nome: '', liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
                 salvarDados(); location.reload();

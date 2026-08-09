@@ -354,8 +354,8 @@
             salvarDados();
         }
 
-function apagarSocialFeed() {
-            if (confirm("Deseja apagar todas as postagens do Feed Social?")) {
+async function apagarSocialFeed() {
+            if (await confirmarModerno("Deseja apagar todas as postagens do Feed Social?", "Apagar Feed Social", { perigo: true, textoConfirmar: "Apagar Tudo" })) {
                 db[currentSave].socialFeed = [];
                 salvarDados();
                 renderizarSocialFeed();
@@ -375,18 +375,49 @@ function apagarSocialFeed() {
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
-            oscillator.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.05);
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(720, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(380, audioCtx.currentTime + 0.045);
 
-            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); 
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05); 
+            gainNode.gain.setValueAtTime(0.11, audioCtx.currentTime); 
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06); 
 
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
 
             oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.05);
+            oscillator.stop(audioCtx.currentTime + 0.06);
+        }
+
+        // Acorde curto e satisfatório pra ações de confirmação (ex: modal moderno)
+        function playConfirmSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            [523.25, 659.25].forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.04);
+                gain.gain.setValueAtTime(0.001, audioCtx.currentTime + i * 0.04);
+                gain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + i * 0.04 + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.04 + 0.22);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime + i * 0.04);
+                osc.stop(audioCtx.currentTime + i * 0.04 + 0.22);
+            });
+        }
+
+        // Som curto e neutro pra ações de cancelar/fechar
+        function playCancelSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.09);
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.09);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.09);
         }
 
         // Ouvinte global que detecta cliques em QUALQUER botão do sistema

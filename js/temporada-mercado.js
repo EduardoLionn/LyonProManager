@@ -1,6 +1,6 @@
         async function concluirTemporadaAutomatica() {
-            if(!confirm(`Deseja encerrar a temporada ${db[currentSave].temporadaAtual}?`)) return;
-            let posTabelaInput = prompt("Posição Final exata na tabela da Liga? (Ex: 1º Lugar)", "1º Lugar");
+            if(!(await confirmarModerno(`Deseja encerrar a temporada ${db[currentSave].temporadaAtual}?`, "Encerrar Temporada"))) return;
+            let posTabelaInput = await promptModerno("Posição Final exata na tabela da Liga? (Ex: 1º Lugar)", "1º Lugar", "Posição na Tabela");
             if(posTabelaInput === null) return;
 
             let continentalEstaTemporada = db[currentSave].competicaoContinental || 'Nenhuma'; // captura ANTES de sobrescrever com a próxima
@@ -8,9 +8,9 @@
             // Pergunta sobre classificação continental se for clube
             let novaContinental = 'Nenhuma';
             if (currentSave === 'clube') {
-                let classificou = confirm("O clube garantiu classificação para alguma Competição Continental para a PRÓXIMA temporada?");
+                let classificou = await confirmarModerno("O clube garantiu classificação para alguma Competição Continental para a PRÓXIMA temporada?", "Classificação Continental");
                 if (classificou) {
-                    novaContinental = prompt("Qual o nome da competição? (Ex: Libertadores, Champions League, Sul-Americana, etc)", "Libertadores") || 'Nenhuma';
+                    novaContinental = (await promptModerno("Qual o nome da competição? (Ex: Libertadores, Champions League, Sul-Americana, etc)", "Libertadores", "Competição Continental")) || 'Nenhuma';
                 }
                 db.clube.competicaoContinental = novaContinental;
             }
@@ -144,7 +144,7 @@ ${blocoAvaliacao}
                     }
                 });
                 
-                checarPromocaoRebaixamento();
+                await checarPromocaoRebaixamento();
             } else {
                 let anoAtual = parseInt(db.selecao.temporadaAtual.replace(/\D/g, '')); db.selecao.temporadaAtual = `Ciclo ${anoAtual + 4}`;
             }
@@ -158,11 +158,11 @@ ${blocoAvaliacao}
             salvarDados(); alert(msgFinal); atualizarFiltroTemporadas(); ajustarInterfaceSave(); mudarAba('tab-diretoria');
         }
 
-        function checarPromocaoRebaixamento() {
+        async function checarPromocaoRebaixamento() {
             let ligObj = ligaMap[db[currentSave].liga];
             if(ligObj) {
-                if(!ligObj.isTop && ligObj.up && confirm(`Acesso para a divisão superior (${ligObj.up.split(' (')[0]})?`)) { db[currentSave].liga = ligObj.up; }
-                else if(ligObj.down && confirm(`Rebaixado para a divisão inferior (${ligObj.down.split(' (')[0]})?`)) { db[currentSave].liga = ligObj.down; }
+                if(!ligObj.isTop && ligObj.up && await confirmarModerno(`Acesso para a divisão superior (${ligObj.up.split(' (')[0]})?`, "Acesso de Divisão")) { db[currentSave].liga = ligObj.up; }
+                else if(ligObj.down && await confirmarModerno(`Rebaixado para a divisão inferior (${ligObj.down.split(' (')[0]})?`, "Rebaixamento")) { db[currentSave].liga = ligObj.down; }
             }
         }
 
@@ -368,10 +368,10 @@ ${blocoAvaliacao}
             document.getElementById('add-nome').value = '';
         }
 
-        function editarValorTransferencia(nome) {
+        async function editarValorTransferencia(nome) {
             let p = db.clube.plantel.find(j => j.nome === nome);
             if (!p) return;
-            let novoValor = prompt(`Digite o valor correto (€M) da negociação de ${nome}:`, p.valor || 0);
+            let novoValor = await promptModerno(`Digite o valor correto (€M) da negociação de ${nome}:`, p.valor || 0, "Editar Valor");
             if (novoValor !== null && novoValor.trim() !== "") {
                 p.valor = Number(novoValor);
                 salvarDados();
@@ -379,8 +379,8 @@ ${blocoAvaliacao}
             }
         }
 
-        function excluirJogadorTransferencia(nome) {
-            if (confirm(`⚠️ ALERTA: Tem certeza que deseja APAGAR COMPLETAMENTE o jogador ${nome} do save? Isso removerá o histórico dele.`)) {
+        async function excluirJogadorTransferencia(nome) {
+            if (await confirmarModerno(`⚠️ ALERTA: Tem certeza que deseja APAGAR COMPLETAMENTE o jogador ${nome} do save? Isso removerá o histórico dele.`, "Apagar Jogador Permanentemente", { perigo: true, textoConfirmar: "Apagar" })) {
                 db.clube.plantel = db.clube.plantel.filter(p => p.nome !== nome);
                 salvarDados();
                 filtrarMercado(statusFiltroMercado);
@@ -455,25 +455,30 @@ ${blocoAvaliacao}
             }
         }
 
-        function alterarStatus(nome, status) {
-    if (status === 'Excluir' && confirm(`Apagar ${nome}?`)) {
-        db[currentSave].plantel = db[currentSave].plantel.filter(p => p.nome !== nome);
+        async function alterarStatus(nome, status) {
+    if (status === 'Excluir') {
+        if (await confirmarModerno(`Apagar ${nome}?`, "Remover Jogador", { perigo: true, textoConfirmar: "Apagar" })) {
+            db[currentSave].plantel = db[currentSave].plantel.filter(p => p.nome !== nome);
+        } else {
+            return;
+        }
     } else {
         let jog = db[currentSave].plantel.find(p => p.nome === nome);
         if(jog) {
             if(status === 'Vendido' || status === 'Emprestado') {
-                let v = prompt(`Valor recebido em €M?`, "0");
+                let v = await promptModerno(`Valor recebido em €M?`, "0", "Valor da Negociação");
+                if (v === null) return;
                 db.clube.orcamento += Number(v) * 0.8; db.clube.arrecadadoAtual += Number(v);
                 jog.status = status; 
             } else if (status === 'EncerrarEmprestimo') {
-                if(confirm(`Deseja devolver ${nome} antecipadamente ao clube de origem?`)) {
+                if(await confirmarModerno(`Deseja devolver ${nome} antecipadamente ao clube de origem?`, "Encerrar Empréstimo")) {
                     jog.status = 'FimEmprestimo';
                     adicionarNoticiaAutomatica(`👋 FIM DE EMPRÉSTIMO: ${nome} devolvido.`, `O clube optou por encerrar o empréstimo antecipadamente e o atleta não faz mais parte do elenco.`);
                 } else {
                     return; // Cancela a ação
                 }
             } else if (status === 'ChamarDeVolta') {
-                if(confirm(`Deseja solicitar o retorno imediato de ${nome} do seu empréstimo?`)) {
+                if(await confirmarModerno(`Deseja solicitar o retorno imediato de ${nome} do seu empréstimo?`, "Chamar de Volta")) {
                     jog.status = 'Ativo';
                     jog.temporadasEmprestimo = 0;
                     adicionarNoticiaAutomatica(`✈️ DE VOLTA: ${nome} retorna ao clube.`, `O treinador solicitou a volta do jogador antes do fim do empréstimo para compor o elenco atual.`);

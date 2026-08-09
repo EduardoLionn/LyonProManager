@@ -304,8 +304,8 @@
     }).join('');
 }
 
-        function excluirPartida(idPartida) {
-            if (confirm("Tem certeza que deseja excluir esta partida do histórico?")) {
+        async function excluirPartida(idPartida) {
+            if (await confirmarModerno("Tem certeza que deseja excluir esta partida do histórico?", "Excluir Partida", { perigo: true, textoConfirmar: "Excluir" })) {
                 db[currentSave].partidas = db[currentSave].partidas.filter(p => p.id !== idPartida);
                 salvarDados();
                 desenharGraficos();

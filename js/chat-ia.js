@@ -334,8 +334,8 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             esconderCarregandoIA();
         }
 
-function apagarChat(tipo) {
-            if (confirm(`Tem certeza que deseja apagar o histórico desta conversa?`)) {
+async function apagarChat(tipo) {
+            if (await confirmarModerno(`Tem certeza que deseja apagar o histórico desta conversa?`, "Apagar Conversa", { perigo: true, textoConfirmar: "Apagar" })) {
                 db[currentSave].chatHistory[tipo] = [];
                 // Se for diretoria ou auxiliar, reseta também o contador de notícias lidas para reavaliar se precisar
                 if (tipo === 'diretoria') db[currentSave].chatHistory.noticiasLidasDir = 0;
@@ -350,8 +350,8 @@ function apagarChat(tipo) {
             }
         }
 
-        function apagarNoticia(index) {
-            if (confirm("Deseja apagar esta notícia do feed?")) {
+        async function apagarNoticia(index) {
+            if (await confirmarModerno("Deseja apagar esta notícia do feed?", "Apagar Notícia", { perigo: true, textoConfirmar: "Apagar" })) {
                 db[currentSave].noticiasFeed.splice(index, 1);
                 salvarDados();
                 renderizarNoticiasFeed();

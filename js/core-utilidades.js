@@ -276,3 +276,58 @@ function toggleChatDiretoria() {
             atualizarFiltroTemporadas(); mudarAba('tab-dashboard');
         }
 
+
+        // --- MODAL MODERNO: substitui confirm()/prompt() do navegador ---
+        let _modalModernoResolve = null;
+
+        function _fecharModalModerno(valor) {
+            document.getElementById('modal-moderno').style.display = 'none';
+            let input = document.getElementById('modal-moderno-input');
+            input.onkeydown = null;
+            let foiConfirmado = valor === true || (typeof valor === 'string' && valor !== null);
+            if (typeof playConfirmSound === 'function') {
+                if (foiConfirmado) playConfirmSound(); else playCancelSound();
+            }
+            if (_modalModernoResolve) { let r = _modalModernoResolve; _modalModernoResolve = null; r(valor); }
+        }
+
+        // Substitui confirm(mensagem) — resolve true (confirmar) ou false (cancelar)
+        function confirmarModerno(mensagem, titulo, opcoes) {
+            titulo = titulo || "Confirmar Ação";
+            opcoes = opcoes || {};
+            return new Promise((resolve) => {
+                _modalModernoResolve = resolve;
+                document.getElementById('modal-moderno-titulo').innerText = titulo;
+                document.getElementById('modal-moderno-mensagem').innerText = mensagem;
+                document.getElementById('modal-moderno-input').style.display = 'none';
+                let btnOk = document.getElementById('modal-moderno-confirmar');
+                btnOk.innerText = opcoes.textoConfirmar || 'Confirmar';
+                btnOk.style.background = opcoes.perigo ? 'var(--danger)' : 'var(--primary)';
+                btnOk.style.color = opcoes.perigo ? 'white' : '#14150F';
+                btnOk.onclick = () => _fecharModalModerno(true);
+                document.getElementById('modal-moderno-cancelar').onclick = () => _fecharModalModerno(false);
+                document.getElementById('modal-moderno').style.display = 'flex';
+            });
+        }
+
+        // Substitui prompt(mensagem, valorPadrao) — resolve o texto digitado, ou null se cancelar
+        function promptModerno(mensagem, valorPadrao, titulo) {
+            titulo = titulo || "Informe um valor";
+            return new Promise((resolve) => {
+                _modalModernoResolve = resolve;
+                document.getElementById('modal-moderno-titulo').innerText = titulo;
+                document.getElementById('modal-moderno-mensagem').innerText = mensagem;
+                let input = document.getElementById('modal-moderno-input');
+                input.style.display = 'block';
+                input.value = (valorPadrao !== undefined && valorPadrao !== null) ? valorPadrao : '';
+                let btnOk = document.getElementById('modal-moderno-confirmar');
+                btnOk.innerText = 'Confirmar';
+                btnOk.style.background = 'var(--primary)';
+                btnOk.style.color = '#14150F';
+                btnOk.onclick = () => _fecharModalModerno(input.value);
+                document.getElementById('modal-moderno-cancelar').onclick = () => _fecharModalModerno(null);
+                input.onkeydown = (e) => { if (e.key === 'Enter') _fecharModalModerno(input.value); };
+                document.getElementById('modal-moderno').style.display = 'flex';
+                setTimeout(() => { input.focus(); input.select(); }, 50);
+            });
+        }
