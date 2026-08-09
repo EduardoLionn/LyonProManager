@@ -244,8 +244,19 @@
             }
         }
 
-        Chart.defaults.color = '#93A39A'; Chart.defaults.borderColor = '#2A3B34';
-        function limparGraficos() { ['efetividade', 'eficiencia', 'artilheiros', 'assistentes', 'criacao', 'defesa', 'radarSetor', 'finalizacoes', 'dribles'].forEach(k => { if(charts[k]) { charts[k].destroy(); charts[k] = null; } }); }
+        Chart.defaults.color = '#93A39A'; Chart.defaults.borderColor = 'rgba(42, 59, 52, 0.6)';
+        Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
+        Chart.defaults.plugins.tooltip.backgroundColor = '#182420';
+        Chart.defaults.plugins.tooltip.borderColor = '#2A3B34';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        Chart.defaults.plugins.tooltip.padding = 10;
+        Chart.defaults.plugins.tooltip.titleFont = { family: "'Oswald', sans-serif", weight: '600' };
+        Chart.defaults.elements.bar.borderRadius = 4;
+        Chart.defaults.elements.bar.borderSkipped = false;
+        Chart.defaults.elements.line.borderWidth = 2.5;
+        Chart.defaults.elements.point.radius = 3;
+        function limparGraficos() { ['efetividade', 'eficiencia', 'artilheiros', 'assistentes', 'criacao', 'notaMedia', 'defesa', 'radarSetor', 'finalizacoes', 'dribles'].forEach(k => { if(charts[k]) { charts[k].destroy(); charts[k] = null; } }); }
 
         function mudarGrafico() {
             document.querySelectorAll('.chart-container').forEach(el => el.classList.remove('active'));
@@ -335,7 +346,7 @@ function getAdvancedPlayerAggregates(pFiltradas) {
             if (!map[j.nome]) {
                 map[j.nome] = {
                     jogos: 0, passes: 0, sumPrecPasse: 0, fin: 0, sumPrecFin: 0,
-                    dribles: 0, sumTaxaDrible: 0, posses: 0, defesas: 0, gols: 0, assist: 0
+                    dribles: 0, sumTaxaDrible: 0, posses: 0, defesas: 0, gols: 0, assist: 0, sumNota: 0
                 };
             }
             map[j.nome].jogos += 1;
@@ -349,6 +360,7 @@ function getAdvancedPlayerAggregates(pFiltradas) {
             map[j.nome].defesas += (j.defesas || 0);
             map[j.nome].gols += (j.gols || 0);
             map[j.nome].assist += (j.assist || 0);
+            map[j.nome].sumNota += (j.nota || 0);
         });
     });
     return map;
@@ -373,6 +385,7 @@ function processMultiChartData(advancedMap, mainSortKey) {
 
         let avgPosses = d.jogos > 0 ? (d.posses / d.jogos) : 0;
         let avgDefesas = d.jogos > 0 ? (d.defesas / d.jogos) : 0;
+        let mediaNota = d.jogos > 0 ? (d.sumNota / d.jogos) : 0;
 
         return {
             nome: nome,
@@ -399,7 +412,10 @@ function processMultiChartData(advancedMap, mainSortKey) {
             
             // Posses e defesas no Raio-X usam a média pura
             possesPorJogo: avgPosses.toFixed(1),
-            defesasPorJogo: avgDefesas.toFixed(1)
+            defesasPorJogo: avgDefesas.toFixed(1),
+
+            // Nota média do jogador no recorte selecionado (temporada / últimos jogos)
+            mediaNota: mediaNota.toFixed(2)
         };
     });
 

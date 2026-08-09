@@ -2,6 +2,13 @@
     limparGraficos(); 
     let temporadaFiltro = document.getElementById('filtro-temporada').value;
     let pFiltradas = temporadaFiltro === 'Total' ? db[currentSave].partidas : db[currentSave].partidas.filter(p => p.temporada === temporadaFiltro);
+
+    let elUltimos = document.getElementById('filtro-ultimos-jogos');
+    if (elUltimos && elUltimos.value !== 'Todas') {
+        let n = parseInt(elUltimos.value);
+        pFiltradas = pFiltradas.slice(-n);
+    }
+
     atualizarKPIsEForma(pFiltradas);
     renderizarCalendarioPartidas(pFiltradas);
 
@@ -78,6 +85,17 @@
             type: 'line',
             data: { labels: labelsPartidas, datasets: [{ label: 'Média de Notas do Time', data: notasMedias, borderColor: '#D9822B', tension: 0.2 }] },
             options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    // 5.5 Nota Média por Jogador (Barras, respeita o seletor Top 5/10/Todos)
+    let ctxNota = document.getElementById('graficoNotaMedia');
+    if(ctxNota) {
+        let cData = processMultiChartData(advData, 'mediaNota');
+        charts.notaMedia = new Chart(ctxNota, {
+            type: 'bar',
+            data: { labels: cData.map(d=>d.nome), datasets: [{ label: 'Nota Média', data: cData.map(d=>d.mediaNota), backgroundColor: '#E8B84B', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { suggestedMin: 0, suggestedMax: 10 } } }
         });
     }
 
