@@ -493,6 +493,12 @@
                             <option value="asc">Menores ⬆️</option>
                         </select>
                         <select id="filtro-temporada" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;"></select>
+                        <select id="filtro-ultimos-jogos" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
+                            <option value="Todas">Todos os Jogos do Filtro</option>
+                            <option value="5">Últimos 5 Jogos</option>
+                            <option value="10">Últimos 10 Jogos</option>
+                            <option value="15">Últimos 15 Jogos</option>
+                        </select>
                         <select id="seletor-grafico" onchange="mudarGrafico()" style="width: 320px; font-weight: bold; color: var(--primary); border-radius:8px; padding: 10px;">
     <option value="view-calendario">📅 0. Calendário e Detalhes da Partida</option>
     <option value="view-efetividade">🎯 1. Efetividade das Finalizações (%)</option>
@@ -500,6 +506,7 @@
     <option value="view-artilheiros">⚽ 3. Artilharia (Gols por Jogador)</option>
     <option value="view-assistentes">🎯 4. Assistentes (Passes para Gol)</option>
     <option value="view-criacao">📈 5. Desgaste Físico & Média Geral</option>
+    <option value="view-notamedia">⭐ 5.5. Nota Média por Jogador</option>
     <option value="view-defesa">🛡️ 6. Muralha Defensiva e Goleiros</option>
     <option value="view-radar">🔍 7. Central de Criação (Passes)</option>
     <option value="view-finalizacoes">🎯 8. Precisão e Volume de Finalizações</option>
@@ -518,6 +525,7 @@
                 <div id="view-artilheiros" class="chart-container"><h3>Artilharia (Gols por Jogador)</h3><canvas id="graficoArtilheiros"></canvas></div>
                 <div id="view-assistentes" class="chart-container"><h3>Assistentes (Líderes em Assistências)</h3><canvas id="graficoAssistentes"></canvas></div>
                 <div id="view-criacao" class="chart-container"><h3>Desgaste Físico & Média Geral de Notas do Time</h3><canvas id="graficoCriacao"></canvas></div>
+                <div id="view-notamedia" class="chart-container"><h3>Nota Média por Jogador</h3><canvas id="graficoNotaMedia"></canvas></div>
                 <div id="view-defesa" class="chart-container"><h3>Muralha Defensiva (Desarmes e Divididas Ganhas por Jogador)</h3><canvas id="graficoDefesa"></canvas></div>
                 <div id="view-radar" class="chart-container"><h3>Central de Criação (Passes Certos por Jogador)</h3><canvas id="graficoRadarSetor"></canvas></div>
                 <div id="view-finalizacoes" class="chart-container"><h3>Volume de Finalizações por Jogador</h3><canvas id="graficoFinalizacoes"></canvas></div>
