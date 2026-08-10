@@ -51,10 +51,12 @@
             document.getElementById('dir-media-arrecadado').innerText = `€${(data.mediaArrecadadoHistorico || 0).toFixed(1)}M`;
             let notaFormatada = typeof data.notaDiretoria === 'number' ? data.notaDiretoria.toFixed(1) : "6.5";
             document.getElementById('dir-nota-diretoria').innerText = `${notaFormatada} / 10`;
+            document.getElementById('dir-prestigio-jogo').innerText = Math.round((data.notaDiretoria || 6.5) * 10);
             document.getElementById('dash-dir-orcamento').innerText = "€" + (data.orcamento || 0).toFixed(2) + "M";
             document.getElementById('dash-dir-arrecadado-atual').innerText = "€" + (data.arrecadadoAtual || 0).toFixed(2) + "M";
             document.getElementById('dash-dir-gasto-atual').innerText = "€" + (data.gastoAtual || 0).toFixed(2) + "M";
             document.getElementById('dir-objetivos-texto').innerHTML = data.objetivosTemporada || "Nenhuma meta definida.";
+            renderizarComandosJogo();
             renderizarChat('diretoria');
         }
 
@@ -102,6 +104,7 @@
                 if (jsonMatch) {
                     let res = JSON.parse(jsonMatch[0]);
                     db[currentSave].orcamento = Number(res.orcamentoLiberado) || 20;
+                    registrarComandoOrcamento(db[currentSave].orcamento, "Orçamento Inicial da Temporada");
                     let txt = `⚽ Liga: ${res.objLiga1}<br>⚽ Liga (Secundário): ${res.objLiga2}<br>🏆 Copa Nacional: ${res.objCopa}`;
                     if(res.objInternacional && res.objInternacional.trim() !== "") txt += `<br>🌍 Internacional (${continental}): ${res.objInternacional}`;
                     txt += `<br>💰 Finanças: ${res.objFinanceiro}`;
@@ -115,6 +118,7 @@
                 }
             } catch(err) {
                 db[currentSave].orcamento = 20;
+                registrarComandoOrcamento(20, "Orçamento Inicial da Temporada");
                 db[currentSave].objetivosTemporada = "⚽ Liga: Garantir permanência<br>🏆 Copas: Disputar com honra<br>💰 Finanças: Não gerar prejuízo";
             }
             esconderCarregandoIA();
@@ -126,7 +130,60 @@
                 db[currentSave].notaDiretoria = Math.max(0.0, Math.min(10.0, db[currentSave].notaDiretoria + variacao));
                 let elNota = document.getElementById('dir-nota-diretoria');
                 if (elNota) elNota.innerText = db[currentSave].notaDiretoria.toFixed(1) + " / 10";
+                registrarComandoPrestigioSeMudou();
             }
+        }
+
+        // --- CENTRAL DE COMANDOS PRO JOGO ---
+        // Toda vez que o Prestígio ou o Orçamento mudam no site, isso gera uma instrução
+        // pra você aplicar manualmente no seu save do EA FC.
+        function registrarComandoJogo(texto) {
+            let data = db[currentSave];
+            if (!data.comandosJogo) data.comandosJogo = [];
+            data.comandosJogo.unshift({ texto: texto, temporada: data.temporadaAtual, aplicado: false });
+            if (data.comandosJogo.length > 40) data.comandosJogo.length = 40;
+            salvarDados();
+            renderizarComandosJogo();
+        }
+
+        function registrarComandoPrestigioSeMudou() {
+            let data = db[currentSave];
+            let prestigio = Math.round((data.notaDiretoria || 0) * 10);
+            if (data.ultimoPrestigioRegistrado === prestigio) return; // já está registrado, evita comando repetido
+            data.ultimoPrestigioRegistrado = prestigio;
+            let elJogo = document.getElementById('dir-prestigio-jogo');
+            if (elJogo) elJogo.innerText = prestigio;
+            registrarComandoJogo(`🎮 Ajuste o Prestígio do Clube no jogo para ${prestigio}/100`);
+        }
+
+        function registrarComandoOrcamento(valor, motivo) {
+            registrarComandoJogo(`💰 Ajuste o Orçamento de Transferências no jogo para €${Number(valor).toFixed(2)}M (${motivo})`);
+        }
+
+        function marcarComandoAplicado(index) {
+            let data = db[currentSave];
+            if (data.comandosJogo && data.comandosJogo[index]) {
+                data.comandosJogo[index].aplicado = true;
+                salvarDados();
+                renderizarComandosJogo();
+            }
+        }
+
+        function renderizarComandosJogo() {
+            let container = document.getElementById('lista-comandos-jogo');
+            if (!container) return;
+            let data = db[currentSave];
+            let pendentes = (data.comandosJogo || []).map((c, i) => Object.assign({}, c, { indexOriginal: i })).filter(c => !c.aplicado);
+            if (pendentes.length === 0) {
+                container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Nenhum comando pendente.</p>';
+                return;
+            }
+            container.innerHTML = pendentes.map(c => `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--input-bg); padding:10px 12px; border-radius:8px;">
+                    <span style="font-size:13px;">${c.texto}<br><span style="font-size:11px; color:var(--text-muted);">Temporada ${c.temporada}</span></span>
+                    <button onclick="marcarComandoAplicado(${c.indexOriginal})" style="background:var(--primary); color:black; font-size:12px; padding:6px 10px; white-space:nowrap;">✅ Feito</button>
+                </div>
+            `).join('');
         }
 
         async function lerImagensIAJogadores(event) {

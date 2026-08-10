@@ -23,8 +23,8 @@
 };
 
         let db = {
-            clube: { nome: '', nomeTecnico: '', escalacaoSalvaIA: null, aprovacaoTorcida: 50, alvosTorcida: {}, liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } },
-            selecao: { nome: '', nomeTecnico: '', aprovacaoTorcida: 50, alvosTorcida: {}, liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } }
+            clube: { nome: '', nomeTecnico: '', escalacaoSalvaIA: null, comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 50, alvosTorcida: {}, liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } },
+            selecao: { nome: '', nomeTecnico: '', comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 50, alvosTorcida: {}, liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } }
         };
 
         const ligaMap = {

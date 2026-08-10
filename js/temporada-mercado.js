@@ -91,6 +91,7 @@ ${blocoAvaliacao}
                 if(match) {
                     let resAI = JSON.parse(match[0]);
                     db[currentSave].orcamento = Number(resAI.novoOrcamento) || 25;
+                    registrarComandoOrcamento(db[currentSave].orcamento, "Orçamento da Nova Temporada");
 
                     // --- NOVO SISTEMA DE NOTA: pontos fixos por objetivo cumprido/não cumprido, nunca "reseta" ---
                     if (objAnt) {
@@ -106,6 +107,7 @@ ${blocoAvaliacao}
                             resumoObjetivos.push(`${cumpriu ? '✅' : '❌'} ${nome}`);
                         });
                         db[currentSave].notaDiretoria = Math.max(0, Math.min(10, (db[currentSave].notaDiretoria || 6.5) + delta));
+                        registrarComandoPrestigioSeMudou();
                     }
 
                     let txt = `⚽ Liga: ${resAI.objLiga1}<br>⚽ Liga (Secundário): ${resAI.objLiga2}<br>🏆 Copa Nacional: ${resAI.objCopa}`;
@@ -121,7 +123,7 @@ ${blocoAvaliacao}
                         internacional: (resAI.objInternacional && novaContinental !== 'Nenhuma') ? resAI.objInternacional : ''
                     };
                 }
-            } catch(e) { db[currentSave].orcamento = 25; }
+            } catch(e) { db[currentSave].orcamento = 25; registrarComandoOrcamento(25, "Orçamento da Nova Temporada"); }
             esconderCarregandoIA();
 
             db[currentSave].gastoAtual = 0; db[currentSave].arrecadadoAtual = 0;
@@ -204,6 +206,7 @@ ${blocoAvaliacao}
 
                     if (ev.efeitoOrcamento && currentSave === 'clube') {
                         db.clube.orcamento = Math.max(0, (db.clube.orcamento || 0) + Number(ev.efeitoOrcamento));
+                        registrarComandoOrcamento(db.clube.orcamento, "Evento Inesperado nos Bastidores");
                     }
                     if (ev.efeitoNotaDiretoria) {
                         atualizarNotaDiretoria(Math.max(-0.3, Math.min(0.3, Number(ev.efeitoNotaDiretoria))));

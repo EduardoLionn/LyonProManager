@@ -80,6 +80,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
     let valorExtra = Math.min(Number(res.novoOrcamentoExtra), limiteDinamico);
     db[currentSave].negociacoesDiretoria = (db[currentSave].negociacoesDiretoria || 0) + 1;
     db[currentSave].orcamento += valorExtra;
+    registrarComandoOrcamento(db[currentSave].orcamento, "Verba Extra Liberada pela Diretoria");
     
     let dashOrc = document.getElementById('dash-dir-orcamento');
     if(dashOrc) dashOrc.innerText = "€" + db[currentSave].orcamento.toFixed(2) + "M";
