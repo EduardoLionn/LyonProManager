@@ -18,6 +18,10 @@
                 <label>Nome do Clube / Seleção</label>
                 <input type="text" id="setup-nome-time" placeholder="Ex: Lyon FC">
             </div>
+            <div class="linha-form">
+                <label>Nome do Técnico (Nome e Sobrenome)</label>
+                <input type="text" id="setup-nome-tecnico" list="lista-tecnicos" placeholder="Ex: Carlo Ancelotti (ou digite o seu)">
+            </div>
             <div class="linha-form" id="box-setup-temporada">
                 <label>Temporada Inicial (Para Clube)</label>
                 <select id="setup-temporada"></select>
@@ -75,6 +79,34 @@
                 </select>
             </div>
             <button style="width: 100%; margin-top: 15px;" onclick="iniciarSave()">Salvar e Começar</button>
+        </div>
+    </div>
+
+    <!-- LISTA DE TÉCNICOS REAIS (SUGESTÕES - O USUÁRIO PODE DIGITAR QUALQUER NOME) -->
+    <datalist id="lista-tecnicos">
+        <option value="Pep Guardiola"><option value="Jürgen Klopp"><option value="Carlo Ancelotti">
+        <option value="Diego Simeone"><option value="Xabi Alonso"><option value="Roberto De Zerbi">
+        <option value="Thomas Tuchel"><option value="Julian Nagelsmann"><option value="Mikel Arteta">
+        <option value="Unai Emery"><option value="Antonio Conte"><option value="Massimiliano Allegri">
+        <option value="Zinedine Zidane"><option value="Luis Enrique"><option value="Hansi Flick">
+        <option value="Ange Postecoglou"><option value="Enzo Maresca"><option value="Rúben Amorim">
+        <option value="Oliver Glasner"><option value="Gian Piero Gasperini"><option value="Igor Tudor">
+        <option value="Sérgio Conceição"><option value="José Mourinho"><option value="Rafael Benítez">
+        <option value="Marcelo Gallardo"><option value="Abel Ferreira"><option value="Fernando Diniz">
+        <option value="Dorival Júnior"><option value="Renato Portaluppi"><option value="Roger Machado">
+        <option value="Mano Menezes"><option value="Cuca"><option value="Vítor Pereira">
+    </datalist>
+
+    <!-- MODAL EDITAR NOME DO TÉCNICO -->
+    <div id="modal-editar-tecnico" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">✏️ Editar Nome do Técnico</h2>
+            <div class="linha-form">
+                <label>Nome do Técnico</label>
+                <input type="text" id="editar-tecnico-nome" list="lista-tecnicos">
+            </div>
+            <button style="width: 100%; margin-top: 15px;" onclick="salvarEdicaoTecnico()">Salvar</button>
+            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-editar-tecnico').style.display='none'">Cancelar</button>
         </div>
     </div>
 
@@ -301,6 +333,9 @@
                     <div id="header-forma-recente" class="forma-recente"></div> <!-- Bolinhas aqui -->
                 </h2>
                 <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size:14px; color:var(--text-muted); display:flex; align-items:center; gap:4px;">Técnico: <strong id="header-nome-tecnico" style="color:var(--primary); font-size:15px;">-</strong>
+                        <button onclick="abrirModalEditarTecnico()" title="Editar nome do técnico" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:0 4px;">✏️</button>
+                    </span>
                     <span style="font-size:14px; color:var(--text-muted);">Ciclo/Temporada: <strong id="header-temp-ano" style="color:var(--primary); font-size:16px;">25/26</strong></span>
                     <button onclick="concluirTemporadaAutomatica()" style="background: var(--gold); color: black;">🏁 Concluir Temporada</button>
                     <!-- Botão alterado para começar fechado e verde -->
