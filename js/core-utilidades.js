@@ -270,6 +270,7 @@ function toggleChatDiretoria() {
 
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('header-nome-time').innerText = config.nome;
+            document.getElementById('header-nome-tecnico').innerText = config.nomeTecnico || '-';
             document.getElementById('header-temp-ano').innerText = config.temporadaAtual;
 
             let selectComp = document.getElementById('partida-comp');

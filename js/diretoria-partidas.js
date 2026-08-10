@@ -1,12 +1,31 @@
         function iniciarSave() {
             let nome = document.getElementById('setup-nome-time').value.trim();
             if(!nome) return alert("Digite o nome da equipe!");
+            let nomeTecnico = document.getElementById('setup-nome-tecnico').value.trim();
+            if(!nomeTecnico) return alert("Digite o nome do técnico!");
+            if(!nomeTecnico.includes(' ')) return alert("Digite nome E sobrenome do técnico (ex: Carlo Ancelotti).");
             db[currentSave].nome = nome;
+            db[currentSave].nomeTecnico = nomeTecnico;
             db[currentSave].liga = document.getElementById('setup-liga').value;
             db[currentSave].temporadaAtual = currentSave === 'clube' ? document.getElementById('setup-temporada').value : document.getElementById('setup-ciclo').value;
-            adicionarNoticiaAutomatica(`🚨 O projeto começa: ${nome} inicia a temporada ${db[currentSave].temporadaAtual}.`, `A diretoria estabeleceu novas diretrizes ambiciosas para o início desta temporada do ${nome}. O planejamento envolve foco total no campeonato e buscar a solidificação tática sob a tutela do novo Manager.`);
+            adicionarNoticiaAutomatica(`🚨 O projeto começa: ${nome} inicia a temporada ${db[currentSave].temporadaAtual}.`, `A diretoria estabeleceu novas diretrizes ambiciosas para o início desta temporada do ${nome}. O planejamento envolve foco total no campeonato e buscar a solidificação tática sob a tutela do novo técnico, ${nomeTecnico}.`);
             salvarDados(); ajustarInterfaceSave();
             carregarPreferenciasTaticas();
+        }
+
+        function abrirModalEditarTecnico() {
+            document.getElementById('editar-tecnico-nome').value = db[currentSave].nomeTecnico || '';
+            document.getElementById('modal-editar-tecnico').style.display = 'flex';
+        }
+
+        function salvarEdicaoTecnico() {
+            let nome = document.getElementById('editar-tecnico-nome').value.trim();
+            if(!nome) return alert("Digite o nome do técnico!");
+            if(!nome.includes(' ')) return alert("Digite nome E sobrenome do técnico (ex: Carlo Ancelotti).");
+            db[currentSave].nomeTecnico = nome;
+            salvarDados();
+            ajustarInterfaceSave();
+            document.getElementById('modal-editar-tecnico').style.display = 'none';
         }
 
         async function resetarSave() {
