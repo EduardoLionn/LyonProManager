@@ -86,7 +86,7 @@
                 } else {
                     let partidaAtual = db[currentSave].partidaAuxiliar;
                     let escalacaoStr = (partidaAtual && partidaAtual.titulares)
-                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares: ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco: ${(partidaAtual.banco || []).map(b => b.nome).join(', ') || 'nenhum registrado'}.`
+                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares: ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco: ${(partidaAtual.banco || []).map(b => b.nome).join(', ') || 'nenhum registrado'}.${(partidaAtual.jogadoresForaDaPartida && partidaAtual.jogadoresForaDaPartida.length > 0) ? ` JÁ SAÍRAM DA PARTIDA E NÃO PODEM MAIS ENTRAR: ${partidaAtual.jogadoresForaDaPartida.join(', ')}.` : ''}`
                         : "Nenhuma partida declarada/escalação em campo no momento.";
 
                     let jogoAoVivo = partidaAtual && partidaAtual.status === 'em_andamento';
@@ -290,27 +290,22 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             if (!msg || !msg.sugestaoSub || msg.sugestaoSub.status !== 'pendente') return;
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || partida.status !== 'em_andamento') { alert('A partida não está mais ao vivo.'); renderizarChat('auxiliar'); return; }
-            if (!partida.substituicoes) partida.substituicoes = [];
-            if (partida.substituicoes.length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); renderizarChat('auxiliar'); return; }
+            if ((partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); renderizarChat('auxiliar'); return; }
 
             let sug = msg.sugestaoSub;
             let roleSai = Object.keys(partida.titulares).find(r => partida.titulares[r].nome === sug.jogadorSai);
             if (!roleSai) { alert(`${sug.jogadorSai} não está mais em campo — essa sugestão ficou desatualizada.`); return; }
             let jaEmCampo = Object.values(partida.titulares).some(j => j.nome === sug.jogadorEntra);
             if (jaEmCampo) { alert(`${sug.jogadorEntra} já está em campo.`); return; }
+            if ((partida.jogadoresForaDaPartida || []).includes(sug.jogadorEntra)) { alert(`${sug.jogadorEntra} já saiu da partida antes e não pode voltar.`); return; }
 
             let minutoStr = await promptModerno(`Em que minuto ${sug.jogadorEntra} entrou em campo?`, '', '⏱️ Minuto da Substituição');
             if (minutoStr === null) return;
             let minuto = parseInt(minutoStr, 10);
             if (isNaN(minuto) || minuto < 0 || minuto > 130) { alert('Digite um minuto válido (0 a 130).'); return; }
 
-            let saindo = partida.titulares[roleSai];
-            partida.titulares[roleSai] = { nome: sug.jogadorEntra, instrucao: sug.instrucao || 'Ajuste sugerido pelo Auxiliar.' };
-            partida.banco = (partida.banco || []).filter(b => b.nome !== sug.jogadorEntra);
-            let jogBDSai = db[currentSave].plantel.find(p => p.nome === saindo.nome);
-            partida.banco.unshift({ nome: saindo.nome, posicao: jogBDSai ? jogBDSai.posicao : '', papel: `Substituído — saiu aos ${minuto}'` });
-
-            partida.substituicoes.push({ minuto: minuto, saiu: saindo.nome, entrou: sug.jogadorEntra, instrucao: sug.instrucao || '', quando: Date.now() });
+            let ok = efetivarSubstituicao(roleSai, sug.jogadorEntra, minuto, sug.instrucao);
+            if (!ok) { alert('Não foi possível confirmar essa substituição.'); return; }
 
             sug.status = 'confirmada';
             sug.minutoConfirmado = minuto;
@@ -454,8 +449,8 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             } else {
                 let subsUsadas = (partida.substituicoes || []).length;
                 acoes.innerHTML = `
-                    <button onclick="abrirDeclararSubManual()" style="flex:1 1 100%; background:var(--warning); color:black; padding:12px;" ${subsUsadas >= 5 ? 'disabled' : ''}>🔁 Declarar Substituição (${subsUsadas}/5)</button>
-                    <button onclick="abrirMudarFormacaoManual()" style="background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
+                    <p style="flex:1 1 100%; text-align:center; font-size:12px; color:var(--text-muted); margin: 0 0 4px 0;">Substituições usadas: ${subsUsadas}/5 — clique num jogador em campo ou no banco pra declarar uma troca.</p>
+                    <button onclick="abrirMudarFormacaoManual()" style="flex:1; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
                     <button onclick="irRegistrarResultado()" style="flex:1 1 100%; background:var(--accent); color:white; padding:12px;">🏁 Ir Registrar Resultado no Dashboard</button>
                     <button class="btn-hero-secundario" onclick="cancelarPartidaDeclarada()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar Partida</button>`;
             }
@@ -509,7 +504,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                         let badgeSub = subInfo ? `<div class="jc-sub-badge ${vendoQuemSaiu ? 'saiu' : 'entrou'}" onclick="toggleSubBadge('${posObj.role}', event)" title="${tituloBadge}">${vendoQuemSaiu ? '▼' : '▲'}</div>` : '';
 
                         campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="abrirSeletorTroca('${posObj.role}')">
-                            <div class="jc-ovr">${ovrTxt}</div>
+                            <div class="jc-camisa"><span class="jc-ovr-label">OVR</span><span class="jc-ovr-num">${ovrTxt}</span></div>
                             <div class="jc-nome">${nomeExibido}</div>
                             ${badgeSub}
                             ${tooltipHTML}
@@ -706,7 +701,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             renderizarCampinhoLimpo();
         }
 
-        function abrirModalTroca(opcoesPrincipais, opcoesExtras, titulo, subtitulo) {
+        function abrirModalTroca(opcoesPrincipais, opcoesExtras, titulo, subtitulo, botaoExtra) {
             _trocaOpcoesAtuais = opcoesPrincipais || [];
             _trocaOpcoesExtras = opcoesExtras || [];
             document.getElementById('modal-trocar-titulo').innerText = `🔄 ${titulo}`;
@@ -715,6 +710,16 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             _renderizarListaTroca();
             let wrapVerTodos = document.getElementById('modal-trocar-ver-todos-wrap');
             if (wrapVerTodos) wrapVerTodos.style.display = _trocaOpcoesExtras.length > 0 ? 'block' : 'none';
+            let wrapExtra = document.getElementById('modal-trocar-botao-extra-wrap');
+            if (wrapExtra) {
+                if (botaoExtra) {
+                    wrapExtra.style.display = 'block';
+                    wrapExtra.innerHTML = `<button onclick="${botaoExtra.onclick}" style="width:100%; background:var(--warning); color:#14150F; padding:11px; font-weight:bold; border-radius:8px; border:none; cursor:pointer;">${botaoExtra.label}</button>`;
+                } else {
+                    wrapExtra.style.display = 'none';
+                    wrapExtra.innerHTML = '';
+                }
+            }
             document.getElementById('modal-trocar-jogador').style.display = 'flex';
         }
 
@@ -764,7 +769,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let posRelevantes = opcoesPosicao.filter(o => o.posicao && o.posicao.split('/')[0] === categoria);
             let posOutros = opcoesPosicao.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoria));
 
-            let opcoesFinal, opcoesExtras, subtitulo;
+            let opcoesFinal, opcoesExtras, subtitulo, botaoExtra = null;
 
             if (!aoVivo) {
                 // Pré-jogo: também dá pra trazer alguém do banco/elenco pra essa vaga (aí sim vira uma troca de escalação normal).
@@ -781,15 +786,18 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 opcoesExtras = posOutros.concat(bancoOutros);
                 subtitulo = 'Escolha outro titular pra trocar de posição, ou alguém do banco/elenco pra assumir essa vaga.';
             } else {
-                // Ao vivo: só dá pra trocar de posição entre quem já está em campo. Pra tirar alguém do banco, usa "Declarar Substituição".
+                // Ao vivo: só dá pra trocar de posição entre quem já está em campo direto na lista.
+                // Pra tirar alguém do banco tem que usar o botão de declarar substituição abaixo.
                 posRelevantes.sort((a, b) => b.ovr - a.ovr);
                 posOutros.sort((a, b) => b.ovr - a.ovr);
                 opcoesFinal = posRelevantes;
                 opcoesExtras = posOutros;
-                subtitulo = 'Partida ao vivo: só dá pra trocar de posição entre os titulares em campo (não gasta substituição). Pra tirar alguém do banco, use "🔁 Declarar Substituição".';
+                subtitulo = 'Troque de posição com outro titular (não gasta substituição), ou declare uma substituição do banco abaixo.';
+                let subsUsadas = (partida.substituicoes || []).length;
+                if (subsUsadas < 5) botaoExtra = { label: `🔁 Declarar Substituição (${subsUsadas}/5)`, onclick: `abrirDeclararSubParaSlot('${role}')` };
             }
 
-            abrirModalTroca(opcoesFinal, opcoesExtras, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo);
+            abrirModalTroca(opcoesFinal, opcoesExtras, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo, botaoExtra);
         }
 
         // Troca dois titulares de posição entre si — não mexe no banco, não conta como substituição.
@@ -820,89 +828,106 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             renderizarCampinhoLimpo();
         }
 
+        // Clicar num jogador do banco escolhe EM QUAL POSIÇÃO ele entra em campo — pré-jogo é uma troca normal
+        // (o titular daquela vaga vai pro banco), ao vivo dispara a declaração de substituição de verdade.
         function abrirSeletorTrocaBanco(idx) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || !Array.isArray(partida.banco) || !partida.banco[idx]) return;
             let atual = partida.banco[idx];
+            let aoVivo = partida.status === 'em_andamento';
 
-            let titularesNomes = Object.values(partida.titulares || {}).map(j => j.nome);
-            let bancoNomes = partida.banco.map(b => b.nome);
+            if (aoVivo && (partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
 
-            let candidatos = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome) && p.nome !== atual.nome);
-            candidatos.sort((a, b) => b.ovr - a.ovr);
-            let opcoes = candidatos.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: bancoNomes.includes(p.nome) ? 'Já no banco' : '', onSelect: () => trocarJogadorNoBanco(idx, p.nome) }));
+            let jogBDAtual = db[currentSave].plantel.find(p => p.nome === atual.nome);
+            let posicaoAtual = (jogBDAtual && jogBDAtual.posicao) ? jogBDAtual.posicao : (atual.posicao || '');
+            let categoriaJogador = posicaoAtual ? posicaoAtual.split('/')[0] : null;
 
-            abrirModalTroca(opcoes, [], `Trocar ${atual.nome || 'reserva'}`, 'Escolha quem entra nessa vaga do banco.');
+            let opcoesSlots = Object.entries(partida.titulares || {})
+                .filter(([r, j]) => j.nome && j.nome !== '???')
+                .map(([r, j]) => {
+                    let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
+                    let posTxt = jogBD ? jogBD.posicao : r;
+                    return {
+                        nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: `${posTxt} (${r})`, tag: '',
+                        _categoria: CATEGORIA_POR_ROLE[r],
+                        onSelect: () => aoVivo ? iniciarDeclaracaoSubstituicao(r, atual.nome) : trocarJogadorNoCampo(r, atual.nome)
+                    };
+                });
+
+            let relevantes = opcoesSlots.filter(o => o._categoria === categoriaJogador);
+            let outros = opcoesSlots.filter(o => o._categoria !== categoriaJogador);
+            relevantes.sort((a, b) => b.ovr - a.ovr);
+            outros.sort((a, b) => b.ovr - a.ovr);
+
+            let subtitulo = aoVivo
+                ? `Escolha quem ${atual.nome} substitui — isso vai gastar uma das 5 substituições e o outro jogador não volta mais pro jogo.`
+                : `Escolha em qual posição ${atual.nome} entra no time titular.`;
+
+            abrirModalTroca(relevantes, outros, `Colocar ${atual.nome || 'reserva'} em campo`, subtitulo);
         }
 
-        function trocarJogadorNoBanco(idx, novoNome) {
-            let partida = db[currentSave].partidaAuxiliar;
-            if (!partida || !Array.isArray(partida.banco) || !partida.banco[idx]) return;
-            let jogBD = db[currentSave].plantel.find(p => p.nome === novoNome);
+        // --- DECLARAR SUBSTITUIÇÃO (a única forma de tirar alguém do banco depois do apito inicial) ---
+        // Acessível clicando num titular em campo ("🔁 Declarar Substituição" abaixo da lista de troca de posição)
+        // ou clicando num jogador do banco (escolhendo em qual vaga ele entra).
 
-            partida.banco = partida.banco.filter((b, i) => i === idx || b.nome !== novoNome);
-            partida.banco[idx] = { nome: novoNome, posicao: jogBD ? jogBD.posicao : '', papel: 'Ajuste manual do treinador.' };
+        // Mutação pura do estado — sem prompts. O jogador que sai NÃO volta pro banco: fica fora
+        // da partida pro resto do jogo (regra do futebol), registrado em jogadoresForaDaPartida.
+        function efetivarSubstituicao(roleSai, nomeEntra, minuto, instrucao) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !partida.titulares) return false;
+            let saindo = partida.titulares[roleSai];
+            if (!saindo || !saindo.nome || saindo.nome === '???') return false;
+
+            partida.titulares[roleSai] = { nome: nomeEntra, instrucao: instrucao || 'Ajuste manual do treinador.' };
+            partida.banco = (partida.banco || []).filter(b => b.nome !== nomeEntra);
+
+            if (!partida.jogadoresForaDaPartida) partida.jogadoresForaDaPartida = [];
+            if (!partida.jogadoresForaDaPartida.includes(saindo.nome)) partida.jogadoresForaDaPartida.push(saindo.nome);
+
+            if (!partida.substituicoes) partida.substituicoes = [];
+            partida.substituicoes.push({ minuto: minuto, saiu: saindo.nome, entrou: nomeEntra, instrucao: instrucao || '', quando: Date.now() });
 
             salvarDados();
-            renderizarCampinhoLimpo();
+            return true;
         }
 
-        // --- DECLARAR SUBSTITUIÇÃO MANUAL (única forma de tirar alguém do banco depois do apito inicial) ---
-
-        function abrirDeclararSubManual() {
+        // Ponto de entrada contextual: pede o minuto e efetiva a troca. Usado tanto ao clicar num
+        // titular (escolhendo quem do banco entra) quanto ao clicar num jogador do banco (escolhendo o slot).
+        async function iniciarDeclaracaoSubstituicao(roleSai, nomeEntra, instrucao) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || partida.status !== 'em_andamento') return;
-            let subsUsadas = (partida.substituicoes || []).length;
-            if (subsUsadas >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
-
-            document.getElementById('modal-sub-contador').innerText = `Substituições usadas nesta partida: ${subsUsadas}/5.`;
-            document.getElementById('modal-sub-sai').innerHTML = Object.entries(partida.titulares)
-                .filter(([r, j]) => j.nome && j.nome !== '???')
-                .map(([r, j]) => `<option value="${r}">${j.nome} (${r})</option>`).join('');
-            document.getElementById('modal-sub-instrucao').value = '';
-            atualizarOpcoesEntraSub();
-            document.getElementById('modal-declarar-sub').style.display = 'flex';
-        }
-
-        function atualizarOpcoesEntraSub() {
-            let partida = db[currentSave].partidaAuxiliar;
-            if (!partida) return;
-            let banco = partida.banco || [];
-            document.getElementById('modal-sub-entra').innerHTML = banco.length > 0
-                ? banco.map(b => `<option value="${b.nome}">${b.nome}${b.posicao ? ' — ' + b.posicao : ''}</option>`).join('')
-                : '<option value="">Sem reservas disponíveis</option>';
-        }
-
-        async function confirmarDeclararSubManual() {
-            let partida = db[currentSave].partidaAuxiliar;
-            if (!partida || partida.status !== 'em_andamento') return;
-            if (!partida.substituicoes) partida.substituicoes = [];
-            if (partida.substituicoes.length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
-
-            let roleSai = document.getElementById('modal-sub-sai').value;
-            let nomeEntra = document.getElementById('modal-sub-entra').value;
-            let instrucao = document.getElementById('modal-sub-instrucao').value.trim();
-            if (!roleSai || !nomeEntra) { alert('Escolha quem sai e quem entra.'); return; }
-
-            let saindo = partida.titulares[roleSai];
-            if (!saindo) return;
-
-            document.getElementById('modal-declarar-sub').style.display = 'none';
+            if ((partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
+            if ((partida.jogadoresForaDaPartida || []).includes(nomeEntra)) { alert(`${nomeEntra} já saiu da partida antes e não pode voltar.`); return; }
 
             let minutoStr = await promptModerno(`Em que minuto ${nomeEntra} entrou em campo?`, '', '⏱️ Minuto da Substituição');
             if (minutoStr === null) return;
             let minuto = parseInt(minutoStr, 10);
             if (isNaN(minuto) || minuto < 0 || minuto > 130) { alert('Digite um minuto válido (0 a 130).'); return; }
 
-            partida.titulares[roleSai] = { nome: nomeEntra, instrucao: instrucao || 'Ajuste manual do treinador.' };
-            partida.banco = (partida.banco || []).filter(b => b.nome !== nomeEntra);
-            let jogBDSai = db[currentSave].plantel.find(p => p.nome === saindo.nome);
-            partida.banco.unshift({ nome: saindo.nome, posicao: jogBDSai ? jogBDSai.posicao : '', papel: `Substituído — saiu aos ${minuto}'` });
-
-            partida.substituicoes.push({ minuto: minuto, saiu: saindo.nome, entrou: nomeEntra, instrucao: instrucao || '', quando: Date.now() });
-
-            salvarDados();
+            let ok = efetivarSubstituicao(roleSai, nomeEntra, minuto, instrucao);
+            if (!ok) { alert('Não foi possível confirmar essa substituição.'); return; }
             renderizarAuxiliarPartida();
+        }
+
+        // Aberto pelo botão extra dentro do seletor de troca de um titular, quando a partida está ao vivo.
+        function abrirDeclararSubParaSlot(role) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento') return;
+            if ((partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
+
+            let categoria = CATEGORIA_POR_ROLE[role];
+            let fora = partida.jogadoresForaDaPartida || [];
+            let opcoesBanco = (partida.banco || []).filter(b => !fora.includes(b.nome)).map(b => {
+                let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
+                return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: 'Banco', onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome) };
+            });
+            let relevantes = opcoesBanco.filter(o => o.posicao && o.posicao.split('/')[0] === categoria);
+            let outros = opcoesBanco.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoria));
+            relevantes.sort((a, b) => b.ovr - a.ovr);
+            outros.sort((a, b) => b.ovr - a.ovr);
+
+            let nomeAtual = partida.titulares[role] ? partida.titulares[role].nome : role;
+            abrirModalTroca(relevantes, outros, `Declarar Substituição de ${nomeAtual}`, 'Escolha quem entra no lugar dele — isso vai gastar uma das 5 substituições e ele não volta mais pro jogo.');
         }
 
         // --- MUDAR FORMAÇÃO (sugerida pela IA ou manual, pré-jogo ou ao vivo) ---
@@ -975,6 +1000,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             partida.escalacaoInicial = JSON.parse(JSON.stringify(partida.titulares || {}));
             partida.bancoInicial = JSON.parse(JSON.stringify(partida.banco || []));
             partida.substituicoes = [];
+            partida.jogadoresForaDaPartida = [];
             partida.iniciadaEm = Date.now();
             pitchToggleSubView = {};
             salvarDados();
@@ -1114,7 +1140,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let saiuInfo = subs.find(s => s.saiu === nome);
                 let badgeSub = saiuInfo ? `<div class="jc-sub-out">🔻${saiuInfo.minuto}'</div>` : '';
                 return `<div class="jogador-campo jogador-campo-historico" style="top:${posObj.top}; left:${posObj.left};">
-                    <div class="jc-ovr">${notaObj ? notaObj.nota : '?'}</div>
+                    <div class="jc-camisa"><span class="jc-ovr-label">NOTA</span><span class="jc-ovr-num">${notaObj ? notaObj.nota : '?'}</span></div>
                     <div class="jc-nome">${nome}</div>
                     ${badgeSub}
                 </div>`;

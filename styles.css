@@ -214,7 +214,7 @@
 
         /* --- ESTILOS DO NOVO CAMPINHO E TOOLTIP --- */
         .campo-futebol-grande {
-            position: relative; width: 100%; max-width: 800px; aspect-ratio: 4/3; margin: 20px auto; overflow: hidden; border-radius: 14px;
+            position: relative; width: 100%; max-width: 800px; aspect-ratio: 4/3; margin: 20px auto; overflow: visible; border-radius: 14px;
             background:
                 repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0, rgba(255,255,255,0.035) 40px, transparent 40px, transparent 80px),
                 radial-gradient(ellipse at center, #1f6b3c 0%, #184f2d 70%, #123c22 100%);
@@ -249,14 +249,26 @@
             cursor: pointer; z-index: 10; transition: top 0.5s, left 0.5s, transform 0.15s;
         }
         .jogador-campo:hover { transform: translate(-50%, -50%) scale(1.08); }
-        .jogador-campo .jc-ovr {
-            width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(145deg, var(--primary), #c9962f);
-            color: #14150F; font-family: var(--font-display); font-weight: 700; font-size: 13px;
-            display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.45), 0 0 0 2px rgba(255,255,255,0.25);
+        /* Camisa de futebol — o OVR (ou a nota, no histórico) vira o número da camisa. Tamanho fluido:
+           encolhe em telas estreitas pra evitar sobreposição, já que a formação usa posições em %. */
+        .jogador-campo .jc-camisa {
+            box-sizing: border-box;
+            width: clamp(24px, 6vw, 40px); height: clamp(26px, 6.5vw, 42px); position: relative;
+            background: linear-gradient(160deg, var(--primary), #c9962f);
+            clip-path: polygon(20% 0%, 35% 0%, 50% 18%, 65% 0%, 80% 0%, 100% 24%, 84% 38%, 84% 100%, 16% 100%, 16% 38%, 0% 24%);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.25);
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 5px;
         }
+        .jogador-campo .jc-ovr-label { font-size: clamp(4px, 1.2vw, 6px); font-weight: 700; color: rgba(20,21,15,0.7); letter-spacing: 0.06em; line-height: 1; }
+        .jogador-campo .jc-ovr-num { font-family: var(--font-display); font-weight: 800; font-size: clamp(9px, 2.6vw, 15px); color: #14150F; line-height: 1.1; }
         .jogador-campo .jc-nome {
-            background: rgba(13, 21, 18, 0.92); color: white; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+            background: rgba(13, 21, 18, 0.92); color: white; font-size: clamp(7px, 2vw, 11px); font-weight: 700; padding: clamp(1px, 0.5vw, 3px) clamp(4px, 1.6vw, 9px); border-radius: 20px;
             white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+        }
+        /* Telas bem estreitas: o nome só cabe se a camisa ficar minúscula demais — some daqui e mostra
+           só no toque (o clique já abre o seletor com o nome no título) ou no hover em telas maiores. */
+        @media screen and (max-width: 420px) {
+            .jogador-campo .jc-nome { display: none; }
         }
         .jc-sub-badge {
             position: absolute; top: -6px; right: -6px; width: 17px; height: 17px; border-radius: 50%;

@@ -1385,31 +1385,8 @@
                     <div id="modal-trocar-ver-todos-wrap" style="display:none; text-align:center; margin-top:10px;">
                         <button id="btn-modal-trocar-ver-todos" onclick="expandirVerTodosTroca()" style="background:transparent; border:none; color:var(--accent); text-decoration:underline; cursor:pointer; font-size:12px; padding:4px;">Ver todos os jogadores</button>
                     </div>
+                    <div id="modal-trocar-botao-extra-wrap" style="display:none; margin-top:12px;"></div>
                     <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
-                </div>
-            </div>
-
-            <!-- MODAL: DECLARAR SUBSTITUIÇÃO (manual, durante o jogo ao vivo) -->
-            <div id="modal-declarar-sub" class="modal-troca-overlay" style="display: none;">
-                <div class="setup-box modal-troca-box">
-                    <h2 style="margin-top:0;">🔁 Declarar Substituição</h2>
-                    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;" id="modal-sub-contador">Escolha quem sai e quem entra.</p>
-                    <div class="linha-form">
-                        <label>Quem sai (titular)</label>
-                        <select id="modal-sub-sai" onchange="atualizarOpcoesEntraSub()"></select>
-                    </div>
-                    <div class="linha-form" style="margin-top:10px;">
-                        <label>Quem entra (banco)</label>
-                        <select id="modal-sub-entra"></select>
-                    </div>
-                    <div class="linha-form" style="margin-top:10px;">
-                        <label>Instrução tática pra quem entra (opcional)</label>
-                        <input type="text" id="modal-sub-instrucao" placeholder="Ex: Jogue mais recuado, marque o lateral">
-                    </div>
-                    <div style="display:flex; gap:10px; margin-top:15px;">
-                        <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarDeclararSubManual()">✅ Confirmar Substituição</button>
-                        <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-declarar-sub').style.display='none'">Cancelar</button>
-                    </div>
                 </div>
             </div>
 

@@ -65,7 +65,7 @@
                 {role: 'ATD', top: '20%', left: '60%'}, {role: 'ATE', top: '20%', left: '40%'}
             ],
             "3-5-2": [
-                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ZAD', top: '75%', left: '75%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '75%', left: '25%'},
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ZAD', top: '75%', left: '75%'}, {role: 'ZAC', top: '75%', left: '50%'}, {role: 'ZAE', top: '75%', left: '25%'},
                 {role: 'ALD', top: '50%', left: '90%'}, {role: 'VOLD', top: '60%', left: '65%'}, {role: 'VOLE', top: '60%', left: '35%'}, {role: 'ALE', top: '50%', left: '10%'}, {role: 'MEI', top: '40%', left: '50%'},
                 {role: 'ATD', top: '20%', left: '65%'}, {role: 'ATE', top: '20%', left: '35%'}
             ],
@@ -82,12 +82,12 @@
                 {role: 'ATA', top: '15%', left: '50%'}
             ],
             "3-4-3": [
-                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '82%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'},
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '78%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'},
                 {role: 'MD', top: '50%', left: '85%'}, {role: 'MCD', top: '55%', left: '60%'}, {role: 'MCE', top: '55%', left: '40%'}, {role: 'ME', top: '50%', left: '15%'},
                 {role: 'PD', top: '22%', left: '80%'}, {role: 'ATA', top: '15%', left: '50%'}, {role: 'PE', top: '22%', left: '20%'}
             ],
             "5-3-2": [
-                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '65%', left: '88%'}, {role: 'ZAD', top: '75%', left: '70%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '75%', left: '30%'}, {role: 'LAE', top: '65%', left: '12%'},
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '65%', left: '88%'}, {role: 'ZAD', top: '75%', left: '70%'}, {role: 'ZAC', top: '75%', left: '50%'}, {role: 'ZAE', top: '75%', left: '30%'}, {role: 'LAE', top: '65%', left: '12%'},
                 {role: 'MCD', top: '45%', left: '65%'}, {role: 'MC', top: '40%', left: '50%'}, {role: 'MCE', top: '45%', left: '35%'},
                 {role: 'ATD', top: '18%', left: '60%'}, {role: 'ATE', top: '18%', left: '40%'}
             ]
