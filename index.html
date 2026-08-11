@@ -1250,16 +1250,36 @@
                     </div>
                 </div>
 
-                <div style="background: rgba(0, 163, 255, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--accent); margin-bottom: 20px;">
-                    <h3 style="margin-top:0; font-size: 16px; color: var(--accent);">⚔️ Preparação para o Próximo Jogo</h3>
+                <div id="auxiliar-alerta-medico" style="padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); background: rgba(226,75,75,0.05); margin-bottom: 20px; font-size: 14px;"></div>
+
+                <!-- ESTADO: NENHUMA PARTIDA DECLARADA -->
+                <div id="auxiliar-estado-vazio" style="text-align:center; padding: 30px 15px; background: rgba(75,159,226,0.05); border: 1px dashed var(--accent); border-radius: 10px; margin-bottom: 20px;">
+                    <p style="color:var(--text-muted); margin-bottom:15px;">Nenhuma partida declarada. Mande um print do adversário e deixa que eu monto o plano.</p>
+                    <button onclick="abrirDeclararPartida()" style="padding: 14px 28px; font-size:15px; background: var(--accent); color:white;">🆚 Declarar Partida</button>
+                </div>
+
+                <!-- ETAPA: DECLARAR PARTIDA (scouting do adversário) -->
+                <div id="auxiliar-declarar-partida" style="display:none; background: rgba(0, 163, 255, 0.05); padding: 18px; border-radius: 8px; border: 1px solid var(--accent); margin-bottom: 20px;">
+                    <h3 style="margin-top:0; font-size: 16px; color: var(--accent);">🆚 Declarar Partida — Escanear Adversário</h3>
+                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">Manda um print da escalação provável do adversário e/ou das predefinições táticas dele. Se não tiver print, só digita o nome mesmo.</p>
                     <div class="grid-2">
+                        <label class="btn-upload" style="cursor:pointer; width:100%; box-sizing:border-box; text-align:center;" id="label-declarar-escalacao">
+                            📸 Print: Escalação Provável do Adversário
+                            <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, 'escalacao')">
+                        </label>
+                        <label class="btn-upload" style="cursor:pointer; width:100%; box-sizing:border-box; text-align:center;" id="label-declarar-tatica">
+                            📸 Print: Predefinições Táticas do Adversário
+                            <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, 'tatica')">
+                        </label>
+                    </div>
+                    <div class="grid-2" style="margin-top:15px;">
                         <div class="linha-form">
-                            <label style="color:var(--accent);">Próximo Adversário</label>
-                            <input type="text" id="auxiliar-adv" placeholder="Ex: Real Madrid" style="background: var(--bg-dark);">
+                            <label style="color:var(--accent);">Nome do Adversário (se não tiver print, ou pra confirmar)</label>
+                            <input type="text" id="declarar-adv-nome" placeholder="Ex: Real Madrid" style="background: var(--bg-dark);">
                         </div>
                         <div class="linha-form">
                             <label style="color:var(--warning);">Diretriz Estratégica</label>
-                            <select id="auxiliar-diretriz" style="background: var(--bg-dark);">
+                            <select id="declarar-adv-diretriz" style="background: var(--bg-dark);">
                                 <option value="Força máxima dentro do possível (Respeitando limites de cansaço)">Força Máxima Possível (Recomendado)</option>
                                 <option value="Rodízio extremo (Poupar os titulares para o jogo seguinte)">Rodízio Extremo (Poupar titulares)</option>
                                 <option value="Força total absoluta (Ignorar cansaço, ir pro tudo ou nada)">Força Total Absoluta (Risco de Lesão)</option>
@@ -1271,27 +1291,51 @@
                             </select>
                         </div>
                     </div>
-                    <button id="btn-pedir-ia" onclick="pedirEscalacaoIA()" style="width: 100%; margin-top: 10px; padding: 12px; font-size: 15px; background: var(--accent); color: white;">
-                        ⚙️ Gerar Escalação e Funções Táticas (IA)
-                    </button>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button id="btn-declarar-partida-ia" onclick="declararPartidaIA()" style="flex:1; padding: 12px; font-size: 15px; background: var(--accent); color: white;">
+                            🔍 Analisar Adversário e Montar Escalação (IA)
+                        </button>
+                        <button class="btn-hero-secundario" style="flex: 0 0 auto;" onclick="fecharDeclararPartida()">Cancelar</button>
+                    </div>
                 </div>
 
-                <div id="auxiliar-alerta-medico" style="padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); background: rgba(226,75,75,0.05); margin-bottom: 20px; font-size: 14px;"></div>
+                <!-- ESTADO: PARTIDA DECLARADA / EM ANDAMENTO -->
+                <div id="auxiliar-partida-ativa" style="display:none;">
+                    <div id="auxiliar-banner-partida" style="padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; font-size:14px;"></div>
 
-                <div id="auxiliar-analise-ia" style="display:none; background: rgba(75,159,226,0.08); border:1px solid var(--accent); border-radius:8px; padding:15px; margin: 0 0 15px 0; font-size:14px; line-height:1.5;"></div>
+                    <div id="auxiliar-analise-ia" style="display:none; background: rgba(75,159,226,0.08); border:1px solid var(--accent); border-radius:8px; padding:15px; margin: 0 0 15px 0; font-size:14px; line-height:1.5;"></div>
 
-                                <p style="text-align:center; font-size: 13px; color: var(--text-muted); margin-bottom: 5px;">Passe o mouse (ou segure) no jogador para ler as ordens da IA.</p>
-                <div class="campo-futebol-grande" id="campo-futebol-ui">
-                    <div class="area-penalti-top"></div>
-                    <div class="area-penalti-bot"></div>
+                    <p style="text-align:center; font-size: 13px; color: var(--text-muted); margin-bottom: 5px;">Clique num jogador em campo pra trocar. Passe o mouse pra ler as orientações.</p>
+                    <div class="campo-futebol-grande" id="campo-futebol-ui">
+                        <div class="area-penalti-top"></div>
+                        <div class="area-penalti-bot"></div>
+                    </div>
+
+                    <div id="auxiliar-banco-reservas" style="display:none; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-top: 15px;"></div>
+
+                    <div id="auxiliar-acoes-partida" style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;"></div>
                 </div>
-
-                <div id="auxiliar-banco-reservas" style="display:none; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-top: 15px;"></div>
 
                 <!-- BOTÃO PARA EXIBIR/OCULTAR CHAT -->
                 <button id="btn-toggle-chat-aux" onclick="toggleChatAuxiliar()" style="width: 100%; margin-top: 15px; background: var(--panel-bg); border: 1px solid var(--accent); color: var(--accent); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
                     💬 Abrir Painel de Instruções Diretas e Conversa (Chat)
                 </button>
+            </div>
+
+            <!-- HISTÓRICO DE PARTIDAS DO AUXILIAR -->
+            <div class="panel">
+                <h2 style="margin: 0 0 15px 0; font-size:20px;">📂 Histórico de Partidas</h2>
+                <div id="auxiliar-historico-partidas"></div>
+            </div>
+
+            <!-- MODAL: TROCAR JOGADOR NA ESCALAÇÃO -->
+            <div id="modal-trocar-jogador" style="display: none;">
+                <div class="setup-box">
+                    <h2 style="margin-top:0;" id="modal-trocar-titulo">🔄 Trocar Jogador</h2>
+                    <p style="font-size:13px; color:var(--text-muted);">Escolha quem entra no lugar dele.</p>
+                    <div id="modal-trocar-lista" style="display:flex; flex-direction:column; gap:8px; max-height: 350px; overflow-y:auto;"></div>
+                    <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
+                </div>
             </div>
 
             <!-- CHAT DO AUXILIAR (AGORA ESCONDIDO POR PADRÃO com display: none) -->

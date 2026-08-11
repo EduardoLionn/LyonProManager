@@ -245,7 +245,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-historico') renderizarHistorico();
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); checarNovidadesIA('diretoria'); }
             if(abaId === 'tab-medico') { atualizarDepartamentoMedicoUI(); }
-            if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarCampinhoLimpo(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
+            if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarAuxiliarPartida(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
         }
 

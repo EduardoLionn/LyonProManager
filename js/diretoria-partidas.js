@@ -410,7 +410,7 @@
 
         function editarJogadorTemp(idTemp) { toggleEditInline(idTemp); }
 
-        function salvarPartida() {
+        async function salvarPartida() {
             let golsP = Number(document.getElementById('gols-pro').value); let golsC = Number(document.getElementById('gols-contra').value);
             let adv = document.getElementById('adversario').value || "Adversário"; let penaltis = document.getElementById('vitoria-penaltis').checked;
             let diasPassados = parseInt(document.getElementById('partida-dias-proxima')?.value) || 3;
@@ -512,8 +512,17 @@
             // Gera a repercussão do jogo na Rede Social
             gerarPostsSocial("Pós-Jogo contra o " + adv);
 
+            // Se havia uma partida declarada no Auxiliar Técnico pra esse jogo, fecha o ciclo:
+            // avaliação pós-jogo, arquivo no histórico e limpa a partida em aberto.
+            let tinhaPartidaAuxiliar = !!db[currentSave].partidaAuxiliar;
+            if (tinhaPartidaAuxiliar && typeof finalizarPartidaAuxiliar === 'function') {
+                mostrarCarregandoIA('⏳ O Auxiliar Técnico está avaliando a partida...');
+                await finalizarPartidaAuxiliar(golsP, golsC, adv);
+                esconderCarregandoIA();
+            }
+
             salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
-            contadorPartidasEvento++; if(contadorPartidasEvento >= limitePartidasEvento) { gerarEventoAleatorio(); contadorPartidasEvento = 0; limitePartidasEvento = gerarNumeroAleatorio(8, 14); } else { alert("Partida salva!"); }
+            contadorPartidasEvento++; if(contadorPartidasEvento >= limitePartidasEvento) { gerarEventoAleatorio(); contadorPartidasEvento = 0; limitePartidasEvento = gerarNumeroAleatorio(8, 14); } else { alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!"); }
             atualizarFiltroTemporadas(); desenharGraficos(); preencherDatalistJogadores();
         }
 

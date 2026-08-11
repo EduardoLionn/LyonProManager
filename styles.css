@@ -137,8 +137,23 @@
         .area-penalti-top { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 250px; height: 100px; border: 2px solid rgba(255,255,255,0.5); border-top: none; }
         .area-penalti-bot { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 250px; height: 100px; border: 2px solid rgba(255,255,255,0.5); border-bottom: none; }
         
-        .jogador-campo { position: absolute; transform: translate(-50%, -50%); background: var(--panel-bg); border: 2px solid var(--primary); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; text-align: center; color: white; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: top 0.5s, left 0.5s; z-index: 10;}
+        .jogador-campo { position: absolute; transform: translate(-50%, -50%); background: var(--panel-bg); border: 2px solid var(--primary); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; text-align: center; color: white; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: top 0.5s, left 0.5s; z-index: 10; cursor: pointer;}
+        .jogador-campo:hover { border-color: var(--accent); }
         .jogador-campo span { display: block; font-size: 9px; color: var(--text-muted); }
+
+        /* --- HISTÓRICO DE PARTIDAS DO AUXILIAR --- */
+        .historico-partida-card { background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+        .historico-partida-header { display: flex; align-items: center; gap: 15px; padding: 14px 18px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; }
+        .historico-partida-header:hover { background: rgba(255,255,255,0.03); }
+        .historico-partida-header strong { color: white; flex: 1; }
+        .historico-partida-detalhes { padding: 0 18px 18px 18px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; }
+        .historico-partida-detalhes p { margin: 12px 0 0 0; }
+        .historico-titulares-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+        .historico-titulares-grid strong { display: block; color: var(--primary); margin-bottom: 6px; font-size: 12px; text-transform: uppercase; }
+
+        .trocar-jogador-opcao { display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; cursor: pointer; transition: 0.15s; }
+        .trocar-jogador-opcao:hover { border-color: var(--primary); background: rgba(232, 184, 75, 0.08); }
+        .trocar-jogador-opcao span { font-size: 12px; color: var(--text-muted); }
 
 /* --- NOVOS ESTILOS: KPIs e Forma Recente --- */
         .kpi-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
