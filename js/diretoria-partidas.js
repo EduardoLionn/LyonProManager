@@ -1,18 +1,3 @@
-        function iniciarSave() {
-            let nome = document.getElementById('setup-nome-time').value.trim();
-            if(!nome) return alert("Digite o nome da equipe!");
-            let nomeTecnico = document.getElementById('setup-nome-tecnico').value.trim();
-            if(!nomeTecnico) return alert("Digite o nome do técnico!");
-            if(!nomeTecnico.includes(' ')) return alert("Digite nome E sobrenome do técnico (ex: Carlo Ancelotti).");
-            db[currentSave].nome = nome;
-            db[currentSave].nomeTecnico = nomeTecnico;
-            db[currentSave].liga = document.getElementById('setup-liga').value;
-            db[currentSave].temporadaAtual = currentSave === 'clube' ? document.getElementById('setup-temporada').value : document.getElementById('setup-ciclo').value;
-            adicionarNoticiaAutomatica(`🚨 O projeto começa: ${nome} inicia a temporada ${db[currentSave].temporadaAtual}.`, `A diretoria estabeleceu novas diretrizes ambiciosas para o início desta temporada do ${nome}. O planejamento envolve foco total no campeonato e buscar a solidificação tática sob a tutela do novo técnico, ${nomeTecnico}.`);
-            salvarDados(); ajustarInterfaceSave();
-            carregarPreferenciasTaticas();
-        }
-
         function abrirModalEditarTecnico() {
             document.getElementById('editar-tecnico-nome').value = db[currentSave].nomeTecnico || '';
             document.getElementById('modal-editar-tecnico').style.display = 'flex';
@@ -30,8 +15,8 @@
 
         async function resetarSave() {
             if(await confirmarModerno(`Tem certeza que deseja APAGAR TODO O PROGRESSO do slot: ${currentSave}?`, "Apagar Todo o Progresso", { perigo: true, textoConfirmar: "Apagar Tudo" })) {
-                if(currentSave === 'clube') db.clube = { nome: '', liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem<br>💰 Finanças: Manter os salários controlados', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
-                else db.selecao = { nome: '', liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
+                if(currentSave === 'clube') db.clube = { nome: '', saveName: '', liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem<br>💰 Finanças: Manter os salários controlados', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
+                else db.selecao = { nome: '', saveName: '', liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
                 salvarDados(); location.reload();
             }
         }
@@ -41,9 +26,9 @@
             if (!data.diretoriaConfigurada) {
                 document.getElementById('modal-setup-diretoria').style.display = 'flex';
                 // Oculta a continental se for seleção
-                let boxCont = document.getElementById('box-setup-continental');
+                let boxCont = document.getElementById('legacy-box-continental');
                 if(boxCont) boxCont.style.display = currentSave === 'clube' ? 'flex' : 'none';
-                return; 
+                return;
             }
             document.getElementById('diretoria-dashboard').style.display = 'block';
 
@@ -60,12 +45,16 @@
             renderizarChat('diretoria');
         }
 
-        async function salvarSetupDiretoria() {
-            let mediaGasto = Number(document.getElementById('setup-dir-media-gasto').value) || 0;
-            let mediaArrecadacao = Number(document.getElementById('setup-dir-media-arrecadacao').value) || 0;
-            let titulos = Number(document.getElementById('setup-dir-titulos').value) || 0;
-            let posicaoMedia = Number(document.getElementById('setup-dir-posicao').value) || 5;
-            let continental = currentSave === 'clube' ? document.getElementById('setup-dir-continental').value : 'Nenhuma';
+        // Função reutilizável: recebe o histórico das últimas 5 temporadas e pede pra IA
+        // definir o orçamento inicial + metas da diretoria. Usada tanto pelo assistente de
+        // Novo Jogo quanto pelo modal antigo (fallback para saves criados antes dessa versão).
+        async function definirMetasDiretoriaIA(mediaGasto, mediaArrecadacao, titulos, posicaoMedia, posicaoCopaMedia, continental) {
+            mediaGasto = Number(mediaGasto) || 0;
+            mediaArrecadacao = Number(mediaArrecadacao) || 0;
+            titulos = Number(titulos) || 0;
+            posicaoMedia = Number(posicaoMedia) || 5;
+            posicaoCopaMedia = (posicaoCopaMedia || '').toString().trim() || 'Fase inicial';
+            continental = currentSave === 'clube' ? (continental || 'Nenhuma') : 'Nenhuma';
 
             db[currentSave].mediaGastoHistorico = mediaGasto;
             db[currentSave].mediaArrecadadoHistorico = mediaArrecadacao;
@@ -73,25 +62,25 @@
             db[currentSave].notaDiretoria = 6.5;
 
             let promptIA = `Atue como a Diretoria do clube/seleção "${db[currentSave].nome}" (Liga/Tier atual: ${db[currentSave].liga}).
-            Histórico (5 anos): Gasto Médio: €${mediaGasto}M, Arrecadação Média: €${mediaArrecadacao}M, Títulos: ${titulos}, Posição Média: ${posicaoMedia}º. Competição Internacional atual: ${continental}.
+            Histórico (5 anos): Gasto Médio: €${mediaGasto}M, Arrecadação Média: €${mediaArrecadacao}M, Títulos: ${titulos}, Posição Média na Liga: ${posicaoMedia}º, Desempenho Médio na Copa Nacional: ${posicaoCopaMedia}. Competição Internacional atual: ${continental}.
             Defina o orçamento inicial e os objetivos. Siga ESTRITAMENTE as regras para NÃO SER GENÉRICO, REDUNDANTE OU IRREAL:
             - CONTEXTO E REALISMO: Se o time está em divisões inferiores ou tem posição média ruim, seja realista. Não exija títulos ou fases avançadas em copas (exija apenas focar na liga ou passar da 1ª fase da copa).
             - DADOS RASTREÁVEIS: O sistema NÃO rastreia idade de jogadores, nem minutos jogados em campo. É PROIBIDO criar metas sobre idade ou minutos. Use apenas métricas visíveis: Gols, Assistências, Saldo de Gols, Contratações, Vendas, Vitórias, e OVR.
             - objLiga1: A meta principal na tabela (ex: Título, Acesso, Top 10, Evitar rebaixamento).
             - objLiga2: Uma meta RASTREÁVEL E DIFERENTE DA PRIMEIRA (ex: Terminar com saldo de gols positivo, Ter o artilheiro, etc. NÃO REPITA A META DA LIGA 1).
-            - objCopa e objInternacional: Seja realista conforme o nível do time. NÃO REPITA OS OBJETIVOS ACIMA.
+            - objCopa: Use o "Desempenho Médio na Copa Nacional" informado como referência de realismo (ex: se historicamente cai nas quartas, não exija título; exija talvez chegar às semifinais). NÃO REPITA OS OBJETIVOS ACIMA.
+            - objInternacional: Seja realista conforme o nível do time. NÃO REPITA OS OBJETIVOS ACIMA.
             - objFinanceiro: Um objetivo MATEMÁTICO CLARO baseado nas métricas reais do jogo (Valor Gasto e Valor Arrecadado). Use APENAS exigências como "Arrecadar €X em vendas", "Limitar os gastos a €X" ou "Terminar com Saldo Positivo (Arrecadação maior que Gasto)". NUNCA use termos abstratos como "margem de lucro" ou "lucro de X%".
             Retorne EXATAMENTE um objeto JSON puro:
-            { 
-              "orcamentoLiberado": 30.0, 
-              "objLiga1": "texto", 
-              "objLiga2": "texto", 
-              "objCopa": "texto", 
-              "objInternacional": "texto (ou vazio se Nenhuma)", 
-              "objFinanceiro": "texto" 
+            {
+              "orcamentoLiberado": 30.0,
+              "objLiga1": "texto",
+              "objLiga2": "texto",
+              "objCopa": "texto",
+              "objInternacional": "texto (ou vazio se Nenhuma)",
+              "objFinanceiro": "texto"
             }`;
 
-            document.getElementById('modal-setup-diretoria').style.display = 'none';
             mostrarCarregandoIA('⏳ A diretoria está definindo o orçamento e as metas...');
             try {
                 const response = await fetch(API_URL, {
@@ -122,7 +111,22 @@
                 db[currentSave].objetivosTemporada = "⚽ Liga: Garantir permanência<br>🏆 Copas: Disputar com honra<br>💰 Finanças: Não gerar prejuízo";
             }
             esconderCarregandoIA();
-            db[currentSave].diretoriaConfigurada = true; salvarDados(); atualizarDiretoriaUI();
+            db[currentSave].diretoriaConfigurada = true;
+        }
+
+        // Fallback: modal antigo, usado só quando um save já tem "nome" mas ainda não passou
+        // pelo novo assistente de Novo Jogo (ex: saves criados antes dessa versão).
+        async function salvarSetupDiretoria() {
+            let mediaGasto = document.getElementById('legacy-dir-media-gasto').value;
+            let mediaArrecadacao = document.getElementById('legacy-dir-media-arrecadacao').value;
+            let titulos = document.getElementById('legacy-dir-titulos').value;
+            let posicaoMedia = document.getElementById('legacy-dir-posicao').value;
+            let posicaoCopaMedia = document.getElementById('legacy-dir-posicao-copa').value;
+            let continental = currentSave === 'clube' ? document.getElementById('legacy-dir-continental').value : 'Nenhuma';
+
+            document.getElementById('modal-setup-diretoria').style.display = 'none';
+            await definirMetasDiretoriaIA(mediaGasto, mediaArrecadacao, titulos, posicaoMedia, posicaoCopaMedia, continental);
+            salvarDados(); atualizarDiretoriaUI();
         }
 
         function atualizarNotaDiretoria(variacao) {

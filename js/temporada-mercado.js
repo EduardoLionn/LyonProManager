@@ -133,6 +133,8 @@ ${blocoAvaliacao}
                 let ano = parseInt(db.clube.temporadaAtual.split('/')[0]); db.clube.temporadaAtual = `${ano+1}/${ano+2}`; 
                 
                 db.clube.plantel.forEach(p => {
+                    if (typeof p.idade === 'number') p.idade++; // +1 ano de idade a cada temporada que passa
+
                     if (p.status === 'Emprestado' && p.temporadasEmprestimo > 0) {
                         p.temporadasEmprestimo--; 
                         if (p.temporadasEmprestimo <= 0) {
@@ -237,8 +239,11 @@ ${blocoAvaliacao}
         function cadastrarJogadorBase() {
             if(currentSave !== 'clube') return;
             let nome = document.getElementById('cad-nome').value.trim(); if(!nome) return;
-            db.clube.plantel.push({ nome: nome, posicao: document.getElementById('cad-pos').value, ovr: Number(document.getElementById('cad-ovr').value), status: 'Ativo', jogosAvaliacao: 0 });
-            salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); document.getElementById('cad-nome').value = '';
+            let idadeVal = document.getElementById('cad-idade').value;
+            let novoJog = { nome: nome, posicao: document.getElementById('cad-pos').value, ovr: Number(document.getElementById('cad-ovr').value), status: 'Ativo', jogosAvaliacao: 0 };
+            if (idadeVal) novoJog.idade = Number(idadeVal);
+            db.clube.plantel.push(novoJog);
+            salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); document.getElementById('cad-nome').value = ''; document.getElementById('cad-idade').value = '';
         }
 
 // --- NOVO GERADOR DINÂMICO DE NOTÍCIAS DE MERCADO ---
@@ -342,25 +347,28 @@ ${blocoAvaliacao}
             }
             
             let jogadorExistente = db.clube.plantel.find(p => p.nome.toLowerCase() === nomeNovo.toLowerCase());
-            
+            let idadeVal = document.getElementById('add-idade').value;
+
             if (jogadorExistente) {
                 jogadorExistente.status = 'Ativo';
                 jogadorExistente.origem = tipoTransicao;
                 jogadorExistente.ovr = Number(document.getElementById('add-ovr').value);
                 jogadorExistente.posicao = document.getElementById('add-pos').value;
                 jogadorExistente.valor = custo;
+                if (idadeVal) jogadorExistente.idade = Number(idadeVal);
                 if (tipoTransicao === 'EmprestadoIn') jogadorExistente.temporadasEmprestimo = duracao;
             } else {
-                let novoJog = { 
-                    nome: nomeNovo, posicao: document.getElementById('add-pos').value, 
-                    ovr: Number(document.getElementById('add-ovr').value), status: 'Ativo', 
-                    origem: tipoTransicao, valor: custo, jogosAvaliacao: 0 
+                let novoJog = {
+                    nome: nomeNovo, posicao: document.getElementById('add-pos').value,
+                    ovr: Number(document.getElementById('add-ovr').value), status: 'Ativo',
+                    origem: tipoTransicao, valor: custo, jogosAvaliacao: 0
                 };
+                if (idadeVal) novoJog.idade = Number(idadeVal);
                 if (tipoTransicao === 'EmprestadoIn') novoJog.temporadasEmprestimo = duracao;
                 db.clube.plantel.push(novoJog);
             }
-            
-            salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); 
+
+            salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores();
             alert(tipoTransicao === 'EmprestadoIn' ? "Jogador adicionado por empréstimo!" : "Contratação realizada!");
             checarEmbargoMercado();
 
@@ -369,6 +377,7 @@ ${blocoAvaliacao}
             adicionarNoticiaAutomatica(noticiaDin.titulo, noticiaDin.detalhe);
             
             document.getElementById('add-nome').value = '';
+            document.getElementById('add-idade').value = '';
         }
 
         async function editarValorTransferencia(nome) {
@@ -505,6 +514,7 @@ ${blocoAvaliacao}
             if(jog) {
                 document.getElementById('edit-jog-nome-original').value = jog.nome; document.getElementById('edit-jog-nome').value = jog.nome;
                 document.getElementById('edit-jog-pos').value = jog.posicao; document.getElementById('edit-jog-ovr').value = jog.ovr;
+                document.getElementById('edit-jog-idade').value = jog.idade || '';
                 document.getElementById('modal-editar-jogador').style.display = 'flex';
             }
         }
@@ -519,6 +529,8 @@ ${blocoAvaliacao}
                     db[currentSave].partidas.forEach(partida => { let jogPartida = partida.jogadores.find(j => j.nome === nomeOriginal); if(jogPartida) jogPartida.nome = novoNome; });
                 }
                 jog.nome = novoNome; jog.posicao = document.getElementById('edit-jog-pos').value; jog.ovr = Number(document.getElementById('edit-jog-ovr').value);
+                let idadeVal = document.getElementById('edit-jog-idade').value;
+                if (idadeVal) jog.idade = Number(idadeVal); else delete jog.idade;
                 salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); document.getElementById('modal-editar-jogador').style.display = 'none';
             }
         }

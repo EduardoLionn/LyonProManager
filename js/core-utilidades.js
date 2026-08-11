@@ -262,13 +262,12 @@ function toggleChatDiretoria() {
             }
 
             if (!config.nome) {
-                document.getElementById('setup-screen').style.display = 'flex';
-                document.getElementById('box-setup-temporada').style.display = currentSave === 'clube' ? 'flex' : 'none';
-                document.getElementById('box-setup-ciclo').style.display = currentSave === 'selecao' ? 'flex' : 'none';
+                if (typeof iniciarTelaNovoJogo === 'function') iniciarTelaNovoJogo();
                 return;
             }
 
-            document.getElementById('setup-screen').style.display = 'none';
+            let wizardEl = document.getElementById('wizard-novo-jogo');
+            if (wizardEl) wizardEl.style.display = 'none';
             document.getElementById('header-nome-time').innerText = config.nome;
             document.getElementById('header-nome-tecnico').innerText = config.nomeTecnico || '-';
             document.getElementById('header-temp-ano').innerText = config.temporadaAtual;

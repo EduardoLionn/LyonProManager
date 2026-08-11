@@ -59,19 +59,26 @@ function atualizarKPIsEForma(pFiltradas) {
             document.getElementById('kpi-garcom').innerText = garcom && garcom.assist > 0 ? `${garcom.nome} (${garcom.assist})` : "-";
         }
 
+// Atualiza o indicador de carregamento tanto na aba "Elenco" quanto na etapa de Elenco do assistente de Novo Jogo
+function atualizarLoaderPlantel(texto) {
+    let el1 = document.getElementById('loader-plantel-text');
+    if (el1) el1.innerText = texto;
+    let el2 = document.getElementById('wizard-loader-elenco');
+    if (el2) el2.innerText = texto;
+}
+
 async function lerImagensIAPlantel(event) {
             if (currentSave !== 'clube') return alert("Apenas para o modo Clube!");
-            
+
             const files = event.target.files;
             if (!files || files.length === 0) return;
 
-            let loaderText = document.getElementById('loader-plantel-text');
-            if (loaderText) loaderText.innerText = "Iniciando leitura...";
+            atualizarLoaderPlantel("Iniciando leitura...");
 
             // Loop para ler várias imagens selecionadas de uma vez
             for (let i = 0; i < files.length; i++) {
                 let file = files[i];
-                if (loaderText) loaderText.innerText = `Lendo imagem ${i + 1} de ${files.length}... aguarde`;
+                atualizarLoaderPlantel(`Lendo imagem ${i + 1} de ${files.length}... aguarde`);
 
                 // Converte a imagem em Base64 para enviar para a IA
                 let base64Data = await new Promise((resolve) => {
@@ -82,7 +89,7 @@ async function lerImagensIAPlantel(event) {
 
                 // Prompt detalhado mapeando exatamente as posições solicitadas
                 let prompt = `Analise a imagem da tela de "Central do Elenco" de um jogo de futebol.
-Existem colunas mostrando a Posição, Nome e GER/OVR.
+Existem colunas mostrando a Posição, Nome, GER/OVR e, se disponível, a Idade.
 Extraia TODOS os jogadores da lista visíveis na imagem.
 
 ATENÇÃO AO MAPEAMENTO DE POSIÇÕES (Você deve traduzir a sigla do jogo para as posições do nosso sistema):
@@ -97,10 +104,11 @@ ATENÇÃO AO MAPEAMENTO DE POSIÇÕES (Você deve traduzir a sigla do jogo para 
 - Se a sigla for "ATA", "MEI", "ATD", "ATE", "SA", "CA" -> use "Atacante/Versátil"
 
 O nome deve ser copiado exatamente como está na tela (ex: O. Vlachodimos).
+Se a idade do jogador estiver visível na tela, extraia como número em "idade". Se não estiver visível, omita o campo (não invente um valor).
 Retorne APENAS um array JSON válido e puro, sem marcações markdown como \`\`\`json.
 Exemplo do formato exigido:
 [
-  {"nome": "O. Vlachodimos", "posicao": "Goleiro", "ovr": 79},
+  {"nome": "O. Vlachodimos", "posicao": "Goleiro", "ovr": 79, "idade": 30},
   {"nome": "Marcão", "posicao": "Defesa", "ovr": 74}
 ]`;
 
@@ -111,43 +119,50 @@ Exemplo do formato exigido:
                     });
                     const data = await response.json();
                     let rawText = data.candidates[0].content.parts[0].text;
-                    
+
                     // Extrai o Array JSON da resposta da IA
                     let jsonMatch = rawText.match(/\[[\s\S]*\]/);
                     if (jsonMatch) {
                         let jogadoresExtraidos = JSON.parse(jsonMatch[0]);
-                        
+
                         jogadoresExtraidos.forEach(j => {
                             let nomeExtraido = j.nome.trim();
                             let posExtraida = j.posicao || "Meio-Campo";
                             let ovrExtraido = Number(j.ovr) || 70;
-                            
+                            let idadeExtraida = j.idade ? Number(j.idade) : null;
+
                             // Verifica se o jogador já existe para atualizar, senão cria um novo
                             let jogadorExistente = db.clube.plantel.find(p => p.nome.toLowerCase() === nomeExtraido.toLowerCase());
-                            
+
                             if (jogadorExistente) {
                                 jogadorExistente.ovr = ovrExtraido;
                                 jogadorExistente.posicao = posExtraida;
+                                if (idadeExtraida) jogadorExistente.idade = idadeExtraida;
                             } else {
-                                db.clube.plantel.push({
+                                let novoJog = {
                                     nome: nomeExtraido,
                                     posicao: posExtraida,
                                     ovr: ovrExtraido,
                                     status: 'Ativo',
                                     jogosAvaliacao: 0
-                                });
+                                };
+                                if (idadeExtraida) novoJog.idade = idadeExtraida;
+                                db.clube.plantel.push(novoJog);
                             }
                         });
                     }
-                } catch(e) { 
+                } catch(e) {
                     console.error("Erro na leitura da imagem do plantel pela IA:", e);
                 }
             }
-            
-            let loaderTextEl = document.getElementById('loader-plantel-text');
-            if (loaderTextEl) loaderTextEl.innerText = "";
+
+            atualizarLoaderPlantel("");
             event.target.value = "";
-            
+
+            if (typeof wizardRenderElenco === 'function' && document.getElementById('wizard-step-elenco') && document.getElementById('wizard-step-elenco').style.display !== 'none') {
+                wizardRenderElenco();
+            }
+
             salvarDados();
             atualizarPlantelUI();
             preencherDatalistJogadores();

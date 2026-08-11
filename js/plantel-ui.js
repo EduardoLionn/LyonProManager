@@ -53,6 +53,7 @@
                 <tr id="linha-jogador-${idx}">
                     <td>${p.posicao}</td><td><strong>${p.nome}</strong> ${isListado} ${badgeCondicao}</td>
                     <td style="${getOvrClass(p.ovr)} font-weight:bold; font-size:16px;">${p.ovr}</td>
+                    <td>${p.idade || '-'}</td>
                     <td style="display:flex; gap: 10px; align-items: center;">
                         <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXPlantel('${p.nome}', ${idx})">📊 Raio-X</button>
                         <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; border-color: var(--warning); color: var(--warning);" onclick="abrirModalEditarJogador('${p.nome}')">✏️ Editar</button>
@@ -62,7 +63,7 @@
                     </td>
                 </tr>
                 <tr id="raiox-row-${idx}" class="row-raiox" style="display:none;">
-                    <td colspan="4">
+                    <td colspan="5">
                         <div class="raiox-container">
                             <div id="raiox-dados-plantel-${idx}" style="background: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"></div>
                             <div style="height: 350px;"><canvas id="canvas-raiox-plantel-${idx}"></canvas></div>
@@ -108,9 +109,9 @@
        let mostrarColunaValor = (status === 'Vendido' || status === 'Comprado');
        
        if (mostrarColunaValor) {
-           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Valor (€M)</th><th>Ações / Raio-X</th></tr>`;
+           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Idade</th><th>Valor (€M)</th><th>Ações / Raio-X</th></tr>`;
        } else {
-           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Ações / Raio-X</th></tr>`;
+           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Idade</th><th>Ações / Raio-X</th></tr>`;
        }
        
        let achou = false;
@@ -155,6 +156,7 @@
                 <td><span class="badge ${badgeClass}">${nomeStatus}</span>${extraInfo}</td>
                 <td>${p.posicao}</td><td><strong>${p.nome}</strong></td>
                 <td><strong style="${getOvrClass(p.ovr)} font-size:15px;">${p.ovr}</strong></td>
+                <td>${p.idade || '-'}</td>
                 ${tdValor}
                 <td style="display: flex; gap: 5px; flex-wrap: wrap;">
                     <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXMercado('${p.nome}', ${idx})">📊 Raio-X</button>
@@ -164,12 +166,12 @@
                 </td>
             </tr>
             <tr id="raiox-mercado-row-${idx}" class="row-raiox" style="display:none;">
-                <td colspan="${mostrarColunaValor ? 6 : 5}">
+                <td colspan="${mostrarColunaValor ? 7 : 6}">
                     <div class="raiox-container"><div id="raiox-dados-mercado-${idx}"></div><div style="height: 350px;"><canvas id="canvas-raiox-mercado-${idx}"></canvas></div></div>
                 </td>
             </tr>`;
        });
-       if(!achou) tbody.innerHTML = `<tr><td colspan="${mostrarColunaValor ? 6 : 5}" style="text-align:center; padding: 25px;">Nenhum jogador.</td></tr>`;
+       if(!achou) tbody.innerHTML = `<tr><td colspan="${mostrarColunaValor ? 7 : 6}" style="text-align:center; padding: 25px;">Nenhum jogador.</td></tr>`;
    }
 
         function toggleRaioXMercado(nome, idx) {
