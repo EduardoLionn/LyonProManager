@@ -10,75 +10,230 @@
 </head>
 <body onload="carregarDados()">
 
-    <!-- 1. MODAL INICIAL CORRIGIDO (APENAS NOME E LIGA) -->
-    <div id="setup-screen" style="display: none;">
-        <div class="setup-box">
-            <h2 style="margin-top:0;">Configuração da Carreira</h2>
-            <div class="linha-form">
-                <label>Nome do Clube / Seleção</label>
-                <input type="text" id="setup-nome-time" placeholder="Ex: Lyon FC">
+    <!-- 1. TELA DE NOVO JOGO (estilo "Football Manager": hero > perfil > país/liga > clube > diretoria > elenco > resumo) -->
+    <div id="wizard-novo-jogo" style="display: none;">
+        <div class="wizard-shell">
+
+            <!-- TELA INICIAL / HERO -->
+            <div id="wizard-tela-hero" class="wizard-hero">
+                <div class="wizard-logo">⚽ LyonPro Manager</div>
+                <p class="wizard-tagline" id="wizard-hero-sub">Assuma o comando. Sua carreira como técnico começa aqui.</p>
+                <div class="wizard-hero-actions">
+                    <button onclick="wizardIniciar()">🎮 Novo Jogo</button>
+                    <button class="btn-hero-secundario" onclick="document.getElementById('input-import').click()">📂 Carregar Backup (.json)</button>
+                </div>
             </div>
-            <div class="linha-form">
-                <label>Nome do Técnico (Nome e Sobrenome)</label>
-                <input type="text" id="setup-nome-tecnico" list="lista-tecnicos" placeholder="Ex: Carlo Ancelotti (ou digite o seu)">
+
+            <!-- CABEÇALHO DO WIZARD (etapas) -->
+            <div id="wizard-header" class="wizard-header" style="display:none;">
+                <div class="wizard-header-top">
+                    <h1 id="wizard-titulo-etapa">Etapa</h1>
+                    <span id="wizard-contagem-etapa">Etapa 1</span>
+                </div>
+                <div class="wizard-stepper" id="wizard-stepper"></div>
             </div>
-            <div class="linha-form" id="box-setup-temporada">
-                <label>Temporada Inicial (Para Clube)</label>
-                <select id="setup-temporada"></select>
+
+            <!-- ETAPA: PERFIL DA CARREIRA -->
+            <div id="wizard-step-perfil" class="wizard-card wizard-step" style="display:none;">
+                <h2>👤 Perfil da Carreira</h2>
+                <p class="wizard-subtitle">Dê um nome ao seu save e apresente-se à diretoria.</p>
+                <div class="grid-2">
+                    <div class="linha-form">
+                        <label>Nome do Save</label>
+                        <input type="text" id="setup-save-name" placeholder="Ex: Rumo à Champions">
+                    </div>
+                    <div class="linha-form">
+                        <label>Nome do Técnico (Nome e Sobrenome)</label>
+                        <input type="text" id="setup-nome-tecnico" list="lista-tecnicos" placeholder="Ex: Carlo Ancelotti (ou digite o seu)">
+                    </div>
+                </div>
+                <div class="grid-2" id="wizard-linha-nome-time" style="display:none;">
+                    <div class="linha-form">
+                        <label>Nome da Seleção</label>
+                        <input type="text" id="setup-nome-time-selecao" placeholder="Ex: Brasil">
+                    </div>
+                    <div class="linha-form">
+                        <label>Ciclo Inicial</label>
+                        <select id="setup-ciclo"></select>
+                    </div>
+                </div>
+                <div class="linha-form" id="wizard-linha-temporada">
+                    <label>Temporada Inicial</label>
+                    <select id="setup-temporada"></select>
+                </div>
             </div>
-            <div class="linha-form" id="box-setup-ciclo" style="display:none;">
-                <label>Ciclo Inicial (Para Seleção)</label>
-                <select id="setup-ciclo"></select>
+
+            <!-- ETAPA: PAÍS E LIGA -->
+            <div id="wizard-step-liga" class="wizard-card wizard-step" style="display:none;">
+                <h2 id="wizard-liga-titulo">🌍 País e Divisão</h2>
+                <p class="wizard-subtitle" id="wizard-liga-subtitulo">Escolha o país e depois a divisão em que sua carreira começa.</p>
+                <div id="wizard-pais-grid" class="pais-grid"></div>
+                <div id="wizard-liga-grid" class="liga-grid" style="margin-top:18px;"></div>
             </div>
-            <div class="linha-form" style="margin-top: 10px;">
-                <label>Selecione a Divisão / Liga (Média OVR)</label>
-                <select id="setup-liga">
-                    <optgroup label="Inglaterra 🏴󠁧󠁢󠁥󠁮󠁧󠁿">
-                        <option value="Premier League (OVR 77)">Premier League (OVR 77)</option>
-                        <option value="Championship (OVR 70)">Championship (OVR 70)</option>
-                        <option value="League One (OVR 64)">League One (OVR 64)</option>
-                        <option value="League Two (OVR 60)">League Two (OVR 60)</option>
-                    </optgroup>
-                    <optgroup label="Brasil 🇧🇷">
-                        <option value="Brasileirão Série A (OVR 74)">Brasileirão Série A (OVR 74)</option>
-                        <option value="Série B (OVR 68)">Série B (OVR 68)</option>
-                        <option value="Série C (OVR 63)">Série C (OVR 63)</option>
-                        <option value="Série D (OVR 58)">Série D (OVR 58)</option>
-                    </optgroup>
-                    <optgroup label="Espanha 🇪🇸">
-                        <option value="LaLiga (OVR 77)">LaLiga (OVR 77)</option>
-                        <option value="LaLiga Hypermotion (OVR 70)">LaLiga Hypermotion (OVR 70)</option>
-                    </optgroup>
-                    <optgroup label="Alemanha 🇩🇪">
-                        <option value="Bundesliga (OVR 76)">Bundesliga (OVR 76)</option>
-                        <option value="2. Bundesliga (OVR 69)">2. Bundesliga (OVR 69)</option>
-                        <option value="3. Liga (OVR 63)">3. Liga (OVR 63)</option>
-                    </optgroup>
-                    <optgroup label="Itália 🇮🇹">
-                        <option value="Serie A (OVR 76)">Serie A (OVR 76)</option>
-                        <option value="Serie B (OVR 69)">Serie B (OVR 69)</option>
-                    </optgroup>
-                    <optgroup label="França 🇫🇷">
-                        <option value="Ligue 1 (OVR 75)">Ligue 1 (OVR 75)</option>
-                        <option value="Ligue 2 (OVR 68)">Ligue 2 (OVR 68)</option>
-                    </optgroup>
-                    <optgroup label="Outras (Europa) 🌍">
-                        <option value="Portugal - Liga Portugal (OVR 74)">Portugal - Liga Portugal (OVR 74)</option>
-                        <option value="Holanda - Eredivisie (OVR 73)">Holanda - Eredivisie (OVR 73)</option>
-                        <option value="Turquia - Süper Lig (OVR 72)">Turquia - Süper Lig (OVR 72)</option>
-                        <option value="Bélgica - Pro League (OVR 71)">Bélgica - Pro League (OVR 71)</option>
-                        <option value="Escócia - Premiership (OVR 70)">Escócia - Premiership (OVR 70)</option>
-                    </optgroup>
-                    <optgroup label="Seleções Nacionais 🌐">
-                        <option value="Seleção Tier 1 Mundial (OVR 82)">Seleção Tier 1 Mundial (OVR 82)</option>
-                        <option value="Seleção Tier 1 Continental (OVR 78)">Seleção Tier 1 Continental (OVR 78)</option>
-                        <option value="Seleção Tier 2 (OVR 74)">Seleção Tier 2 (OVR 74)</option>
-                        <option value="Seleção Tier 3 (OVR 68)">Seleção Tier 3 (OVR 68)</option>
-                        <option value="Seleção Tier 4 (OVR 62)">Seleção Tier 4 (OVR 62)</option>
-                    </optgroup>
-                </select>
+
+            <!-- ETAPA: CLUBE -->
+            <div id="wizard-step-clube" class="wizard-card wizard-step" style="display:none;">
+                <h2>🛡️ Escolha o Clube</h2>
+                <p class="wizard-subtitle">Times reais da divisão selecionada. Não achou o seu (ou quer jogar outra temporada/edição)? Digite manualmente.</p>
+                <input type="text" id="wizard-busca-clube" class="wizard-busca" placeholder="🔎 Buscar clube..." oninput="wizardFiltrarClubes()" style="width:100%; box-sizing:border-box;">
+                <div id="wizard-club-grid" class="club-grid"></div>
+                <div class="linha-form" style="margin-top:18px;">
+                    <label>Ou digite o nome do clube manualmente</label>
+                    <input type="text" id="setup-nome-time" placeholder="Ex: Lyon FC" oninput="document.querySelectorAll('#wizard-club-grid .club-card').forEach(c => c.classList.remove('selected'))">
+                </div>
             </div>
-            <button style="width: 100%; margin-top: 15px;" onclick="iniciarSave()">Salvar e Começar</button>
+
+            <!-- ETAPA: DIRETORIA -->
+            <div id="wizard-step-diretoria" class="wizard-card wizard-step" style="display:none;">
+                <h2>👔 Cobranças da Diretoria</h2>
+                <p class="wizard-subtitle">Conte como foram as últimas 5 temporadas. Isso define seu orçamento inicial e as metas antes mesmo de começar.</p>
+                <div class="grid-2">
+                    <div class="linha-form">
+                        <label>Média Gasta nas Últimas 5 Temp. (€M)</label>
+                        <input type="number" id="setup-dir-media-gasto" placeholder="Ex: 50">
+                    </div>
+                    <div class="linha-form">
+                        <label>Média Arrecadada nas Últimas 5 Temp. (€M)</label>
+                        <input type="number" id="setup-dir-media-arrecadacao" placeholder="Ex: 40">
+                    </div>
+                    <div class="linha-form">
+                        <label>Títulos Conquistados nas Últimas 5 Temp.</label>
+                        <input type="number" id="setup-dir-titulos" placeholder="Ex: 2">
+                    </div>
+                    <div class="linha-form">
+                        <label>Posição Média na Liga nas Últimas 5 Temp.</label>
+                        <input type="number" id="setup-dir-posicao" placeholder="Ex: 4 (para 4º lugar)">
+                    </div>
+                    <div class="linha-form">
+                        <label>Posição Média na Copa Nacional (5 Temp.)</label>
+                        <input type="text" id="setup-dir-posicao-copa" placeholder="Ex: Quartas de Final">
+                    </div>
+                    <div class="linha-form" id="box-setup-continental">
+                        <label>Competição Continental Atual (Se houver)</label>
+                        <select id="setup-dir-continental">
+                            <option value="Nenhuma">Nenhuma / Não classificado</option>
+                            <optgroup label="América do Sul (CONMEBOL)">
+                                <option value="Libertadores">Copa Libertadores</option>
+                                <option value="Sul-Americana">Copa Sul-Americana</option>
+                            </optgroup>
+                            <optgroup label="Europa (UEFA)">
+                                <option value="Champions League">Champions League</option>
+                                <option value="Europa League">Europa League</option>
+                                <option value="Conference League">Conference League</option>
+                            </optgroup>
+                            <optgroup label="Outros Continentes">
+                                <option value="Concacaf Champions Cup">Concacaf Champions</option>
+                                <option value="Leagues Cup">Leagues Cup</option>
+                                <option value="CAF Champions League">Liga dos Campeões da CAF (África)</option>
+                                <option value="AFC Champions League">AFC Champions (Ásia)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ETAPA: ELENCO INICIAL -->
+            <div id="wizard-step-elenco" class="wizard-card wizard-step" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <h2 style="margin-bottom:2px;">📋 Declare seu Elenco</h2>
+                        <p class="wizard-subtitle" style="margin-bottom:0;">Adicione manualmente ou tire um print da tela de elenco do seu jogo (a IA lê posição, OVR e idade).</p>
+                    </div>
+                    <label class="btn-upload" style="margin:0; cursor:pointer; background: rgba(0, 163, 255, 0.1); white-space:nowrap;">
+                        📸 Ler Elenco (IA)
+                        <input type="file" multiple style="display:none;" accept="image/*" onchange="lerImagensIAPlantel(event)">
+                    </label>
+                </div>
+                <span id="wizard-loader-elenco" style="font-size:12px; color:var(--warning); font-weight:bold;"></span>
+
+                <div class="grid-4" style="margin-top:20px; align-items:end;">
+                    <div class="linha-form">
+                        <label>Nome do Jogador</label>
+                        <input type="text" id="wiz-jog-nome" placeholder="Ex: João Silva">
+                    </div>
+                    <div class="linha-form">
+                        <label>Posição</label>
+                        <select id="wiz-jog-pos"></select>
+                    </div>
+                    <div class="linha-form">
+                        <label>Overall (OVR)</label>
+                        <input type="number" id="wiz-jog-ovr" value="70">
+                    </div>
+                    <div class="linha-form">
+                        <label>Idade</label>
+                        <input type="number" id="wiz-jog-idade" placeholder="Ex: 24">
+                    </div>
+                </div>
+                <button style="width:100%; margin-top:5px;" onclick="wizardAdicionarJogador()">+ Adicionar ao Elenco</button>
+
+                <div class="wizard-elenco-table-wrap">
+                    <table id="wizard-tabela-elenco">
+                        <thead><tr><th>Posição</th><th>Nome</th><th>OVR</th><th>Idade</th><th></th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ETAPA: RESUMO -->
+            <div id="wizard-step-resumo" class="wizard-card wizard-step" style="display:none;">
+                <h2>🏆 Tudo Pronto</h2>
+                <p class="wizard-subtitle">Confira o resumo da sua carreira antes de começar.</p>
+                <div class="wizard-resumo-grid" id="wizard-resumo-grid"></div>
+                <button style="width:100%; padding:16px; font-size:16px;" id="wizard-btn-finalizar" onclick="wizardFinalizar()">🏁 Começar Carreira</button>
+            </div>
+
+            <!-- NAVEGAÇÃO -->
+            <div id="wizard-nav" class="wizard-nav" style="display:none;">
+                <button class="btn-wizard-voltar" onclick="wizardVoltar()">← Voltar</button>
+                <button id="wizard-btn-avancar" onclick="wizardAvancar()">Avançar →</button>
+            </div>
+
+            <!-- SELECT COM TODAS AS LIGAS/DIVISÕES: fonte de dados única (também usada na Troca de Liga) -->
+            <select id="setup-liga" style="display:none">
+                <optgroup label="Inglaterra 🏴󠁧󠁢󠁥󠁮󠁧󠁿">
+                    <option value="Premier League (OVR 77)">Premier League (OVR 77)</option>
+                    <option value="Championship (OVR 70)">Championship (OVR 70)</option>
+                    <option value="League One (OVR 64)">League One (OVR 64)</option>
+                    <option value="League Two (OVR 60)">League Two (OVR 60)</option>
+                </optgroup>
+                <optgroup label="Brasil 🇧🇷">
+                    <option value="Brasileirão Série A (OVR 74)">Brasileirão Série A (OVR 74)</option>
+                    <option value="Série B (OVR 68)">Série B (OVR 68)</option>
+                    <option value="Série C (OVR 63)">Série C (OVR 63)</option>
+                    <option value="Série D (OVR 58)">Série D (OVR 58)</option>
+                </optgroup>
+                <optgroup label="Espanha 🇪🇸">
+                    <option value="LaLiga (OVR 77)">LaLiga (OVR 77)</option>
+                    <option value="LaLiga Hypermotion (OVR 70)">LaLiga Hypermotion (OVR 70)</option>
+                </optgroup>
+                <optgroup label="Alemanha 🇩🇪">
+                    <option value="Bundesliga (OVR 76)">Bundesliga (OVR 76)</option>
+                    <option value="2. Bundesliga (OVR 69)">2. Bundesliga (OVR 69)</option>
+                    <option value="3. Liga (OVR 63)">3. Liga (OVR 63)</option>
+                </optgroup>
+                <optgroup label="Itália 🇮🇹">
+                    <option value="Serie A (OVR 76)">Serie A (OVR 76)</option>
+                    <option value="Serie B (OVR 69)">Serie B (OVR 69)</option>
+                </optgroup>
+                <optgroup label="França 🇫🇷">
+                    <option value="Ligue 1 (OVR 75)">Ligue 1 (OVR 75)</option>
+                    <option value="Ligue 2 (OVR 68)">Ligue 2 (OVR 68)</option>
+                </optgroup>
+                <optgroup label="Outras (Europa) 🌍">
+                    <option value="Portugal - Liga Portugal (OVR 74)">Portugal - Liga Portugal (OVR 74)</option>
+                    <option value="Holanda - Eredivisie (OVR 73)">Holanda - Eredivisie (OVR 73)</option>
+                    <option value="Turquia - Süper Lig (OVR 72)">Turquia - Süper Lig (OVR 72)</option>
+                    <option value="Bélgica - Pro League (OVR 71)">Bélgica - Pro League (OVR 71)</option>
+                    <option value="Escócia - Premiership (OVR 70)">Escócia - Premiership (OVR 70)</option>
+                </optgroup>
+                <optgroup label="Seleções Nacionais 🌐">
+                    <option value="Seleção Tier 1 Mundial (OVR 82)">Seleção Tier 1 Mundial (OVR 82)</option>
+                    <option value="Seleção Tier 1 Continental (OVR 78)">Seleção Tier 1 Continental (OVR 78)</option>
+                    <option value="Seleção Tier 2 (OVR 74)">Seleção Tier 2 (OVR 74)</option>
+                    <option value="Seleção Tier 3 (OVR 68)">Seleção Tier 3 (OVR 68)</option>
+                    <option value="Seleção Tier 4 (OVR 62)">Seleção Tier 4 (OVR 62)</option>
+                </optgroup>
+            </select>
         </div>
     </div>
 
@@ -129,26 +284,30 @@
         <div class="setup-box">
             <h2 style="margin-top:0;">👔 Setup da Diretoria</h2>
             <p style="font-size:13px; color:var(--text-muted);">Informe os dados das últimas 5 temporadas para a IA calcular o orçamento inicial e metas.</p>
-            
+
             <div class="linha-form" style="margin-top: 10px;">
                 <label>Média Gasta nas Últimas 5 Temp. (€M)</label>
-                <input type="number" id="setup-dir-media-gasto" placeholder="Ex: 50">
+                <input type="number" id="legacy-dir-media-gasto" placeholder="Ex: 50">
             </div>
             <div class="linha-form">
                 <label>Média Arrecadada nas Últimas 5 Temp. (€M)</label>
-                <input type="number" id="setup-dir-media-arrecadacao" placeholder="Ex: 40">
+                <input type="number" id="legacy-dir-media-arrecadacao" placeholder="Ex: 40">
             </div>
             <div class="linha-form">
                 <label>Títulos Conquistados nas Últimas 5 Temp.</label>
-                <input type="number" id="setup-dir-titulos" placeholder="Ex: 2">
+                <input type="number" id="legacy-dir-titulos" placeholder="Ex: 2">
             </div>
             <div class="linha-form">
                 <label>Posição Média na Liga nas Últimas 5 Temp.</label>
-                <input type="number" id="setup-dir-posicao" placeholder="Ex: 4 (para 4º lugar)">
+                <input type="number" id="legacy-dir-posicao" placeholder="Ex: 4 (para 4º lugar)">
             </div>
-            <div class="linha-form" id="box-setup-continental">
+            <div class="linha-form">
+                <label>Posição Média na Copa Nacional (5 Temp.)</label>
+                <input type="text" id="legacy-dir-posicao-copa" placeholder="Ex: Quartas de Final">
+            </div>
+            <div class="linha-form" id="legacy-box-continental">
                 <label>Competição Continental Atual (Se houver)</label>
-                <select id="setup-dir-continental">
+                <select id="legacy-dir-continental">
                     <option value="Nenhuma">Nenhuma / Não classificado</option>
                     <optgroup label="América do Sul (CONMEBOL)">
                         <option value="Libertadores">Copa Libertadores</option>
@@ -167,7 +326,7 @@
                     </optgroup>
                 </select>
             </div>
-            
+
             <button style="width: 100%; margin-top: 15px;" onclick="salvarSetupDiretoria()">Analisar e Definir Metas (IA)</button>
         </div>
     </div>
@@ -279,7 +438,11 @@
                 <label>Overall Atual (OVR)</label>
                 <input type="number" id="edit-jog-ovr">
             </div>
-            
+            <div class="linha-form">
+                <label>Idade</label>
+                <input type="number" id="edit-jog-idade" placeholder="Ex: 24">
+            </div>
+
             <button style="width: 100%; margin-top: 15px; background: var(--warning); color: black;" onclick="salvarEdicaoJogador()">Salvar Alterações</button>
             <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-editar-jogador').style.display='none'">Cancelar</button>
         </div>
@@ -648,6 +811,7 @@
     </select>
 </div>
                     <div class="linha-form"><label>Overall (OVR)</label><input type="number" id="cad-ovr" value="70"></div>
+                    <div class="linha-form"><label>Idade</label><input type="number" id="cad-idade" placeholder="Ex: 24"></div>
                 </div>
                 <button style="width:100%; margin-top:20px; font-size:15px; padding:12px;" onclick="cadastrarJogadorBase()">+ Cadastrar no Elenco</button>
             </div>
@@ -659,6 +823,7 @@
                         <th class="th-sortable" onclick="ordenarPlantel('posicao')">Posição ↕️</th>
                         <th class="th-sortable" onclick="ordenarPlantel('nome')">Nome ↕️</th>
                         <th class="th-sortable" onclick="ordenarPlantel('ovr')">OVR ↕️</th>
+                        <th class="th-sortable" onclick="ordenarPlantel('idade')">Idade ↕️</th>
                         <th>Ações / Raio-X</th>
                     </tr></thead>
                     <tbody></tbody>
@@ -732,6 +897,7 @@
     </select>
 </div>
                         <div class="linha-form"><label>Overall (OVR)</label><input type="number" id="add-ovr" value="70"></div>
+                        <div class="linha-form"><label>Idade</label><input type="number" id="add-idade" placeholder="Ex: 24"></div>
                     </div>
                     <!-- NOVO: Formato unificado de Compra/Empréstimo -->
                     <div class="linha-form">
@@ -1120,7 +1286,9 @@
     </div>
 
     <script src="js/core-estado.js"></script>
+    <script src="js/clubes-data.js"></script>
     <script src="js/core-utilidades.js"></script>
+    <script src="js/onboarding.js"></script>
     <script src="js/departamento-medico.js"></script>
     <script src="js/diretoria-partidas.js"></script>
     <script src="js/temporada-mercado.js"></script>
