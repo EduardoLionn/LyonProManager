@@ -532,6 +532,10 @@ ${blocoAvaliacao}
                 let idadeVal = document.getElementById('edit-jog-idade').value;
                 if (idadeVal) jog.idade = Number(idadeVal); else delete jog.idade;
                 salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); document.getElementById('modal-editar-jogador').style.display = 'none';
+
+                if (typeof wizardRenderElenco === 'function' && document.getElementById('wizard-step-elenco') && document.getElementById('wizard-step-elenco').style.display !== 'none') {
+                    wizardRenderElenco();
+                }
             }
         }
 

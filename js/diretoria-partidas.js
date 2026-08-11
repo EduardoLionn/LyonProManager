@@ -13,11 +13,15 @@
             document.getElementById('modal-editar-tecnico').style.display = 'none';
         }
 
+        // Usado quando o treinador é demitido (modal-demissao): zera só o slot atual (clube OU seleção),
+        // mantendo o resto do save intacto, e leva direto pro assistente de Novo Jogo daquele slot.
         async function resetarSave() {
             if(await confirmarModerno(`Tem certeza que deseja APAGAR TODO O PROGRESSO do slot: ${currentSave}?`, "Apagar Todo o Progresso", { perigo: true, textoConfirmar: "Apagar Tudo" })) {
-                if(currentSave === 'clube') db.clube = { nome: '', saveName: '', liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem<br>💰 Finanças: Manter os salários controlados', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
-                else db.selecao = { nome: '', saveName: '', liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, notaDiretoria: 6.5, objetivosTemporada: '⚽ Liga: Fazer boa campanha<br>🏆 Copas: Competir bem', diretoriaConfigurada: false, exigenciasDiretoria: [], gastosTemporadas: [], arrecadacoesTemporadas: [], partidas: [], plantel: [], historicoTemporadas: [], noticiasFeed: [], chatHistory: { imprensa: [], diretoria: [], auxiliar: [] } };
-                salvarDados(); location.reload();
+                db[currentSave] = dbPadrao()[currentSave];
+                salvarDados();
+                let modalDemissao = document.getElementById('modal-demissao');
+                if (modalDemissao) modalDemissao.style.display = 'none';
+                ajustarInterfaceSave();
             }
         }
 
@@ -61,7 +65,7 @@
             db[currentSave].competicaoContinental = continental;
             db[currentSave].notaDiretoria = 6.5;
 
-            let promptIA = `Atue como a Diretoria do clube/seleção "${db[currentSave].nome}" (Liga/Tier atual: ${db[currentSave].liga}).
+            let promptIA = `Atue como ${nomeDiretorExibicao()}, o(a) Diretor(a) Executivo(a) do clube/seleção "${db[currentSave].nome}" (Liga/Tier atual: ${db[currentSave].liga}).
             Histórico (5 anos): Gasto Médio: €${mediaGasto}M, Arrecadação Média: €${mediaArrecadacao}M, Títulos: ${titulos}, Posição Média na Liga: ${posicaoMedia}º, Desempenho Médio na Copa Nacional: ${posicaoCopaMedia}. Competição Internacional atual: ${continental}.
             Defina o orçamento inicial e os objetivos. Siga ESTRITAMENTE as regras para NÃO SER GENÉRICO, REDUNDANTE OU IRREAL:
             - CONTEXTO E REALISMO: Se o time está em divisões inferiores ou tem posição média ruim, seja realista. Não exija títulos ou fases avançadas em copas (exija apenas focar na liga ou passar da 1ª fase da copa).

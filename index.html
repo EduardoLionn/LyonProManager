@@ -10,18 +10,35 @@
 </head>
 <body onload="carregarDados()">
 
-    <!-- 1. TELA DE NOVO JOGO (estilo "Football Manager": hero > perfil > país/liga > clube > diretoria > elenco > resumo) -->
-    <div id="wizard-novo-jogo" style="display: none;">
+    <!-- 1. MENU PRINCIPAL (Continuar / Novo Jogo / Carregar Save) + assistente de Novo Jogo estilo "Football Manager" -->
+    <div id="tab-menu-principal" class="tab-content active">
         <div class="wizard-shell">
 
             <!-- TELA INICIAL / HERO -->
             <div id="wizard-tela-hero" class="wizard-hero">
                 <div class="wizard-logo">⚽ LyonPro Manager</div>
                 <p class="wizard-tagline" id="wizard-hero-sub">Assuma o comando. Sua carreira como técnico começa aqui.</p>
-                <div class="wizard-hero-actions">
-                    <button onclick="wizardIniciar()">🎮 Novo Jogo</button>
-                    <button class="btn-hero-secundario" onclick="document.getElementById('input-import').click()">📂 Carregar Backup (.json)</button>
+
+                <div id="menu-continuar-box" style="display:none; margin-bottom: 14px;">
+                    <button onclick="menuContinuarSave()" style="width: 320px; max-width: 90vw; padding: 16px;">▶️ Continuar: <span id="menu-continuar-nome"></span></button>
                 </div>
+
+                <div class="wizard-hero-actions">
+                    <button onclick="menuNovoJogo()">🎮 Novo Jogo</button>
+                    <button class="btn-hero-secundario" onclick="menuAbrirCarregarSave()">📂 Carregar Save</button>
+                </div>
+            </div>
+
+            <!-- LISTA DE SAVES SALVOS NESTE NAVEGADOR -->
+            <div id="menu-carregar-save-lista" style="display:none; width:100%; max-width:700px;">
+                <h2 style="text-align:center;">📂 Carregar Save</h2>
+                <p class="wizard-subtitle" style="text-align:center;">Saves ficam guardados neste navegador. Dá pra continuar qualquer um deles ou importar um backup baixado antes.</p>
+                <div id="menu-lista-saves"></div>
+                <label class="btn-upload" style="margin: 15px auto 0; cursor:pointer; display:flex; justify-content:center;">
+                    📤 Importar Backup (.json)
+                    <input type="file" style="display:none;" accept=".json" onchange="menuImportarArquivoSave(event)">
+                </label>
+                <button class="btn-wizard-voltar" style="width:100%; margin-top:15px;" onclick="menuVoltarHero()">← Voltar</button>
             </div>
 
             <!-- CABEÇALHO DO WIZARD (etapas) -->
@@ -45,6 +62,16 @@
                     <div class="linha-form">
                         <label>Nome do Técnico (Nome e Sobrenome)</label>
                         <input type="text" id="setup-nome-tecnico" list="lista-tecnicos" placeholder="Ex: Carlo Ancelotti (ou digite o seu)">
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="linha-form">
+                        <label>Nome do Diretor Executivo</label>
+                        <input type="text" id="setup-nome-diretor" placeholder="Ex: Florentino Perez (opcional)">
+                    </div>
+                    <div class="linha-form">
+                        <label>Nome do Auxiliar Técnico</label>
+                        <input type="text" id="setup-nome-auxiliar" placeholder="Ex: Zico (opcional)">
                     </div>
                 </div>
                 <div class="grid-2" id="wizard-linha-nome-time" style="display:none;">
@@ -128,6 +155,26 @@
                                 <option value="AFC Champions League">AFC Champions (Ásia)</option>
                             </optgroup>
                         </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ETAPA: TÁTICA -->
+            <div id="wizard-step-tatica" class="wizard-card wizard-step" style="display:none;">
+                <h2>📋 Filosofia Tática</h2>
+                <p class="wizard-subtitle">Defina como seu time joga. Isso já deixa o Auxiliar Técnico pronto pra sugerir escalações desde o primeiro jogo (dá pra mudar depois na aba Auxiliar Técnico).</p>
+                <div class="grid-3">
+                    <div class="linha-form">
+                        <label>Formação Preferida</label>
+                        <select id="wiz-tatica-primaria"></select>
+                    </div>
+                    <div class="linha-form">
+                        <label>Formação Secundária</label>
+                        <select id="wiz-tatica-secundaria"></select>
+                    </div>
+                    <div class="linha-form">
+                        <label>Estilo de Jogo da Equipe</label>
+                        <select id="wiz-tatica-estilo"></select>
                     </div>
                 </div>
             </div>
@@ -459,7 +506,8 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
         <h1>⚽ LyonPro Manager</h1>
-        <button class="nav-btn active" onclick="mudarAba('tab-dashboard')">📊 Dashboard & Partidas</button>
+        <button class="nav-btn active" id="nav-btn-menu-principal" onclick="mudarAba('tab-menu-principal')">🏠 Menu Principal</button>
+        <button class="nav-btn" onclick="mudarAba('tab-dashboard')">📊 Dashboard & Partidas</button>
         <button class="nav-btn" id="nav-btn-plantel" onclick="mudarAba('tab-plantel')">📋 Elenco do Time</button>
         <button class="nav-btn" id="nav-btn-mercado" onclick="mudarAba('tab-mercado')">💰 Transferências</button>
         <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
@@ -476,9 +524,6 @@
                 <option value="selecao">Seleção Nacional</option>
             </select>
             <button class="btn-backup" onclick="exportarBackup()">📥 Baixar Backup</button>
-            <button class="btn-backup" style="background:var(--warning); color:black;" onclick="document.getElementById('input-import').click()">📤 Carregar Save</button>
-            <input type="file" id="input-import" style="display:none" accept=".json" onchange="importarBackup(event)">
-            <button class="btn-reset" onclick="resetarSave()">Resetar Slot Atual</button>
         </div>
     </div>
 
@@ -487,7 +532,7 @@
 
         <!-- DASHBOARD -->
         <!-- DASHBOARD -->
-        <div id="tab-dashboard" class="tab-content active">
+        <div id="tab-dashboard" class="tab-content">
             
             <!-- CABEÇALHO DO DASHBOARD -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
@@ -1195,6 +1240,10 @@
                                 <option value="Contra-ataque letal esperando o adversário">Contra-ataque Letal</option>
                                 <option value="Retranca total, linhas baixas e compactas">Retranca Total</option>
                                 <option value="Pressão alta sufocante (Gegenpressing)">Pressão Total (Gegenpressing)</option>
+                                <option value="Jogo direto e bolas longas para o ataque (Long Ball)">Jogo Direto (Bola Longa)</option>
+                                <option value="Ataques concentrados pelo corredor central">Ataque pelo Meio (Corredor Central)</option>
+                                <option value="Construção curta desde o goleiro e zagueiros (Build-up)">Construção Curta (Build-up)</option>
+                                <option value="Equilíbrio total entre ataque e defesa, sem prioridade fixa">Equilíbrio Total</option>
                             </select>
                         </div>
                     </div>
@@ -1214,6 +1263,10 @@
                                 <option value="Rodízio extremo (Poupar os titulares para o jogo seguinte)">Rodízio Extremo (Poupar titulares)</option>
                                 <option value="Força total absoluta (Ignorar cansaço, ir pro tudo ou nada)">Força Total Absoluta (Risco de Lesão)</option>
                                 <option value="Explorar base e reservas (Dar experiência)">Explorar Jovens/Reservas</option>
+                                <option value="Postura defensiva (Fechar o jogo, evitar riscos e proteger o resultado)">Postura Defensiva (Fechar o Jogo)</option>
+                                <option value="Postura ofensiva (Pressionar o adversário e arriscar mais)">Postura Ofensiva (Ir para Cima)</option>
+                                <option value="Foco total em anular o principal jogador ou esquema do adversário">Marcação Focada no Adversário</option>
+                                <option value="Jogo de resultado: administrar vantagem no placar sem se expor">Administrar Resultado (Segurar Vantagem)</option>
                             </select>
                         </div>
                     </div>
@@ -1232,6 +1285,8 @@
                     <div class="area-penalti-bot"></div>
                 </div>
 
+                <div id="auxiliar-banco-reservas" style="display:none; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-top: 15px;"></div>
+
                 <!-- BOTÃO PARA EXIBIR/OCULTAR CHAT -->
                 <button id="btn-toggle-chat-aux" onclick="toggleChatAuxiliar()" style="width: 100%; margin-top: 15px; background: var(--panel-bg); border: 1px solid var(--accent); color: var(--accent); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
                     💬 Abrir Painel de Instruções Diretas e Conversa (Chat)
@@ -1247,9 +1302,14 @@
                 <div class="chat-log" id="chat-log-auxiliar"></div>
                 <div class="chat-input-area">
                     <div class="quick-replies" id="quick-auxiliar"></div>
+                    <div id="auxiliar-imagem-preview" style="display:none; margin-bottom:8px; font-size:12px; color:var(--accent);"></div>
                     <div class="chat-input-row">
                         <button class="btn-mic" id="mic-btn-auxiliar" onclick="iniciarGravacao('input-auxiliar', 'mic-btn-auxiliar')">🎤</button>
-                        <textarea id="input-auxiliar" placeholder="Digite ordens ou escolha uma opção rápida acima..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('auxiliar'); }"></textarea>
+                        <label class="btn-mic" style="cursor:pointer;" title="Anexar print do jogo (campo térmico, estatísticas da partida)">
+                            📸
+                            <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAuxiliar(event)">
+                        </label>
+                        <textarea id="input-auxiliar" placeholder="Digite ordens, ou conte o contexto do jogo e anexe um print (📸) pra sugestão de mudança..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('auxiliar'); }"></textarea>
                         <button onclick="enviarChat('auxiliar')" style="padding: 10px 20px; font-size:14px;">Conversar</button>
                     </div>
                 </div>
@@ -1287,6 +1347,7 @@
 
     <script src="js/core-estado.js"></script>
     <script src="js/clubes-data.js"></script>
+    <script src="js/save-manager.js"></script>
     <script src="js/core-utilidades.js"></script>
     <script src="js/onboarding.js"></script>
     <script src="js/departamento-medico.js"></script>

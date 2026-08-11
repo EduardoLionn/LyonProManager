@@ -1,19 +1,47 @@
+        // Print anexado ao chat do Auxiliar (campo térmico / estatísticas da partida em andamento)
+        let imagemAnexadaAuxiliar = null; // { base64, mimeType, nomeArquivo }
+
+        function anexarImagemAuxiliar(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = () => {
+                imagemAnexadaAuxiliar = { base64: reader.result.split(',')[1], mimeType: file.type, nomeArquivo: file.name };
+                let preview = document.getElementById('auxiliar-imagem-preview');
+                if (preview) {
+                    preview.style.display = 'block';
+                    preview.innerHTML = `📎 ${file.name} anexado — descreva o que está acontecendo no jogo e mande. <button onclick="removerImagemAuxiliar()" style="background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold; text-decoration:underline;">remover</button>`;
+                }
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function removerImagemAuxiliar() {
+            imagemAnexadaAuxiliar = null;
+            let preview = document.getElementById('auxiliar-imagem-preview');
+            if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+        }
+
         async function enviarChat(tipo) {
             let inputEl = document.getElementById(`input-${tipo}`);
             let texto = inputEl.value.trim();
-            if(!texto) return;
+            let imagemAnexada = (tipo === 'auxiliar') ? imagemAnexadaAuxiliar : null;
+            if(!texto && !imagemAnexada) return;
+            if(!texto) texto = "📸 (print do jogo anexado, sem mensagem)";
 
             inputEl.value = '';
             let history = db[currentSave].chatHistory[tipo]; if(!history) history = [];
-            history.push({ role: 'user', text: texto });
+            history.push({ role: 'user', text: imagemAnexada ? `📸 ${texto}` : texto });
             let quickContainer = document.getElementById(`quick-${tipo}`);
             if(quickContainer) quickContainer.innerHTML = '';
             renderizarChat(tipo);
+            removerImagemAuxiliar();
 
             try {
                 let contexto = gerarResumoContexto();
                 let historicoChat = history.map(h => `${h.role === 'user' ? 'Treinador' : tipo}: ${h.text}`).join('\n');
-                
+
                 let promptFull = "";
 
                 if (tipo === 'diretoria') {
@@ -24,7 +52,7 @@
                     else if (notaDir >= 5) perfilDir = "Você é estritamente profissional, pragmática e foca apenas nos números, resultados e planilhas.";
                     else perfilDir = "CRISE! Você está rude, impaciente e ameaçadora. O clima é de profunda insatisfação e demissão iminente.";
 
-                    promptFull = `Atue como a Diretoria do clube "${db[currentSave].nome}".\n${contexto}\nHistórico da Conversa:\n${historicoChat}\n
+                    promptFull = `Atue como ${nomeDiretorExibicao()}, o(a) Diretor(a) Executivo(a) do clube "${db[currentSave].nome}".\n${contexto}\nHistórico da Conversa:\n${historicoChat}\n
         INSTRUÇÕES DA DIRETORIA E REGRAS DE NEGÓCIO:
         1. PERSONALIDADE ATUAL (Sua Nota de Prestígio é ${notaDir.toFixed(1)}/10): ${perfilDir}
         2. NEGOCIAÇÃO E LIMITE ANUAL ("PIRES NA MÃO"): O clube tem um limite máximo de 2 injeções financeiras extras por temporada (Já foram feitas ${db[currentSave].negociacoesDiretoria || 0} de 2). 
@@ -44,11 +72,21 @@
             "variacao_prestigio": 0.0
         }`;
                 } else {
-                    promptFull = `Atue como o Auxiliar Técnico "${db[currentSave].nome}".\n${contexto}\nHistórico da Conversa:\n${historicoChat}\n
+                    let escalacaoAtual = db[currentSave].escalacaoSalvaIA;
+                    let escalacaoStr = escalacaoAtual ? `Formação atual em campo: ${escalacaoAtual.formacao}. Titulares: ${Object.entries(escalacaoAtual.escalacao || {}).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}.` : "Nenhuma escalação gerada ainda nesta partida.";
+
+                    let blocoImagem = imagemAnexada ? `
+        📸 ANÁLISE DE PRINT DO JOGO EM ANDAMENTO (MUITO IMPORTANTE): o treinador anexou uma imagem — pode ser o campo térmico (mapa de calor), a tela de estatísticas da partida (posse, finalizações, passes, etc.) ou o placar. Analise a imagem com atenção e cruze com o texto do treinador e a escalação atual.
+        - Aponte o que os dados/imagem mostram (ex: time recuado demais, lado sem criação, adversário dominando um setor, jogador sumido do jogo).
+        - Sugira UMA mudança concreta e acionável para AGORA (substituição citando um jogador REAL do elenco ativo, troca de posicionamento, ajuste de instrução), nunca um conselho vago como "melhore a posse de bola".
+        - Se recomendar substituição, cite o nome de quem sai e de quem entra usando SOMENTE nomes do elenco ativo listado no contexto.` : '';
+
+                    promptFull = `Atue como ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}".\n${contexto}\n${escalacaoStr}\nHistórico da Conversa:\n${historicoChat}\n
         INSTRUÇÕES:
-        Responda à última mensagem do Treinador de forma coerente. 
+        Responda à última mensagem do Treinador de forma coerente.
         MUDE SUA PERSONALIDADE: Seja extremamente autêntico, cirúrgico e focado em TÁTICA. Dê respostas profundas sobre esquemas, movimentações e ajustes.
-        
+        ${blocoImagem}
+
         Retorne EXATAMENTE este formato JSON puro:
         {
             "mensagem": "Sua resposta oficial.",
@@ -56,9 +94,12 @@
         }`;
                 }
 
+                let parts = [{ text: promptFull }];
+                if (imagemAnexada) parts.push({ inlineData: { mimeType: imagemAnexada.mimeType, data: imagemAnexada.base64 } });
+
                 const response = await fetch(API_URL, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptFull }] }] })
+                    body: JSON.stringify({ contents: [{ parts: parts }] })
                 });
                 const data = await response.json();
                 let rawText = data.candidates[0].content.parts[0].text;
@@ -150,14 +191,37 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                         let jogInfo = dadosSalvos.escalacao[posObj.role];
                         let nomeJogador = jogInfo ? jogInfo.nome : "???";
                         let instrucao = jogInfo ? jogInfo.instrucao : "Sem instrução.";
-                        
+
                         let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeJogador.toLowerCase().trim()));
                         let txtOvr = jogBD ? `<br><span style="color:#0D1512; background:var(--primary); border-radius:4px; padding:0 3px;">OVR ${jogBD.ovr}</span>` : '';
-                        
+
                         let tooltipHTML = `<div class="jogador-tooltip"><strong>${nomeJogador}</strong><hr style="border-color:var(--border); margin:5px 0;">${instrucao}</div>`;
-                        
+
                         campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};">${nomeJogador}${txtOvr}${tooltipHTML}</div>`;
                     }
+                }
+            }
+
+            // Banco de reservas (até 9 jogadores, gerado junto com a escalação titular)
+            let boxBanco = document.getElementById('auxiliar-banco-reservas');
+            if (boxBanco) {
+                if (dadosSalvos && Array.isArray(dadosSalvos.reservas) && dadosSalvos.reservas.length > 0) {
+                    boxBanco.style.display = 'block';
+                    boxBanco.innerHTML = `<h3 style="margin:0 0 12px 0; font-size:15px; color:var(--accent);">🪑 Banco de Reservas</h3>
+                        <div class="banco-reservas-grid">
+                            ${dadosSalvos.reservas.map(r => {
+                                let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
+                                let txtOvr = jogBD ? ` · OVR ${jogBD.ovr}` : '';
+                                return `<div class="banco-reserva-item">
+                                    <strong>${r.nome}</strong>
+                                    <span>${r.posicao || ''}${txtOvr}</span>
+                                    ${r.papel ? `<span class="banco-reserva-papel">${r.papel}</span>` : ''}
+                                </div>`;
+                            }).join('')}
+                        </div>`;
+                } else {
+                    boxBanco.style.display = 'none';
+                    boxBanco.innerHTML = '';
                 }
             }
         }
@@ -227,15 +291,15 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 "5-3-2": ["GOL", "LAD", "ZAD", "ZAC", "ZAE", "LAE", "MCD", "MC", "MCE", "ATD", "ATE"]
             });
 
-            let promptIA = `Você é o MENTOR ESTRATÉGICO do "${db[currentSave].nome}". Adversário: ${adv}.
+            let promptIA = `Você é ${nomeAuxiliarExibicao()}, o MENTOR ESTRATÉGICO do "${db[currentSave].nome}". Adversário: ${adv}.
             Elenco: ${plantelStrTexto}
-            
+
             FILOSOFIA TÁTICA E OPÇÕES:
             - Formação Primária: ${formacaoPri}
             - Formação Secundária (Alternativa de Ouro): ${formacaoSec}
             - Estilo de Jogo: ${estiloJogo}
             - Diretriz: ${diretriz}
-            
+
             🚨 ORDENS DIRETAS DO TREINADOR APENAS PARA ESTE JOGO: [${pedidosUsuario ? pedidosUsuario : "Nenhuma ordem extra. Crie a melhor estratégia sozinho."}]
             (Se houver ordens acima, obedeça cegamente. Caso contrário, aja por conta própria).
 
@@ -250,11 +314,16 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                - Se mencionar "jovens", "reservas", "dar oportunidade" ou "rodar o elenco": você DEVE escalar preferencialmente jogadores marcados como [RESERVA/JOVEM] acima, nas posições onde eles existirem, mesmo que o OVR seja menor.
                - Se mencionar "explorar laterais", "explorar as pontas" ou "jogar pelos lados": as instruções dos jogadores em LAD/LAE/PD/PE/ALD/ALE DEVEM pedir explicitamente para avançar constantemente, cruzar com frequência e buscar a linha de fundo.
                - Se mencionar qualquer outro pedido específico (ex: "marcação alta", "jogo mais defensivo", "time mais ofensivo"), reflita isso nas instruções individuais de forma clara e verificável, não apenas no estilo geral.
+            6. FLEXIBILIDADE POSICIONAL (REGRA CRÍTICA — TIMES REAIS NÃO SÃO ENGESSADOS): você NÃO é obrigado a escalar só quem tem a posição EXATA cadastrada igual à sigla da vaga. Times de verdade improvisam peças o tempo todo.
+               - Prefira o jogador da posição exata SE o OVR dele estiver competitivo com o resto do time titular (até uns 6-8 pontos de diferença da média do time que você está montando).
+               - Se o(s) único(s) jogador(es) com a posição exata tiver(em) um OVR MUITO abaixo do nível do resto do time (uma quebra gritante), é MELHOR improvisar alguém de posição parecida (ex: um lateral/ala do mesmo lado, uma ponta do lado espelhado, um meio-campista versátil) com OVR mais alto do que forçar o "encaixe perfeito" só na etiqueta. Deixe isso explícito na instrução dele (ex: "Improvisado nesta função — priorize a segurança e a posição, evite arriscar demais").
+               - Regra de ouro: NUNCA escale alguém com OVR muito inferior à média do time titular só para "bater a posição exata" quando existir uma alternativa razoável (mesmo que fora de posição) com OVR bem melhor.
 
             REGRAS ABSOLUTAS DO JSON:
             1. Escolha UMA das duas formações (A Primária ou a Secundária) e use EXATAMENTE AS SIGLAS DO SEGUINTE MAPA COMO CHAVES: ${formacoesPossiveisStr}
             2. NÃO invente siglas (Ex: não crie "MC" se na formação escolhida tiver apenas "MCD" e "MCE").
-            
+            3. BANCO DE RESERVAS: monte também até 9 jogadores do elenco ativo que NÃO entraram nos 11 titulares, ordenados por relevância (goleiro reserva primeiro se houver, depois defesas, meio-campo e ataque). Para cada um, diga em poucas palavras qual seria o papel dele se entrasse. Se o elenco ativo disponível tiver menos de 20 jogadores, liste todos os que sobrarem (pode ser menos de 9) — não invente jogadores que não estão na lista do elenco.
+
             Retorne EXATAMENTE este JSON PURO:
             {
                 "analiseGeral": "2 a 3 frases explicando sua lógica: formação escolhida e por quê, quem foi poupado/priorizado (cite o Departamento Médico se isso pesou na decisão) e o plano tático geral contra o adversário.",
@@ -262,7 +331,10 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 "escalacao": {
                     "GOL": {"nome": "Nome do Goleiro", "instrucao": "Instrução tática profunda contra o adversário..."},
                     "LAD": {"nome": "Nome do Lateral", "instrucao": "..."}
-                }
+                },
+                "reservas": [
+                    {"nome": "Nome do Jogador", "posicao": "Posição dele no elenco", "papel": "Papel curto se ele entrar"}
+                ]
             }`;
 
             try {
@@ -272,7 +344,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 });
                 const data = await response.json();
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
-                
+
                 if (match) {
                     let res = JSON.parse(match[0]);
                     let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
@@ -280,6 +352,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     db[currentSave].escalacaoSalvaIA = {
                         formacao: res.formacaoEscolhida,
                         escalacao: res.escalacao,
+                        reservas: Array.isArray(res.reservas) ? res.reservas : [],
                         analiseGeral: res.analiseGeral || "",
                         alertaRotacao: alertaRotacao
                     };

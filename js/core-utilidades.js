@@ -70,6 +70,17 @@
 
         function gerarNumeroAleatorio(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
+        // Nome de exibição do Diretor/Auxiliar do save atual, com um fallback genérico caso o
+        // treinador não tenha dado um nome a eles no assistente de Novo Jogo.
+        function nomeDiretorExibicao() {
+            let n = db[currentSave] && db[currentSave].nomeDiretor;
+            return (n && n.trim()) ? n.trim() : 'Diretor(a) Executivo(a)';
+        }
+        function nomeAuxiliarExibicao() {
+            let n = db[currentSave] && db[currentSave].nomeAuxiliar;
+            return (n && n.trim()) ? n.trim() : 'Auxiliar Técnico';
+        }
+
         function gerarResumoContexto() {
             let data = db[currentSave];
             if (!data || !data.nome) return "";
@@ -115,27 +126,20 @@
         }
 
         function carregarDados() {
-            try {
-                let saved = localStorage.getItem('manager_fc_v4');
-                if (saved) {
-                    let loadedDb = JSON.parse(saved);
-                    if(loadedDb.clube) db.clube = Object.assign(db.clube, loadedDb.clube);
-                    if(loadedDb.selecao) db.selecao = Object.assign(db.selecao, loadedDb.selecao);
-                }
-            } catch(e) {}
-            
             let selectT = document.getElementById('setup-temporada');
             for(let i=25; i<=45; i++) {
                 selectT.innerHTML += `<option value="${i}/${i+1}">20${i}/20${i+1}</option>`;
             }
-            
+
             let selectC = document.getElementById('setup-ciclo');
             for(let i=30; i<=70; i+=4) {
                 selectC.innerHTML += `<option value="Ciclo 20${i}">Ciclo 20${i}</option>`;
             }
 
-            ajustarInterfaceSave();
-            carregarPreferenciasTaticas();
+            // Migra um save antigo (formato de slot único) se for a primeira vez que este navegador
+            // abre a versão com múltiplos saves. Depois disso, o site sempre abre no Menu Principal.
+            migrarSaveAntigoSeNecessario();
+            mostrarMenuPrincipal();
         }
         
         function toggleChatAuxiliar() {
@@ -183,7 +187,17 @@ function toggleChatDiretoria() {
         }
         
 
-        function salvarDados() { localStorage.setItem('manager_fc_v4', JSON.stringify(db)); }
+        function salvarDados() {
+            if (!saveAtualId) return; // nenhum save carregado ainda (estamos no Menu Principal)
+            localStorage.setItem('lyonpro_save_data_' + saveAtualId, JSON.stringify(db));
+            let indice = _lerIndiceSaves();
+            let entrada = indice.find(s => s.id === saveAtualId);
+            if (entrada) {
+                entrada.atualizadoEm = Date.now();
+                entrada.resumo = _resumoDeDb(db);
+                _gravarIndiceSaves(indice);
+            }
+        }
 
         // Indicador genérico de carregamento (usado pelas chamadas de IA que não têm loader próprio)
         function mostrarCarregandoIA(texto) {
@@ -199,22 +213,15 @@ function toggleChatDiretoria() {
             let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
             let downloadAnchor = document.createElement('a');
             downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `lyonpro_manager_save_${currentSave}.json`);
+            let nomeArquivo = (db.clube.saveName || db.clube.nome || db.selecao.saveName || db.selecao.nome || 'save').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+            downloadAnchor.setAttribute("download", `lyonpro_manager_${nomeArquivo}.json`);
             document.body.appendChild(downloadAnchor); downloadAnchor.click(); downloadAnchor.remove();
         }
 
-        function importarBackup(event) {
-            let fileReader = new FileReader();
-            if(event.target.files[0]) {
-                fileReader.readAsText(event.target.files[0], "UTF-8");
-                fileReader.onload = function(e) {
-                    try { db = JSON.parse(e.target.result); salvarDados(); alert("Backup carregado!"); location.reload(); } 
-                    catch(err) { alert("Arquivo inválido!"); }
-                }
-            }
-        }
 
         function mudarAba(abaId) {
+            // Sem save carregado, só o Menu Principal existe (evita cair numa aba "vazia")
+            if (abaId !== 'tab-menu-principal' && !saveAtualId) abaId = 'tab-menu-principal';
             if (currentSave === 'selecao' && (abaId === 'tab-plantel' || abaId === 'tab-mercado')) {
                 abaId = 'tab-dashboard';
             }
@@ -223,7 +230,14 @@ function toggleChatDiretoria() {
             document.getElementById(abaId).classList.add('active');
             let btn = document.querySelector(`.nav-btn[onclick="mudarAba('${abaId}')"]`);
             if(btn) btn.classList.add('active');
-            
+
+            if(abaId === 'tab-menu-principal') {
+                // O Menu Principal é uma "tela cheia": esconde o resto da navegação enquanto ele está ativo
+                document.querySelectorAll('.sidebar .nav-btn').forEach(b => { if (b.id !== 'nav-btn-menu-principal') b.style.display = 'none'; });
+                let saveControls = document.querySelector('.save-controls');
+                if (saveControls) saveControls.style.display = 'none';
+                if (typeof menuPrincipalResetView === 'function') menuPrincipalResetView();
+            }
             if(abaId === 'tab-dashboard') { atualizarFiltroTemporadas(); desenharGraficos(); }
             if(abaId === 'tab-plantel') atualizarPlantelUI();
             if(abaId === 'tab-mercado') { filtrarMercado(statusFiltroMercado); checarEmbargoMercado(); }
@@ -247,11 +261,16 @@ function toggleChatDiretoria() {
         }
 
         function ajustarInterfaceSave() {
+            // Restaura a navegação completa (o Menu Principal esconde tudo menos ele mesmo)
+            document.querySelectorAll('.sidebar .nav-btn').forEach(b => b.style.display = '');
+            let saveControls = document.querySelector('.save-controls');
+            if (saveControls) saveControls.style.display = 'block';
+
             let config = db[currentSave];
             let btnPlantel = document.getElementById('nav-btn-plantel');
             let btnMercado = document.getElementById('nav-btn-mercado');
             let optRaioxDash = document.getElementById('opt-raiox-dash');
-            
+
             if (currentSave === 'selecao') {
                 btnPlantel.style.display = 'none'; btnMercado.style.display = 'none'; optRaioxDash.style.display = 'block'; 
                 let activeTab = document.querySelector('.tab-content.active');
@@ -266,8 +285,6 @@ function toggleChatDiretoria() {
                 return;
             }
 
-            let wizardEl = document.getElementById('wizard-novo-jogo');
-            if (wizardEl) wizardEl.style.display = 'none';
             document.getElementById('header-nome-time').innerText = config.nome;
             document.getElementById('header-nome-tecnico').innerText = config.nomeTecnico || '-';
             document.getElementById('header-temp-ano').innerText = config.temporadaAtual;
@@ -279,7 +296,7 @@ function toggleChatDiretoria() {
 
             if (typeof garantirCondicaoFisicaTodos === 'function') garantirCondicaoFisicaTodos();
             preencherDatalistJogadores(); document.getElementById('jog-nome-input').value = '';
-            atualizarFiltroTemporadas(); mudarAba('tab-dashboard');
+            atualizarFiltroTemporadas(); carregarPreferenciasTaticas(); mudarAba('tab-dashboard');
         }
 
 

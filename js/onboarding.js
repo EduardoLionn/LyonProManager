@@ -1,28 +1,151 @@
 // ============================================================
-// TELA DE NOVO JOGO — assistente multi-etapas estilo Football Manager
-// Substitui o antigo modal único de "Configuração da Carreira".
+// MENU PRINCIPAL + TELA DE NOVO JOGO — assistente multi-etapas estilo Football Manager.
+// O site sempre abre no Menu Principal (aba "tab-menu-principal"). De lá dá pra:
+//  - Continuar o último save carregado
+//  - Começar um save totalmente novo (Novo Jogo)
+//  - Carregar/apagar qualquer save salvo neste navegador, ou importar um backup .json
 // ============================================================
 
 let wizardEtapas = [];
 let wizardEtapaIdx = 0;
 let wizardLigaSelecionada = null; // valor real escolhido pelo usuário nesta sessão (evita usar o default do <select>)
+let wizardIsNovoSaveCompleto = false; // true = veio do "Novo Jogo" do Menu Principal (save inteiro em branco)
 
-// Chamada pelo ajustarInterfaceSave() sempre que o slot atual (clube/seleção) ainda não tem nome definido.
-function iniciarTelaNovoJogo() {
-    let wrapper = document.getElementById('wizard-novo-jogo');
-    if (!wrapper) return;
-    wrapper.style.display = 'flex';
+// ============================================================
+// MENU PRINCIPAL
+// ============================================================
+
+// Chamada pelo mudarAba() sempre que a aba "tab-menu-principal" fica ativa: volta pra tela de escolha (hero).
+function menuPrincipalResetView() {
     document.getElementById('wizard-tela-hero').style.display = 'block';
+    document.getElementById('menu-carregar-save-lista').style.display = 'none';
     document.getElementById('wizard-header').style.display = 'none';
     document.querySelectorAll('.wizard-step').forEach(el => el.style.display = 'none');
     document.getElementById('wizard-nav').style.display = 'none';
 
-    document.getElementById('wizard-hero-sub').innerText = currentSave === 'selecao'
-        ? 'Assuma o comando de uma seleção nacional. Escolha o nível e defina os objetivos com a diretoria.'
-        : 'Assuma o comando. Sua carreira como técnico começa aqui.';
+    let ativoId = saveAtualId || obterIdSaveAtivo();
+    let entradaAtiva = ativoId ? listarSaves().find(s => s.id === ativoId) : null;
+    let boxContinuar = document.getElementById('menu-continuar-box');
+    if (entradaAtiva) {
+        boxContinuar.style.display = 'block';
+        document.getElementById('menu-continuar-nome').innerText = entradaAtiva.nome;
+    } else {
+        boxContinuar.style.display = 'none';
+    }
+}
 
-    // Reseta os campos do assistente (evita "vazamento" de dados entre os slots clube/seleção)
+function mostrarMenuPrincipal() {
+    mudarAba('tab-menu-principal');
+}
+
+function menuContinuarSave() {
+    let id = saveAtualId || obterIdSaveAtivo();
+    if (!id || !carregarSave(id)) {
+        alert('Não foi possível continuar automaticamente. Escolha o save na lista "Carregar Save".');
+        menuPrincipalResetView();
+        return;
+    }
+    ajustarInterfaceSave();
+}
+
+function menuNovoJogo() {
+    db = dbPadrao();
+    saveAtualId = null;
+    wizardIsNovoSaveCompleto = true;
+    document.getElementById('wizard-tela-hero').style.display = 'none';
+    document.getElementById('menu-carregar-save-lista').style.display = 'none';
+    wizardIniciar();
+}
+
+function menuAbrirCarregarSave() {
+    document.getElementById('wizard-tela-hero').style.display = 'none';
+    document.getElementById('menu-carregar-save-lista').style.display = 'block';
+    menuRenderListaSaves();
+}
+
+function menuVoltarHero() {
+    document.getElementById('menu-carregar-save-lista').style.display = 'none';
+    menuPrincipalResetView();
+}
+
+function menuRenderListaSaves() {
+    let lista = listarSaves();
+    let container = document.getElementById('menu-lista-saves');
+    if (lista.length === 0) {
+        container.innerHTML = `<p class="wizard-elenco-vazio">Nenhum save salvo neste navegador ainda.</p>`;
+        return;
+    }
+    container.innerHTML = lista.map(s => {
+        let partes = [];
+        if (s.resumo && s.resumo.clubeNome) partes.push(`⚽ ${s.resumo.clubeNome} (${s.resumo.clubeLiga || '-'})`);
+        if (s.resumo && s.resumo.selecaoNome) partes.push(`🌐 ${s.resumo.selecaoNome}`);
+        let resumoTxt = partes.length > 0 ? partes.join(' · ') : 'Carreira ainda não configurada';
+        let dataTxt = new Date(s.atualizadoEm).toLocaleDateString('pt-BR');
+        return `
+        <div class="save-card">
+            <div class="save-card-info">
+                <strong>${s.nome}</strong>
+                <span>${resumoTxt}</span>
+                <span class="save-card-data">Última vez em ${dataTxt}</span>
+            </div>
+            <div class="save-card-acoes">
+                <button onclick="menuCarregarSaveClick('${s.id}')">▶️ Carregar</button>
+                <button class="btn-hero-secundario" style="color:var(--danger); border-color:var(--danger);" onclick="menuExcluirSaveClick('${s.id}', '${s.nome.replace(/'/g, "\\'")}')">🗑️ Apagar</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function menuCarregarSaveClick(id) {
+    if (!carregarSave(id)) return alert('Não foi possível carregar este save.');
+    ajustarInterfaceSave();
+}
+
+async function menuExcluirSaveClick(id, nome) {
+    if (await confirmarModerno(`Apagar o save "${nome}" permanentemente? Essa ação não pode ser desfeita.`, "Apagar Save", { perigo: true, textoConfirmar: "Apagar" })) {
+        excluirSave(id);
+        menuRenderListaSaves(); // continua na lista — só a "Continuar" do hero é atualizada quando ele voltar pra lá
+    }
+}
+
+function menuImportarArquivoSave(event) {
+    let file = event.target.files[0];
+    if (!file) return;
+    let reader = new FileReader();
+    reader.onload = e => {
+        try {
+            let dbImportado = JSON.parse(e.target.result);
+            importarSaveDeBackup(dbImportado);
+            alert('Save importado! Já aparece na lista abaixo.');
+            menuRenderListaSaves();
+        } catch (err) { alert('Arquivo inválido!'); }
+    };
+    reader.readAsText(file, 'UTF-8');
+    event.target.value = '';
+}
+
+// ============================================================
+// ASSISTENTE DE NOVO JOGO (wizard)
+// ============================================================
+
+// Chamada pelo ajustarInterfaceSave() quando o slot atual (clube/seleção) de um save JÁ ATIVO
+// ainda não tem nome definido (ex: você continua um save de clube e agora quer configurar a seleção também).
+// Aqui não existe "menu de escolha": vai direto pras etapas do assistente.
+function iniciarTelaNovoJogo() {
+    wizardIsNovoSaveCompleto = false;
+    mudarAba('tab-menu-principal');
+    document.getElementById('wizard-tela-hero').style.display = 'none';
+    document.getElementById('menu-carregar-save-lista').style.display = 'none';
+    wizardIniciar();
+}
+
+function wizardIniciar() {
+    document.getElementById('wizard-tela-hero').style.display = 'none';
+    document.getElementById('wizard-header').style.display = 'block';
+
+    // Reseta os campos do assistente (evita "vazamento" de dados entre saves/slots)
     ['setup-nome-time', 'setup-nome-time-selecao', 'setup-save-name', 'setup-nome-tecnico',
+     'setup-nome-diretor', 'setup-nome-auxiliar',
      'setup-dir-media-gasto', 'setup-dir-media-arrecadacao', 'setup-dir-titulos', 'setup-dir-posicao', 'setup-dir-posicao-copa']
         .forEach(id => { let el = document.getElementById(id); if (el) el.value = ''; });
     wizardLigaSelecionada = null;
@@ -31,14 +154,10 @@ function iniciarTelaNovoJogo() {
     let wizPos = document.getElementById('wiz-jog-pos');
     let cadPos = document.getElementById('cad-pos');
     if (wizPos && cadPos) wizPos.innerHTML = cadPos.innerHTML;
-}
 
-function wizardIniciar() {
-    document.getElementById('wizard-tela-hero').style.display = 'none';
-    document.getElementById('wizard-header').style.display = 'block';
     wizardEtapas = currentSave === 'clube'
-        ? ['perfil', 'liga', 'clube', 'diretoria', 'elenco', 'resumo']
-        : ['perfil', 'liga', 'diretoria', 'resumo'];
+        ? ['perfil', 'liga', 'clube', 'diretoria', 'tatica', 'elenco', 'resumo']
+        : ['perfil', 'liga', 'diretoria', 'tatica', 'resumo'];
     wizardEtapaIdx = 0;
     wizardMostrarEtapa(0);
 }
@@ -61,6 +180,7 @@ function wizardMostrarEtapa(idx) {
     if (etapaId === 'liga') wizardRenderStepLiga();
     if (etapaId === 'clube') wizardRenderStepClube();
     if (etapaId === 'diretoria') wizardRenderStepDiretoria();
+    if (etapaId === 'tatica') wizardRenderStepTatica();
     if (etapaId === 'elenco') wizardRenderElenco();
     if (etapaId === 'resumo') wizardRenderResumo();
 
@@ -91,7 +211,7 @@ function wizardValidarEtapaAtual() {
     return true;
 }
 
-// --- ETAPA 1: PERFIL ---
+// --- ETAPA: PERFIL ---
 function wizardRenderStepPerfil() {
     document.getElementById('wizard-linha-nome-time').style.display = currentSave === 'selecao' ? 'grid' : 'none';
     document.getElementById('wizard-linha-temporada').style.display = currentSave === 'selecao' ? 'none' : 'flex';
@@ -108,7 +228,7 @@ function wizardValidarPerfil() {
     return true;
 }
 
-// --- ETAPA 2: PAÍS / LIGA (clube) OU NÍVEL (seleção) ---
+// --- ETAPA: PAÍS / LIGA (clube) OU NÍVEL (seleção) ---
 function wizardRenderStepLiga() {
     let paisGrid = document.getElementById('wizard-pais-grid');
     let ligaGrid = document.getElementById('wizard-liga-grid');
@@ -165,7 +285,7 @@ function wizardValidarLiga() {
     return true;
 }
 
-// --- ETAPA 3: CLUBE (apenas modo Clube) ---
+// --- ETAPA: CLUBE (apenas modo Clube) ---
 function wizardRenderStepClube() {
     let liga = document.getElementById('setup-liga').value;
     window._wizardClubesLista = (typeof clubesPorLiga !== 'undefined' && clubesPorLiga[liga]) ? clubesPorLiga[liga] : [];
@@ -201,13 +321,31 @@ function wizardValidarClube() {
     return true;
 }
 
-// --- ETAPA 4: DIRETORIA ---
+// --- ETAPA: DIRETORIA ---
 function wizardRenderStepDiretoria() {
     let box = document.getElementById('box-setup-continental');
     if (box) box.style.display = currentSave === 'clube' ? 'flex' : 'none';
 }
 
-// --- ETAPA 5: ELENCO INICIAL (apenas modo Clube) ---
+// --- ETAPA: TÁTICA ---
+function wizardRenderStepTatica() {
+    // Clona as opções dos selects "de verdade" da aba Auxiliar Técnico (fonte única de verdade)
+    [['wiz-tatica-primaria', 'tatica-primaria'], ['wiz-tatica-secundaria', 'tatica-secundaria'], ['wiz-tatica-estilo', 'tatica-estilo']]
+        .forEach(([wizId, realId]) => {
+            let wizEl = document.getElementById(wizId);
+            let realEl = document.getElementById(realId);
+            if (wizEl && realEl && wizEl.options.length === 0) wizEl.innerHTML = realEl.innerHTML;
+        });
+
+    let taticas = db[currentSave].taticas;
+    if (taticas) {
+        if (taticas.primaria) document.getElementById('wiz-tatica-primaria').value = taticas.primaria;
+        if (taticas.secundaria) document.getElementById('wiz-tatica-secundaria').value = taticas.secundaria;
+        if (taticas.estilo) document.getElementById('wiz-tatica-estilo').value = taticas.estilo;
+    }
+}
+
+// --- ETAPA: ELENCO INICIAL (apenas modo Clube) ---
 function wizardRenderElenco() {
     let tbody = document.querySelector('#wizard-tabela-elenco tbody');
     let elenco = db.clube.plantel || [];
@@ -221,7 +359,10 @@ function wizardRenderElenco() {
             <td><strong>${p.nome}</strong></td>
             <td>${p.ovr}</td>
             <td>${p.idade || '-'}</td>
-            <td><button class="btn-upload" style="margin:0; padding:4px 8px; color:var(--danger); border-color:var(--danger);" onclick="wizardRemoverJogador(${idx})">🗑️</button></td>
+            <td style="display:flex; gap:6px;">
+                <button class="btn-upload" style="margin:0; padding:4px 8px; color:var(--warning); border-color:var(--warning);" title="A idade não vem do print — edite aqui se precisar" onclick="abrirModalEditarJogador('${p.nome.replace(/'/g, "\\'")}')">✏️</button>
+                <button class="btn-upload" style="margin:0; padding:4px 8px; color:var(--danger); border-color:var(--danger);" onclick="wizardRemoverJogador(${idx})">🗑️</button>
+            </td>
         </tr>`).join('');
 }
 
@@ -246,13 +387,15 @@ function wizardRemoverJogador(idx) {
     wizardRenderElenco();
 }
 
-// --- ETAPA 6: RESUMO E FINALIZAÇÃO ---
+// --- ETAPA: RESUMO E FINALIZAÇÃO ---
 function wizardRenderResumo() {
     let nome = currentSave === 'clube'
         ? document.getElementById('setup-nome-time').value.trim()
         : document.getElementById('setup-nome-time-selecao').value.trim();
     let saveName = document.getElementById('setup-save-name').value.trim() || nome;
     let tecnico = document.getElementById('setup-nome-tecnico').value.trim();
+    let nomeDiretor = document.getElementById('setup-nome-diretor').value.trim();
+    let nomeAuxiliar = document.getElementById('setup-nome-auxiliar').value.trim();
     let liga = document.getElementById('setup-liga').value;
     let temporada = currentSave === 'clube' ? document.getElementById('setup-temporada').value : document.getElementById('setup-ciclo').value;
     let mediaGasto = document.getElementById('setup-dir-media-gasto').value || 0;
@@ -260,6 +403,7 @@ function wizardRenderResumo() {
     let titulos = document.getElementById('setup-dir-titulos').value || 0;
     let posicao = document.getElementById('setup-dir-posicao').value || '-';
     let posicaoCopa = document.getElementById('setup-dir-posicao-copa').value || '-';
+    let formacaoPrimaria = document.getElementById('wiz-tatica-primaria') ? document.getElementById('wiz-tatica-primaria').value : '-';
 
     let itens = [
         ['Save', saveName],
@@ -267,6 +411,9 @@ function wizardRenderResumo() {
         [currentSave === 'clube' ? 'Clube' : 'Seleção', nome],
         ['Divisão / Nível', liga],
         [currentSave === 'clube' ? 'Temporada Inicial' : 'Ciclo Inicial', temporada],
+        ['Diretor Executivo', nomeDiretor || 'A Diretoria'],
+        ['Auxiliar Técnico', nomeAuxiliar || 'O Auxiliar Técnico'],
+        ['Formação Preferida', formacaoPrimaria],
         ['Gasto médio (5 temp.)', `€${mediaGasto}M`],
         ['Arrecadação média (5 temp.)', `€${mediaArrec}M`],
         ['Títulos (5 temp.)', titulos],
@@ -288,19 +435,36 @@ async function wizardFinalizar() {
 
     let saveName = document.getElementById('setup-save-name').value.trim() || nome;
     let nomeTecnico = document.getElementById('setup-nome-tecnico').value.trim();
+    let nomeDiretor = document.getElementById('setup-nome-diretor').value.trim();
+    let nomeAuxiliar = document.getElementById('setup-nome-auxiliar').value.trim();
     let liga = document.getElementById('setup-liga').value;
     let temporada = currentSave === 'clube' ? document.getElementById('setup-temporada').value : document.getElementById('setup-ciclo').value;
 
     db[currentSave].nome = nome;
     db[currentSave].saveName = saveName;
     db[currentSave].nomeTecnico = nomeTecnico;
+    db[currentSave].nomeDiretor = nomeDiretor;
+    db[currentSave].nomeAuxiliar = nomeAuxiliar;
     db[currentSave].liga = liga;
     db[currentSave].temporadaAtual = temporada;
+
+    if (document.getElementById('wiz-tatica-primaria')) {
+        db[currentSave].taticas = {
+            primaria: document.getElementById('wiz-tatica-primaria').value,
+            secundaria: document.getElementById('wiz-tatica-secundaria').value,
+            estilo: document.getElementById('wiz-tatica-estilo').value
+        };
+    }
 
     adicionarNoticiaAutomatica(
         `🚨 O projeto começa: ${nome} inicia a temporada ${temporada}.`,
         `A diretoria estabeleceu novas diretrizes ambiciosas para o início desta temporada do ${nome}. O planejamento envolve foco total no campeonato e buscar a solidificação tática sob a tutela do novo técnico, ${nomeTecnico}.`
     );
+
+    // Se veio do "Novo Jogo" do Menu Principal, registra este save inteiro como novo na lista agora
+    if (wizardIsNovoSaveCompleto) {
+        registrarNovoSaveAtivo(saveName);
+    }
 
     let btn = document.getElementById('wizard-btn-finalizar');
     btn.disabled = true; btn.innerText = '⏳ Preparando a temporada...';
@@ -314,10 +478,21 @@ async function wizardFinalizar() {
 
     await definirMetasDiretoriaIA(mediaGasto, mediaArrec, titulos, posicaoMedia, posicaoCopaMedia, continental);
 
+    // Mensagens automáticas de boas-vindas do Diretor e do Auxiliar (texto fixo, sem custo de IA)
+    let exibDiretor = nomeDiretor || 'A Diretoria';
+    let exibAuxiliar = nomeAuxiliar || 'O Auxiliar Técnico';
+    let formacaoEscolhida = (document.getElementById('wiz-tatica-primaria') && document.getElementById('wiz-tatica-primaria').value) || '4-2-3-1';
+    db[currentSave].chatHistory.diretoria.push({
+        role: 'ai',
+        text: `Seja muito bem-vindo(a) ao ${nome}, ${nomeTecnico}! Eu sou ${exibDiretor}${nomeDiretor ? '' : ', a diretoria do clube'}. A partir de agora vou acompanhar de perto sua gestão — os objetivos da temporada já estão definidos, dá uma olhada aí embaixo. Conte comigo pra o que precisar.`
+    });
+    db[currentSave].chatHistory.auxiliar.push({
+        role: 'ai',
+        text: `Fala, mister! Sou ${exibAuxiliar}${nomeAuxiliar ? '' : ', seu auxiliar técnico'}. Já anotei sua filosofia tática (formação ${formacaoEscolhida} como principal) — assim que tiver o elenco pronto, é só pedir que eu monto a escalação e as instruções pro primeiro jogo.`
+    });
+
     salvarDados();
-    document.getElementById('wizard-novo-jogo').style.display = 'none';
     ajustarInterfaceSave();
-    carregarPreferenciasTaticas();
 
     btn.disabled = false; btn.innerText = '🏁 Começar Carreira';
 }

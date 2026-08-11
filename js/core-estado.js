@@ -3,6 +3,7 @@
         const API_URL = "https://lyonpromanager.eduardolion.workers.dev/";
         
         let currentSave = 'clube';
+        let saveAtualId = null; // id do save carregado no sistema de múltiplos saves (null = nenhum save ativo, estamos no Menu Principal)
         let statusFiltroMercado = 'Vendido';
         let idTempCounter = 0;
         let jogadoresPartidaTemp = [];
@@ -22,10 +23,15 @@
     'Atacante/Aberto': 7, 'Atacante/Fisico': 7, 'Atacante/Armador': 7, 'Atacante/Velocidade': 7, 'Atacante/Versátil': 7 
 };
 
-        let db = {
-            clube: { nome: '', nomeTecnico: '', escalacaoSalvaIA: null, comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 50, alvosTorcida: {}, liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } },
-            selecao: { nome: '', nomeTecnico: '', comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 50, alvosTorcida: {}, liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } }
-        };
+        // Fábrica de um save em branco. Usada tanto para o primeiro carregamento quanto para
+        // criar novos saves e resetar slots — mantém uma única fonte de verdade pro "formato" do save.
+        function dbPadrao() {
+            return {
+                clube: { nome: '', saveName: '', nomeTecnico: '', nomeDiretor: '', nomeAuxiliar: '', escalacaoSalvaIA: null, comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 50, alvosTorcida: {}, liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } },
+                selecao: { nome: '', saveName: '', nomeTecnico: '', nomeDiretor: '', nomeAuxiliar: '', escalacaoSalvaIA: null, comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 50, alvosTorcida: {}, liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 6.5, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } }
+            };
+        }
+        let db = dbPadrao();
 
         const ligaMap = {
             "League Two (OVR 60)": { up: "League One (OVR 64)", down: null, isTop: false },
