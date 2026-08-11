@@ -240,6 +240,7 @@
         <button class="nav-btn" onclick="mudarAba('tab-historico')">🏆 Sala de Troféus</button>
         <button class="nav-btn" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
         <button class="nav-btn" onclick="mudarAba('tab-medico')">🏥 Departamento Médico</button>
+        <button class="nav-btn" onclick="mudarAba('tab-perfil-treinador')">🧑‍💼 Perfil do Treinador</button>
         <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
         <button class="nav-btn" onclick="mudarAba('tab-social')">📱 Feed Social & Mídia</button>
 
@@ -1201,54 +1202,77 @@
             </div>
         </div>
 
-                <div id="tab-auxiliar" class="tab-content">
+                <div id="tab-perfil-treinador" class="tab-content">
             <div class="panel">
-                <h2 style="margin: 0 0 20px 0; font-size:24px;">🤖 Auxiliar Técnico e Táticas</h2>
-                
-                <div style="background: rgba(0, 255, 136, 0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--primary); margin-bottom: 20px;">
-                    <h3 style="margin-top:0; font-size: 16px; color: var(--primary);">📋 Minha Filosofia Tática</h3>
-                    <div class="grid-3">
-                        <div class="linha-form">
-                            <label style="color:var(--primary);">Formação Preferida</label>
-                            <select id="tatica-primaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
-                                <option value="4-3-3">4-3-3 (Ofensivo)</option>
-                                <option value="4-4-2">4-4-2 (Clássico)</option>
-                                <option value="3-5-2">3-5-2 (Alas)</option>
-                                <option value="4-2-3-1" selected>4-2-3-1 (Moderna)</option>
-                                <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
-                                <option value="3-4-3">3-4-3 (Agressiva)</option>
-                                <option value="5-3-2">5-3-2 (Defensiva)</option>
-                            </select>
-                        </div>
-                        <div class="linha-form">
-                            <label style="color:var(--primary);">Formação Secundária</label>
-                            <select id="tatica-secundaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
-                                <option value="4-3-3">4-3-3 (Ofensivo)</option>
-                                <option value="4-4-2">4-4-2 (Clássico)</option>
-                                <option value="3-5-2">3-5-2 (Alas)</option>
-                                <option value="4-2-3-1">4-2-3-1 (Moderna)</option>
-                                <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
-                                <option value="3-4-3">3-4-3 (Agressiva)</option>
-                                <option value="5-3-2" selected>5-3-2 (Defensiva)</option>
-                            </select>
-                        </div>
-                        <div class="linha-form">
-                            <label style="color:var(--primary);">Estilo de Jogo da Equipe</label>
-                            <select id="tatica-estilo" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
-                                <option value="Posse de bola e cadência (Tiki-taka)">Posse de Bola (Tiki-Taka)</option>
-                                <option value="Jogadas rápidas pelas laterais e pontas (Amplitude)">Explorar Laterais/Pontas</option>
-                                <option value="Transição rápida e jogo vertical direto">Transição Rápida (Vertical)</option>
-                                <option value="Contra-ataque letal esperando o adversário">Contra-ataque Letal</option>
-                                <option value="Retranca total, linhas baixas e compactas">Retranca Total</option>
-                                <option value="Pressão alta sufocante (Gegenpressing)">Pressão Total (Gegenpressing)</option>
-                                <option value="Jogo direto e bolas longas para o ataque (Long Ball)">Jogo Direto (Bola Longa)</option>
-                                <option value="Ataques concentrados pelo corredor central">Ataque pelo Meio (Corredor Central)</option>
-                                <option value="Construção curta desde o goleiro e zagueiros (Build-up)">Construção Curta (Build-up)</option>
-                                <option value="Equilíbrio total entre ataque e defesa, sem prioridade fixa">Equilíbrio Total</option>
-                            </select>
-                        </div>
+                <h2 style="margin: 0 0 6px 0; font-size:24px;">🧑‍💼 Perfil do Treinador</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Sua identidade na carreira e a filosofia tática que o Auxiliar Técnico usa como ponto de partida em toda escalação.</p>
+                <div class="grid-3">
+                    <div class="linha-form">
+                        <label>Nome do Técnico</label>
+                        <input type="text" id="perfil-nome-tecnico" list="lista-tecnicos" placeholder="Ex: Carlo Ancelotti">
+                    </div>
+                    <div class="linha-form">
+                        <label>Nome do Diretor Executivo</label>
+                        <input type="text" id="perfil-nome-diretor" placeholder="Ex: Florentino Perez (opcional)">
+                    </div>
+                    <div class="linha-form">
+                        <label>Nome do Auxiliar Técnico</label>
+                        <input type="text" id="perfil-nome-auxiliar" placeholder="Ex: Zico (opcional)">
                     </div>
                 </div>
+                <button style="margin-top:10px;" onclick="salvarPerfilTreinador()">💾 Salvar Perfil</button>
+            </div>
+
+            <div class="panel">
+                <h2 style="margin: 0 0 6px 0; font-size:20px; color:var(--primary);">📋 Minha Filosofia Tática</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Isso já deixa o Auxiliar Técnico pronto pra sugerir escalações — dá pra mudar quando quiser.</p>
+                <div class="grid-3">
+                    <div class="linha-form">
+                        <label style="color:var(--primary);">Formação Preferida</label>
+                        <select id="tatica-primaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
+                            <option value="4-3-3">4-3-3 (Ofensivo)</option>
+                            <option value="4-4-2">4-4-2 (Clássico)</option>
+                            <option value="3-5-2">3-5-2 (Alas)</option>
+                            <option value="4-2-3-1" selected>4-2-3-1 (Moderna)</option>
+                            <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
+                            <option value="3-4-3">3-4-3 (Agressiva)</option>
+                            <option value="5-3-2">5-3-2 (Defensiva)</option>
+                        </select>
+                    </div>
+                    <div class="linha-form">
+                        <label style="color:var(--primary);">Formação Secundária</label>
+                        <select id="tatica-secundaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
+                            <option value="4-3-3">4-3-3 (Ofensivo)</option>
+                            <option value="4-4-2">4-4-2 (Clássico)</option>
+                            <option value="3-5-2">3-5-2 (Alas)</option>
+                            <option value="4-2-3-1">4-2-3-1 (Moderna)</option>
+                            <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
+                            <option value="3-4-3">3-4-3 (Agressiva)</option>
+                            <option value="5-3-2" selected>5-3-2 (Defensiva)</option>
+                        </select>
+                    </div>
+                    <div class="linha-form">
+                        <label style="color:var(--primary);">Estilo de Jogo da Equipe</label>
+                        <select id="tatica-estilo" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
+                            <option value="Posse de bola e cadência (Tiki-taka)">Posse de Bola (Tiki-Taka)</option>
+                            <option value="Jogadas rápidas pelas laterais e pontas (Amplitude)">Explorar Laterais/Pontas</option>
+                            <option value="Transição rápida e jogo vertical direto">Transição Rápida (Vertical)</option>
+                            <option value="Contra-ataque letal esperando o adversário">Contra-ataque Letal</option>
+                            <option value="Retranca total, linhas baixas e compactas">Retranca Total</option>
+                            <option value="Pressão alta sufocante (Gegenpressing)">Pressão Total (Gegenpressing)</option>
+                            <option value="Jogo direto e bolas longas para o ataque (Long Ball)">Jogo Direto (Bola Longa)</option>
+                            <option value="Ataques concentrados pelo corredor central">Ataque pelo Meio (Corredor Central)</option>
+                            <option value="Construção curta desde o goleiro e zagueiros (Build-up)">Construção Curta (Build-up)</option>
+                            <option value="Equilíbrio total entre ataque e defesa, sem prioridade fixa">Equilíbrio Total</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+                <div id="tab-auxiliar" class="tab-content">
+            <div class="panel">
+                <h2 style="margin: 0 0 20px 0; font-size:24px;">🤖 Auxiliar Técnico</h2>
 
                 <div id="auxiliar-alerta-medico" style="padding: 14px 18px; border-radius: 8px; border: 1px solid var(--border); background: rgba(226,75,75,0.05); margin-bottom: 20px; font-size: 14px;"></div>
 
@@ -1329,11 +1353,11 @@
             </div>
 
             <!-- MODAL: TROCAR JOGADOR NA ESCALAÇÃO -->
-            <div id="modal-trocar-jogador" style="display: none;">
-                <div class="setup-box">
+            <div id="modal-trocar-jogador" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
                     <h2 style="margin-top:0;" id="modal-trocar-titulo">🔄 Trocar Jogador</h2>
-                    <p style="font-size:13px; color:var(--text-muted);">Escolha quem entra no lugar dele.</p>
-                    <div id="modal-trocar-lista" style="display:flex; flex-direction:column; gap:8px; max-height: 350px; overflow-y:auto;"></div>
+                    <p id="modal-trocar-subtitulo" style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Escolha quem entra no lugar dele.</p>
+                    <div id="modal-trocar-lista" class="modal-troca-lista"></div>
                     <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
                 </div>
             </div>
@@ -1352,7 +1376,7 @@
                         <button class="btn-mic" id="mic-btn-auxiliar" onclick="iniciarGravacao('input-auxiliar', 'mic-btn-auxiliar')">🎤</button>
                         <label class="btn-mic" style="cursor:pointer;" title="Anexar print do jogo (campo térmico, estatísticas da partida)">
                             📸
-                            <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAuxiliar(event)">
+                            <input type="file" accept="image/*" multiple style="display:none;" onchange="anexarImagemAuxiliar(event)">
                         </label>
                         <textarea id="input-auxiliar" placeholder="Digite ordens, ou conte o contexto do jogo e anexe um print (📸) pra sugestão de mudança..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('auxiliar'); }"></textarea>
                         <button onclick="enviarChat('auxiliar')" style="padding: 10px 20px; font-size:14px;">Conversar</button>

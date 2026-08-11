@@ -151,9 +151,17 @@
         .historico-titulares-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 12px; font-size: 12px; color: var(--text-muted); }
         .historico-titulares-grid strong { display: block; color: var(--primary); margin-bottom: 6px; font-size: 12px; text-transform: uppercase; }
 
-        .trocar-jogador-opcao { display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; cursor: pointer; transition: 0.15s; }
-        .trocar-jogador-opcao:hover { border-color: var(--primary); background: rgba(232, 184, 75, 0.08); }
-        .trocar-jogador-opcao span { font-size: 12px; color: var(--text-muted); }
+        /* --- MODAL DE TROCA DE JOGADOR (visual profissional) --- */
+        .modal-troca-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 12, 14, 0.75); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1200; }
+        .modal-troca-box { width: 440px; }
+        .modal-troca-lista { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; padding-right: 2px; }
+        .trocar-jogador-opcao { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, var(--input-bg), rgba(255,255,255,0.02)); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; cursor: pointer; transition: 0.15s; }
+        .trocar-jogador-opcao:hover { border-color: var(--primary); background: rgba(232, 184, 75, 0.1); transform: translateX(2px); }
+        .trocar-jogador-opcao .tjo-ovr { min-width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(145deg, var(--primary), #c9962f); color: #14150F; font-family: var(--font-display); font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+        .trocar-jogador-opcao .tjo-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .trocar-jogador-opcao .tjo-info strong { color: white; font-size: 14px; }
+        .trocar-jogador-opcao .tjo-info span { font-size: 12px; color: var(--text-muted); }
+        .trocar-jogador-opcao .tjo-seta { color: var(--primary); font-size: 20px; font-weight: bold; opacity: 0.6; }
 
 /* --- NOVOS ESTILOS: KPIs e Forma Recente --- */
         .kpi-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
@@ -206,26 +214,50 @@
 
         /* --- ESTILOS DO NOVO CAMPINHO E TOOLTIP --- */
         .campo-futebol-grande {
-            position: relative; width: 100%; max-width: 800px; aspect-ratio: 4/3; 
-            background: #1e5631; border: 3px solid #fff; margin: 20px auto; overflow: visible; border-radius: 8px;
+            position: relative; width: 100%; max-width: 800px; aspect-ratio: 4/3; margin: 20px auto; overflow: hidden; border-radius: 14px;
+            background:
+                repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0, rgba(255,255,255,0.035) 40px, transparent 40px, transparent 80px),
+                radial-gradient(ellipse at center, #1f6b3c 0%, #184f2d 70%, #123c22 100%);
+            border: 3px solid rgba(255,255,255,0.85);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.55), inset 0 0 90px rgba(0,0,0,0.35);
         }
-        .campo-futebol-grande::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.5); transform: translateY(-50%); }
-        .campo-futebol-grande::after { content: ''; position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); }
-        
+        .campo-futebol-grande::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.55); transform: translateY(-50%); }
+        .campo-futebol-grande::after { content: ''; position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; border: 2px solid rgba(255,255,255,0.55); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 2px rgba(0,0,0,0.08); }
+        .campo-canto { position: absolute; width: 28px; height: 28px; border: 2px solid rgba(255,255,255,0.55); }
+        .campo-canto.tl { top: -14px; left: -14px; border-radius: 50%; clip-path: inset(50% 0 0 50%); }
+        .campo-canto.tr { top: -14px; right: -14px; border-radius: 50%; clip-path: inset(50% 50% 0 0); }
+        .campo-canto.bl { bottom: -14px; left: -14px; border-radius: 50%; clip-path: inset(0 0 50% 50%); }
+        .campo-canto.br { bottom: -14px; right: -14px; border-radius: 50%; clip-path: inset(0 50% 50% 0); }
+
         .jogador-tooltip {
-            visibility: hidden; opacity: 0; position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
-            background: rgba(15, 17, 21, 0.95); color: var(--primary); padding: 10px; border-radius: 8px; 
-            font-size: 11px; white-space: normal; width: 160px; z-index: 999; transition: 0.2s; 
-            border: 1px solid var(--primary); text-align: center; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            font-weight: normal;
+            visibility: hidden; opacity: 0; position: absolute; bottom: 135%; left: 50%; transform: translateX(-50%) translateY(4px);
+            background: rgba(15, 17, 21, 0.97); color: var(--primary); padding: 12px 14px; border-radius: 10px;
+            font-size: 11px; white-space: normal; width: 180px; z-index: 999; transition: 0.2s;
+            border: 1px solid var(--primary); text-align: center; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.55);
+            font-weight: normal; line-height: 1.5;
         }
         /* A setinha do balão */
         .jogador-tooltip::after {
             content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: var(--primary) transparent transparent transparent;
         }
-        .jogador-campo:hover .jogador-tooltip { visibility: visible; opacity: 1; bottom: 150%; }
-/* ADICIONE ESTA LINHA ABAIXO PARA TRAZER O JOGADOR PARA FRENTE: */
-.jogador-campo:hover { z-index: 1000; }
+        .jogador-campo:hover .jogador-tooltip { visibility: visible; opacity: 1; bottom: 145%; transform: translateX(-50%) translateY(0); }
+        .jogador-campo:hover { z-index: 1000; }
+
+        /* Card de jogador em campo — estilo "camisa" com selo de OVR */
+        .jogador-campo {
+            position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 3px;
+            cursor: pointer; z-index: 10; transition: top 0.5s, left 0.5s, transform 0.15s;
+        }
+        .jogador-campo:hover { transform: translate(-50%, -50%) scale(1.08); }
+        .jogador-campo .jc-ovr {
+            width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(145deg, var(--primary), #c9962f);
+            color: #14150F; font-family: var(--font-display); font-weight: 700; font-size: 13px;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.45), 0 0 0 2px rgba(255,255,255,0.25);
+        }
+        .jogador-campo .jc-nome {
+            background: rgba(13, 21, 18, 0.92); color: white; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+            white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+        }
 
 /* --- NOVA ABA: FEED SOCIAL DA TORCIDA --- */
 .social-header { display: flex; justify-content: space-between; align-items: center; background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -350,7 +382,8 @@
 .wizard-resumo-item strong { font-size: 15px; color: white; }
 
 .banco-reservas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-.banco-reserva-item { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+.banco-reserva-item { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; transition: 0.15s; }
+.banco-reserva-item:hover { border-color: var(--accent); background: rgba(75, 159, 226, 0.08); transform: translateY(-2px); }
 .banco-reserva-item strong { color: white; font-size: 13px; }
 .banco-reserva-item span { font-size: 11px; color: var(--text-muted); }
 .banco-reserva-item .banco-reserva-papel { color: var(--accent); font-style: italic; }
@@ -371,3 +404,41 @@
     .wizard-resumo-grid { grid-template-columns: 1fr; }
     .save-card { flex-direction: column; align-items: flex-start; }
 }
+
+/* --- CHAT DO AUXILIAR: prints múltiplos anexados --- */
+#auxiliar-imagem-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--accent); }
+.chip-imagem-anexada { display: inline-flex; align-items: center; gap: 6px; background: rgba(75, 159, 226, 0.12); border: 1px solid var(--accent); border-radius: 20px; padding: 3px 6px 3px 10px; color: var(--accent); }
+.chip-imagem-anexada button { background: none; border: none; color: var(--danger); cursor: pointer; font-weight: bold; padding: 2px 4px; }
+
+/* --- CARD DE SUGESTÃO DE SUBSTITUIÇÃO NO CHAT --- */
+.sugestao-sub-card { margin-top: 10px; background: rgba(232, 184, 75, 0.07); border: 1px solid var(--primary); border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+.sugestao-sub-card.sugestao-sub-resolvida { background: var(--input-bg); border-color: var(--border); color: var(--text-muted); font-style: italic; }
+.sugestao-sub-card.sugestao-sub-ok { border-color: var(--accent); color: var(--text-main); font-style: normal; }
+.ssc-titulo { font-weight: bold; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; }
+.ssc-troca { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: bold; flex-wrap: wrap; }
+.ssc-sai { color: var(--danger); }
+.ssc-entra { color: #4CAF7A; }
+.ssc-seta { color: var(--text-muted); }
+.ssc-instrucao { margin-top: 8px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.ssc-acoes { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.ssc-acoes button { border: none; border-radius: 6px; padding: 7px 12px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.15s; }
+.btn-ssc-confirmar { background: var(--primary); color: #14150F; }
+.btn-ssc-confirmar:hover { background: var(--primary-hover); }
+.btn-ssc-alterar { background: transparent; border: 1px solid var(--accent) !important; color: var(--accent); }
+.btn-ssc-alterar:hover { background: rgba(75, 159, 226, 0.12); }
+.btn-ssc-rejeitar { background: transparent; border: 1px solid var(--danger) !important; color: var(--danger); }
+.btn-ssc-rejeitar:hover { background: rgba(226, 75, 75, 0.12); }
+
+/* --- HISTÓRICO DE PARTIDAS: detalhe rico (notas, campinho, substituições) --- */
+.historico-secao-titulo { margin: 18px 0 8px 0; font-size: 13px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.04em; }
+.campo-mini { max-width: 420px; aspect-ratio: 4/3; margin: 10px auto; }
+.jogador-campo-historico { cursor: default; }
+.jogador-campo-historico:hover { transform: translate(-50%, -50%) !important; }
+.jc-sub-out { margin-top: 2px; background: rgba(226, 75, 75, 0.9); color: white; font-size: 10px; font-weight: bold; padding: 1px 6px; border-radius: 10px; }
+.historico-subs-lista { display: flex; flex-direction: column; gap: 6px; }
+.historico-sub-item { background: var(--input-bg); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.historico-sub-instrucao { color: var(--text-muted); font-style: italic; }
+.historico-notas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.historico-nota-item { display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+.historico-nota-item strong { color: var(--primary); font-family: var(--font-display); font-size: 15px; }
+.historico-nota-item.mvp { border-color: var(--primary); background: rgba(232, 184, 75, 0.08); }

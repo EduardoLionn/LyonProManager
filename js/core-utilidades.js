@@ -185,7 +185,25 @@ function toggleChatDiretoria() {
                 if(db[currentSave].taticas.estilo) document.getElementById('tatica-estilo').value = db[currentSave].taticas.estilo;
             }
         }
-        
+
+        function carregarPerfilTreinador() {
+            document.getElementById('perfil-nome-tecnico').value = db[currentSave].nomeTecnico || '';
+            document.getElementById('perfil-nome-diretor').value = db[currentSave].nomeDiretor || '';
+            document.getElementById('perfil-nome-auxiliar').value = db[currentSave].nomeAuxiliar || '';
+        }
+
+        function salvarPerfilTreinador() {
+            let nome = document.getElementById('perfil-nome-tecnico').value.trim();
+            if (!nome) return alert("Digite o nome do técnico!");
+            if (!nome.includes(' ')) return alert("Digite nome E sobrenome do técnico (ex: Carlo Ancelotti).");
+            db[currentSave].nomeTecnico = nome;
+            db[currentSave].nomeDiretor = document.getElementById('perfil-nome-diretor').value.trim();
+            db[currentSave].nomeAuxiliar = document.getElementById('perfil-nome-auxiliar').value.trim();
+            salvarDados();
+            document.getElementById('header-nome-tecnico').innerText = nome;
+            alert("Perfil salvo!");
+        }
+
 
         function salvarDados() {
             if (!saveAtualId) return; // nenhum save carregado ainda (estamos no Menu Principal)
@@ -245,6 +263,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-historico') renderizarHistorico();
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); checarNovidadesIA('diretoria'); }
             if(abaId === 'tab-medico') { atualizarDepartamentoMedicoUI(); }
+            if(abaId === 'tab-perfil-treinador') { carregarPerfilTreinador(); carregarPreferenciasTaticas(); }
             if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarAuxiliarPartida(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
         }

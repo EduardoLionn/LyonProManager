@@ -1,38 +1,50 @@
-        // Print anexado ao chat do Auxiliar (campo térmico / estatísticas da partida em andamento)
-        let imagemAnexadaAuxiliar = null; // { base64, mimeType, nomeArquivo }
+        // Prints anexados ao chat do Auxiliar (estatísticas, campo térmico, desempenho individual da partida em andamento)
+        let imagensAnexadasAuxiliar = []; // [{ base64, mimeType, nomeArquivo }]
 
         function anexarImagemAuxiliar(event) {
-            let file = event.target.files[0];
-            if (!file) return;
-            let reader = new FileReader();
-            reader.onload = () => {
-                imagemAnexadaAuxiliar = { base64: reader.result.split(',')[1], mimeType: file.type, nomeArquivo: file.name };
-                let preview = document.getElementById('auxiliar-imagem-preview');
-                if (preview) {
-                    preview.style.display = 'block';
-                    preview.innerHTML = `📎 ${file.name} anexado — descreva o que está acontecendo no jogo e mande. <button onclick="removerImagemAuxiliar()" style="background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold; text-decoration:underline;">remover</button>`;
-                }
-            };
-            reader.readAsDataURL(file);
+            let files = Array.from(event.target.files || []);
+            if (!files.length) return;
+            files.forEach(file => {
+                let reader = new FileReader();
+                reader.onload = () => {
+                    imagensAnexadasAuxiliar.push({ base64: reader.result.split(',')[1], mimeType: file.type, nomeArquivo: file.name });
+                    renderizarPreviewImagensAuxiliar();
+                };
+                reader.readAsDataURL(file);
+            });
             event.target.value = '';
         }
 
-        function removerImagemAuxiliar() {
-            imagemAnexadaAuxiliar = null;
+        function renderizarPreviewImagensAuxiliar() {
             let preview = document.getElementById('auxiliar-imagem-preview');
-            if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+            if (!preview) return;
+            if (imagensAnexadasAuxiliar.length === 0) {
+                preview.style.display = 'none';
+                preview.innerHTML = '';
+                return;
+            }
+            preview.style.display = 'flex';
+            preview.innerHTML = imagensAnexadasAuxiliar.map((img, idx) => `
+                <span class="chip-imagem-anexada">📎 ${img.nomeArquivo} <button onclick="removerImagemAuxiliar(${idx})">✖</button></span>
+            `).join('') + `<span style="color:var(--text-muted);">descreva o que está acontecendo e mande</span>`;
+        }
+
+        function removerImagemAuxiliar(idx) {
+            if (idx === undefined) imagensAnexadasAuxiliar = [];
+            else imagensAnexadasAuxiliar.splice(idx, 1);
+            renderizarPreviewImagensAuxiliar();
         }
 
         async function enviarChat(tipo) {
             let inputEl = document.getElementById(`input-${tipo}`);
             let texto = inputEl.value.trim();
-            let imagemAnexada = (tipo === 'auxiliar') ? imagemAnexadaAuxiliar : null;
-            if(!texto && !imagemAnexada) return;
-            if(!texto) texto = "📸 (print do jogo anexado, sem mensagem)";
+            let imagensAnexadas = (tipo === 'auxiliar') ? imagensAnexadasAuxiliar.slice() : [];
+            if(!texto && imagensAnexadas.length === 0) return;
+            if(!texto) texto = imagensAnexadas.length > 1 ? "📸 (prints do jogo anexados, sem mensagem)" : "📸 (print do jogo anexado, sem mensagem)";
 
             inputEl.value = '';
             let history = db[currentSave].chatHistory[tipo]; if(!history) history = [];
-            history.push({ role: 'user', text: imagemAnexada ? `📸 ${texto}` : texto });
+            history.push({ role: 'user', text: imagensAnexadas.length > 0 ? `📸 ${texto}` : texto });
             let quickContainer = document.getElementById(`quick-${tipo}`);
             if(quickContainer) quickContainer.innerHTML = '';
             renderizarChat(tipo);
@@ -77,28 +89,39 @@
                         ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares: ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco: ${(partidaAtual.banco || []).map(b => b.nome).join(', ') || 'nenhum registrado'}.`
                         : "Nenhuma partida declarada/escalação em campo no momento.";
 
-                    let blocoImagem = imagemAnexada ? `
-        📸 ANÁLISE DE PRINT DO JOGO EM ANDAMENTO (MUITO IMPORTANTE): o treinador anexou uma imagem — pode ser o campo térmico (mapa de calor), a tela de estatísticas da partida (posse, finalizações, passes, etc.) ou o placar. Analise a imagem com atenção e cruze com o texto do treinador e a escalação atual.
+                    let jogoAoVivo = partidaAtual && partidaAtual.status === 'em_andamento';
+                    let subsUsadas = jogoAoVivo ? ((partidaAtual.substituicoes || []).length) : 0;
+                    let subsRestantes = Math.max(0, 5 - subsUsadas);
+
+                    let blocoImagem = imagensAnexadas.length > 0 ? `
+        📸 ANÁLISE DE ${imagensAnexadas.length > 1 ? `${imagensAnexadas.length} PRINTS` : 'PRINT'} DO JOGO EM ANDAMENTO (MUITO IMPORTANTE): o treinador anexou ${imagensAnexadas.length > 1 ? 'imagens' : 'uma imagem'} — pode ser o campo térmico (mapa de calor), a tela de estatísticas da partida (posse, finalizações, passes, etc.) ou o desempenho individual de um jogador. Analise ${imagensAnexadas.length > 1 ? 'todas as imagens' : 'a imagem'} com atenção e cruze com o texto do treinador e a escalação atual.
         - Aponte o que os dados/imagem mostram (ex: time recuado demais, lado sem criação, adversário dominando um setor, jogador sumido do jogo).
-        - SEJA HONESTO: se o time estiver bem e os dados não pedirem mudança nenhuma, DIGA CLARAMENTE que está tudo certo e não force uma alteração só por forçar.
-        - Se realmente precisar de ajuste, sugira UMA mudança concreta e acionável para AGORA (substituição citando um jogador REAL do elenco ativo — de preferência do banco listado acima —, troca de posicionamento, ou ajuste de instrução), nunca um conselho vago como "melhore a posse de bola".
-        - Se recomendar substituição, cite o nome de quem sai e de quem entra usando SOMENTE nomes do elenco ativo listado no contexto.` : '';
+        - SEJA HONESTO: se o time estiver bem e os dados não pedirem mudança nenhuma, DIGA CLARAMENTE que está tudo certo e não force uma alteração só por forçar.` : '';
+
+                    let blocoSubstituicao = jogoAoVivo ? `
+        🔄 SUBSTITUIÇÕES: já foram usadas ${subsUsadas} de 5 substituições permitidas nesta partida (restam ${subsRestantes}).
+        - Se o contexto (texto e/ou imagem) pedir claramente uma substituição e ainda houver substituições disponíveis, preencha o campo "sugestaoSubstituicao" do JSON com um jogador REAL que sai (titular atual) e um jogador REAL que entra (de preferência do banco listado acima), citando os nomes EXATAMENTE como aparecem no contexto, mais uma instrução tática curta pro jogador que entra.
+        - Se não houver mais substituições disponíveis (restam 0), NÃO sugira substituição — dê apenas orientação tática/posicional.
+        - Se a situação não pedir substituição nenhuma, deixe "sugestaoSubstituicao" como null. Não sugira trocas só por sugerir.` : '';
 
                     promptFull = `Atue como ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}".\n${contexto}\n${escalacaoStr}\nHistórico da Conversa:\n${historicoChat}\n
         INSTRUÇÕES:
         Responda à última mensagem do Treinador de forma coerente.
         MUDE SUA PERSONALIDADE: Seja extremamente autêntico, cirúrgico e focado em TÁTICA. Dê respostas profundas sobre esquemas, movimentações e ajustes.
         ${blocoImagem}
+        ${blocoSubstituicao}
 
         Retorne EXATAMENTE este formato JSON puro:
         {
             "mensagem": "Sua resposta oficial.",
-            "opcoes_resposta": ["Opção curta 1", "Opção curta 2"]
-        }`;
+            "opcoes_resposta": ["Opção curta 1", "Opção curta 2"],
+            "sugestaoSubstituicao": null
+        }
+        Caso sugira substituição, "sugestaoSubstituicao" deve ser um objeto exatamente assim: {"jogadorSai": "Nome Exato", "jogadorEntra": "Nome Exato", "instrucao": "Instrução tática curta pro jogador que entra"}`;
                 }
 
                 let parts = [{ text: promptFull }];
-                if (imagemAnexada) parts.push({ inlineData: { mimeType: imagemAnexada.mimeType, data: imagemAnexada.base64 } });
+                imagensAnexadas.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } }));
 
                 const response = await fetch(API_URL, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -110,8 +133,12 @@
                 
                 if (jsonMatch) {
                     let res = JSON.parse(jsonMatch[0]);
-                    history.push({ role: 'ai', text: res.mensagem });
-                    
+                    let sugestaoSub = null;
+                    if (tipo === 'auxiliar' && res.sugestaoSubstituicao && res.sugestaoSubstituicao.jogadorSai && res.sugestaoSubstituicao.jogadorEntra) {
+                        sugestaoSub = { jogadorSai: res.sugestaoSubstituicao.jogadorSai, jogadorEntra: res.sugestaoSubstituicao.jogadorEntra, instrucao: res.sugestaoSubstituicao.instrucao || '', status: 'pendente' };
+                    }
+                    history.push({ role: 'ai', text: res.mensagem, sugestaoSub: sugestaoSub });
+
                     if(quickContainer && res.opcoes_resposta) {
                         quickContainer.innerHTML = res.opcoes_resposta.map(op => `<button class="btn-quick" onclick="usarQuickReply('${op.replace(/'/g, "\\'")}', 'input-${tipo}', 'enviarChat${tipo.charAt(0).toUpperCase() + tipo.slice(1)}')">${op}</button>`).join('');
                     }
@@ -151,7 +178,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     // Registra a conversa como um "ajuste" da partida em andamento, pro resumo pós-jogo
                     if (tipo === 'auxiliar' && db[currentSave].partidaAuxiliar && db[currentSave].partidaAuxiliar.status === 'em_andamento') {
                         if (!db[currentSave].partidaAuxiliar.ajustesFeitos) db[currentSave].partidaAuxiliar.ajustesFeitos = [];
-                        db[currentSave].partidaAuxiliar.ajustesFeitos.push({ pergunta: texto, resposta: res.mensagem, teveImagem: !!imagemAnexada, quando: Date.now() });
+                        db[currentSave].partidaAuxiliar.ajustesFeitos.push({ pergunta: texto, resposta: res.mensagem, teveImagem: imagensAnexadas.length > 0, quando: Date.now() });
                     }
                 }
                 db[currentSave].chatHistory[tipo] = history; salvarDados(); renderizarChat(tipo);
@@ -164,12 +191,107 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let log = document.getElementById(`chat-log-${tipo}`);
             if(!log) return;
             let history = db[currentSave].chatHistory[tipo] || [];
-            
-            log.innerHTML = history.map(h => {
+
+            log.innerHTML = history.map((h, idx) => {
                 let btnOuvir = h.role === 'ai' ? `<button class="btn-audio" onclick="lerTexto('${h.text.replace(/'/g, "\\'")}')">🔊</button>` : '';
-                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${h.text}${btnOuvir}</div>`;
+                let cardSub = (tipo === 'auxiliar' && h.sugestaoSub) ? renderizarCardSugestaoSub(h.sugestaoSub, idx) : '';
+                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${h.text}${btnOuvir}${cardSub}</div>`;
             }).join('');
             log.scrollTop = log.scrollHeight;
+        }
+
+        // Card de sugestão de substituição embutido numa mensagem do Auxiliar (confirmar / trocar / rejeitar)
+        function renderizarCardSugestaoSub(sug, idx) {
+            if (sug.status === 'confirmada') {
+                return `<div class="sugestao-sub-card sugestao-sub-resolvida sugestao-sub-ok">✅ Substituição confirmada: <strong>${sug.jogadorEntra}</strong> entrou no lugar de <strong>${sug.jogadorSai}</strong> aos ${sug.minutoConfirmado}'.</div>`;
+            }
+            if (sug.status === 'rejeitada') {
+                return `<div class="sugestao-sub-card sugestao-sub-resolvida">✖️ Sugestão não aplicada pelo treinador.</div>`;
+            }
+            let partida = db[currentSave].partidaAuxiliar;
+            let subsUsadas = (partida && partida.status === 'em_andamento') ? (partida.substituicoes || []).length : 5;
+            if (!partida || partida.status !== 'em_andamento') {
+                return `<div class="sugestao-sub-card sugestao-sub-resolvida">⏸️ Partida não está mais ao vivo.</div>`;
+            }
+            if (subsUsadas >= 5) {
+                return `<div class="sugestao-sub-card sugestao-sub-resolvida">🚫 Limite de 5 substituições já atingido nesta partida.</div>`;
+            }
+            return `<div class="sugestao-sub-card">
+                <div class="ssc-titulo">🔄 Sugestão de Substituição (${subsUsadas}/5 usadas)</div>
+                <div class="ssc-troca"><span class="ssc-sai">🔴 ${sug.jogadorSai}</span><span class="ssc-seta">→</span><span class="ssc-entra">🟢 ${sug.jogadorEntra}</span></div>
+                ${sug.instrucao ? `<div class="ssc-instrucao">${sug.instrucao}</div>` : ''}
+                <div class="ssc-acoes">
+                    <button class="btn-ssc-confirmar" onclick="confirmarSugestaoSub(${idx})">✅ Confirmar</button>
+                    <button class="btn-ssc-alterar" onclick="alterarSugestaoSub(${idx})">✏️ Trocar quem sai</button>
+                    <button class="btn-ssc-rejeitar" onclick="rejeitarSugestaoSub(${idx})">✖️ Não confirmo</button>
+                </div>
+            </div>`;
+        }
+
+        async function confirmarSugestaoSub(idx) {
+            let history = db[currentSave].chatHistory.auxiliar;
+            let msg = history && history[idx];
+            if (!msg || !msg.sugestaoSub || msg.sugestaoSub.status !== 'pendente') return;
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento') { alert('A partida não está mais ao vivo.'); renderizarChat('auxiliar'); return; }
+            if (!partida.substituicoes) partida.substituicoes = [];
+            if (partida.substituicoes.length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); renderizarChat('auxiliar'); return; }
+
+            let sug = msg.sugestaoSub;
+            let roleSai = Object.keys(partida.titulares).find(r => partida.titulares[r].nome === sug.jogadorSai);
+            if (!roleSai) { alert(`${sug.jogadorSai} não está mais em campo — essa sugestão ficou desatualizada.`); return; }
+            let jaEmCampo = Object.values(partida.titulares).some(j => j.nome === sug.jogadorEntra);
+            if (jaEmCampo) { alert(`${sug.jogadorEntra} já está em campo.`); return; }
+
+            let minutoStr = await promptModerno(`Em que minuto ${sug.jogadorEntra} entrou em campo?`, '', '⏱️ Minuto da Substituição');
+            if (minutoStr === null) return;
+            let minuto = parseInt(minutoStr, 10);
+            if (isNaN(minuto) || minuto < 0 || minuto > 130) { alert('Digite um minuto válido (0 a 130).'); return; }
+
+            let saindo = partida.titulares[roleSai];
+            partida.titulares[roleSai] = { nome: sug.jogadorEntra, instrucao: sug.instrucao || 'Ajuste sugerido pelo Auxiliar.' };
+            partida.banco = (partida.banco || []).filter(b => b.nome !== sug.jogadorEntra);
+            let jogBDSai = db[currentSave].plantel.find(p => p.nome === saindo.nome);
+            partida.banco.unshift({ nome: saindo.nome, posicao: jogBDSai ? jogBDSai.posicao : '', papel: `Substituído — saiu aos ${minuto}'` });
+
+            partida.substituicoes.push({ minuto: minuto, saiu: saindo.nome, entrou: sug.jogadorEntra, instrucao: sug.instrucao || '', quando: Date.now() });
+
+            sug.status = 'confirmada';
+            sug.minutoConfirmado = minuto;
+
+            salvarDados();
+            renderizarCampinhoLimpo();
+            renderizarChat('auxiliar');
+        }
+
+        function rejeitarSugestaoSub(idx) {
+            let history = db[currentSave].chatHistory.auxiliar;
+            let msg = history && history[idx];
+            if (!msg || !msg.sugestaoSub || msg.sugestaoSub.status !== 'pendente') return;
+            msg.sugestaoSub.status = 'rejeitada';
+            salvarDados();
+            renderizarChat('auxiliar');
+        }
+
+        function alterarSugestaoSub(idx) {
+            let history = db[currentSave].chatHistory.auxiliar;
+            let msg = history && history[idx];
+            if (!msg || !msg.sugestaoSub || msg.sugestaoSub.status !== 'pendente') return;
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !partida.titulares) return;
+
+            let candidatos = Object.values(partida.titulares)
+                .filter(j => j.nome && j.nome !== msg.sugestaoSub.jogadorEntra)
+                .map(j => {
+                    let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
+                    return { nome: j.nome, posicao: jogBD ? jogBD.posicao : '', ovr: jogBD ? jogBD.ovr : '?' };
+                });
+
+            abrirModalTroca(candidatos, `Quem sai no lugar de ${msg.sugestaoSub.jogadorSai}?`, `${msg.sugestaoSub.jogadorEntra} vai entrar — escolha quem realmente sai de campo.`, [], (novoNomeSai) => {
+                msg.sugestaoSub.jogadorSai = novoNomeSai;
+                salvarDados();
+                renderizarChat('auxiliar');
+            });
         }
 
         // ============================================================
@@ -285,7 +407,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
         function renderizarCampinhoLimpo() {
             let campo = document.getElementById('campo-futebol-ui');
             if (!campo) return;
-            campo.innerHTML = '<div class="area-penalti-top"></div><div class="area-penalti-bot"></div>';
+            campo.innerHTML = '<div class="area-penalti-top"></div><div class="area-penalti-bot"></div><div class="campo-canto tl"></div><div class="campo-canto tr"></div><div class="campo-canto bl"></div><div class="campo-canto br"></div>';
 
             let partida = db[currentSave].partidaAuxiliar;
 
@@ -313,11 +435,15 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                         let instrucao = jogInfo ? jogInfo.instrucao : "Sem instrução.";
 
                         let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeJogador.toLowerCase().trim()));
-                        let txtOvr = jogBD ? `<br><span style="color:#0D1512; background:var(--primary); border-radius:4px; padding:0 3px;">OVR ${jogBD.ovr}</span>` : '';
+                        let ovrTxt = jogBD ? jogBD.ovr : '?';
 
                         let tooltipHTML = `<div class="jogador-tooltip"><strong>${nomeJogador}</strong><hr style="border-color:var(--border); margin:5px 0;">${instrucao}</div>`;
 
-                        campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="abrirSeletorTroca('${posObj.role}')">${nomeJogador}${txtOvr}${tooltipHTML}</div>`;
+                        campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="abrirSeletorTroca('${posObj.role}')">
+                            <div class="jc-ovr">${ovrTxt}</div>
+                            <div class="jc-nome">${nomeJogador}</div>
+                            ${tooltipHTML}
+                        </div>`;
                     }
                 }
             }
@@ -326,12 +452,12 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             if (boxBanco) {
                 if (partida && Array.isArray(partida.banco) && partida.banco.length > 0) {
                     boxBanco.style.display = 'block';
-                    boxBanco.innerHTML = `<h3 style="margin:0 0 12px 0; font-size:15px; color:var(--accent);">🪑 Banco de Reservas</h3>
+                    boxBanco.innerHTML = `<h3 style="margin:0 0 12px 0; font-size:15px; color:var(--accent);">🪑 Banco de Reservas <span style="font-weight:normal; color:var(--text-muted); font-size:12px;">(clique pra trocar)</span></h3>
                         <div class="banco-reservas-grid">
-                            ${partida.banco.map(r => {
+                            ${partida.banco.map((r, idx) => {
                                 let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
                                 let txtOvr = jogBD ? ` · OVR ${jogBD.ovr}` : '';
-                                return `<div class="banco-reserva-item">
+                                return `<div class="banco-reserva-item" onclick="abrirSeletorTrocaBanco(${idx})">
                                     <strong>${r.nome}</strong>
                                     <span>${r.posicao || ''}${txtOvr}</span>
                                     ${r.papel ? `<span class="banco-reserva-papel">${r.papel}</span>` : ''}
@@ -485,6 +611,31 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
         // --- TROCAR JOGADOR NA ESCALAÇÃO (clique no campinho) ---
 
+        let _trocaCallbackAtual = null;
+
+        function abrirModalTroca(candidatos, titulo, subtitulo, bancoNomes, callback) {
+            _trocaCallbackAtual = callback;
+            document.getElementById('modal-trocar-titulo').innerText = `🔄 ${titulo}`;
+            let elSub = document.getElementById('modal-trocar-subtitulo');
+            if (elSub) elSub.innerText = subtitulo || 'Escolha quem entra no lugar dele.';
+            document.getElementById('modal-trocar-lista').innerHTML = candidatos.map(p => `
+                <div class="trocar-jogador-opcao" onclick="executarTrocaSelecionada('${p.nome.replace(/'/g, "\\'")}')">
+                    <div class="tjo-ovr">${p.ovr}</div>
+                    <div class="tjo-info">
+                        <strong>${p.nome}</strong>
+                        <span>${p.posicao}${bancoNomes.includes(p.nome) ? ' · Já no banco' : ''}</span>
+                    </div>
+                    <div class="tjo-seta">›</div>
+                </div>`).join('') || '<p style="color:var(--text-muted); text-align:center;">Nenhum outro jogador ativo disponível.</p>';
+            document.getElementById('modal-trocar-jogador').style.display = 'flex';
+        }
+
+        function executarTrocaSelecionada(novoNome) {
+            if (typeof _trocaCallbackAtual === 'function') _trocaCallbackAtual(novoNome);
+            _trocaCallbackAtual = null;
+            document.getElementById('modal-trocar-jogador').style.display = 'none';
+        }
+
         function abrirSeletorTroca(role) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || !partida.titulares) return;
@@ -502,13 +653,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 return b.ovr - a.ovr;
             });
 
-            document.getElementById('modal-trocar-titulo').innerText = `🔄 Trocar ${nomeAtual || 'vaga (' + role + ')'}`;
-            document.getElementById('modal-trocar-lista').innerHTML = candidatos.map(p => `
-                <div class="trocar-jogador-opcao" onclick="trocarJogadorNoCampo('${role}', '${p.nome.replace(/'/g, "\\'")}')">
-                    <strong>${p.nome}</strong>
-                    <span>${p.posicao} · OVR ${p.ovr}${bancoNomes.includes(p.nome) ? ' · Banco' : ''}</span>
-                </div>`).join('') || '<p style="color:var(--text-muted); text-align:center;">Nenhum outro jogador ativo disponível.</p>';
-            document.getElementById('modal-trocar-jogador').style.display = 'flex';
+            abrirModalTroca(candidatos, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, 'Escolha quem entra no time titular.', bancoNomes, (novoNome) => trocarJogadorNoCampo(role, novoNome));
         }
 
         function trocarJogadorNoCampo(role, novoNome) {
@@ -523,7 +668,32 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 partida.banco.unshift({ nome: saindo.nome, posicao: jogBD ? jogBD.posicao : '', papel: 'Saiu da titular — opção no banco' });
             }
 
-            document.getElementById('modal-trocar-jogador').style.display = 'none';
+            salvarDados();
+            renderizarCampinhoLimpo();
+        }
+
+        function abrirSeletorTrocaBanco(idx) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !Array.isArray(partida.banco) || !partida.banco[idx]) return;
+            let atual = partida.banco[idx];
+
+            let titularesNomes = Object.values(partida.titulares || {}).map(j => j.nome);
+            let bancoNomes = partida.banco.map(b => b.nome);
+
+            let candidatos = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome) && p.nome !== atual.nome);
+            candidatos.sort((a, b) => b.ovr - a.ovr);
+
+            abrirModalTroca(candidatos, `Trocar ${atual.nome || 'reserva'}`, 'Escolha quem entra nessa vaga do banco.', bancoNomes, (novoNome) => trocarJogadorNoBanco(idx, novoNome));
+        }
+
+        function trocarJogadorNoBanco(idx, novoNome) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !Array.isArray(partida.banco) || !partida.banco[idx]) return;
+            let jogBD = db[currentSave].plantel.find(p => p.nome === novoNome);
+
+            partida.banco = partida.banco.filter((b, i) => i === idx || b.nome !== novoNome);
+            partida.banco[idx] = { nome: novoNome, posicao: jogBD ? jogBD.posicao : '', papel: 'Ajuste manual do treinador.' };
+
             salvarDados();
             renderizarCampinhoLimpo();
         }
@@ -534,6 +704,11 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida) return;
             partida.status = 'em_andamento';
+            // Snapshot de quem entrou em campo — "como um todo" — separado de trocas feitas depois do apito inicial.
+            partida.escalacaoInicial = JSON.parse(JSON.stringify(partida.titulares || {}));
+            partida.bancoInicial = JSON.parse(JSON.stringify(partida.banco || []));
+            partida.substituicoes = [];
+            partida.iniciadaEm = Date.now();
             salvarDados();
             renderizarAuxiliarPartida();
         }
@@ -586,11 +761,19 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             if (!db[currentSave].chatHistory.auxiliar) db[currentSave].chatHistory.auxiliar = [];
             db[currentSave].chatHistory.auxiliar.push({ role: 'ai', text: `📋 Pós-jogo vs ${nomeAdv} (${golsPro}x${golsContra}): ${textoResumo}` });
 
+            // Cruza com o registro recém-salvo no Dashboard (notas dos jogadores e estatísticas da partida)
+            let partidasArr = db[currentSave].partidas || [];
+            let dadosDashboard = partidasArr.length > 0 ? partidasArr[partidasArr.length - 1] : null;
+
             if (!db[currentSave].historicoPartidasAuxiliar) db[currentSave].historicoPartidasAuxiliar = [];
             db[currentSave].historicoPartidasAuxiliar.unshift({
                 id: partida.id, adversarioNome: nomeAdv, adversarioInfo: partida.adversarioInfo,
                 formacaoEscolhida: partida.formacaoEscolhida, titulares: partida.titulares, banco: partida.banco,
+                escalacaoInicial: partida.escalacaoInicial || partida.titulares, bancoInicial: partida.bancoInicial || partida.banco,
+                substituicoes: partida.substituicoes || [],
                 analiseGeral: partida.analiseGeral, ajustesFeitos: partida.ajustesFeitos,
+                jogadoresNotas: dadosDashboard ? dadosDashboard.jogadores : [],
+                estatisticas: dadosDashboard ? { possePro: dadosDashboard.possePro, posseAdv: dadosDashboard.posseAdv, finPro: dadosDashboard.finPro, finAdv: dadosDashboard.finAdv, comp: dadosDashboard.comp, mando: dadosDashboard.mando } : null,
                 golsPro: golsPro, golsContra: golsContra, resultado: resultado, resumoPosJogo: textoResumo, finalizadaEm: Date.now()
             });
             if (db[currentSave].historicoPartidasAuxiliar.length > 30) db[currentSave].historicoPartidasAuxiliar.length = 30;
@@ -623,9 +806,19 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     <div class="historico-partida-detalhes" id="historico-detalhe-${idx}" style="display:none;">
                         ${p.adversarioInfo ? `<p><strong>Sobre o adversário:</strong> ${p.adversarioInfo}</p>` : ''}
                         ${p.resumoPosJogo ? `<p><strong>Avaliação pós-jogo:</strong> ${p.resumoPosJogo}</p>` : ''}
+
+                        ${gerarHtmlEstatisticasHistorico(p)}
+
+                        <h4 class="historico-secao-titulo">🧩 Campinho Tático — como entrou em campo</h4>
+                        ${gerarHtmlCampinhoHistorico(p)}
+
+                        ${gerarHtmlSubstituicoesHistorico(p)}
+
+                        <h4 class="historico-secao-titulo">⭐ Notas dos Jogadores</h4>
+                        ${gerarHtmlNotasHistorico(p)}
+
                         <div class="historico-titulares-grid">
-                            <div><strong>Titulares</strong>${Object.entries(p.titulares || {}).map(([pos, j]) => `<div>${pos}: ${j.nome}</div>`).join('') || '<div>-</div>'}</div>
-                            <div><strong>Banco</strong>${(p.banco || []).map(r => `<div>${r.nome}</div>`).join('') || '<div>-</div>'}</div>
+                            <div><strong>Banco (início de jogo)</strong>${(p.bancoInicial || p.banco || []).map(r => `<div>${r.nome}</div>`).join('') || '<div>-</div>'}</div>
                         </div>
                     </div>
                 </div>`;
@@ -635,6 +828,62 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
         function toggleHistoricoPartida(idx) {
             let el = document.getElementById('historico-detalhe-' + idx);
             if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Mini campinho tático (não interativo) mostrando a escalação inicial da partida arquivada
+        function gerarHtmlCampinhoHistorico(p) {
+            let escalacao = p.escalacaoInicial || p.titulares || {};
+            let positions = coordsFormacoes[p.formacaoEscolhida];
+            if (!positions) return '<p class="wizard-elenco-vazio">Formação não disponível.</p>';
+
+            let notas = p.jogadoresNotas || [];
+            let subs = p.substituicoes || [];
+
+            let jogadoresHTML = positions.map(posObj => {
+                let jogInfo = escalacao[posObj.role];
+                let nome = jogInfo ? jogInfo.nome : '???';
+                let notaObj = notas.find(j => j.nome === nome);
+                let saiuInfo = subs.find(s => s.saiu === nome);
+                let badgeSub = saiuInfo ? `<div class="jc-sub-out">🔻${saiuInfo.minuto}'</div>` : '';
+                return `<div class="jogador-campo jogador-campo-historico" style="top:${posObj.top}; left:${posObj.left};">
+                    <div class="jc-ovr">${notaObj ? notaObj.nota : '?'}</div>
+                    <div class="jc-nome">${nome}</div>
+                    ${badgeSub}
+                </div>`;
+            }).join('');
+
+            return `<div class="campo-futebol-grande campo-mini">
+                <div class="area-penalti-top"></div><div class="area-penalti-bot"></div>
+                <div class="campo-canto tl"></div><div class="campo-canto tr"></div><div class="campo-canto bl"></div><div class="campo-canto br"></div>
+                ${jogadoresHTML}
+            </div>`;
+        }
+
+        function gerarHtmlSubstituicoesHistorico(p) {
+            let subs = p.substituicoes || [];
+            if (subs.length === 0) return '';
+            let ordenadas = subs.slice().sort((a, b) => (a.minuto || 0) - (b.minuto || 0));
+            return `<h4 class="historico-secao-titulo">🔁 Substituições</h4>
+                <div class="historico-subs-lista">
+                    ${ordenadas.map(s => `<div class="historico-sub-item"><strong>${s.minuto}'</strong> — 🟢 ${s.entrou} entrou no lugar de 🔴 ${s.saiu}${s.instrucao ? ` <span class="historico-sub-instrucao">(${s.instrucao})</span>` : ''}</div>`).join('')}
+                </div>`;
+        }
+
+        function gerarHtmlNotasHistorico(p) {
+            let notas = p.jogadoresNotas || [];
+            if (notas.length === 0) return '<p class="wizard-elenco-vazio">Nenhuma nota registrada pro Dashboard nessa partida.</p>';
+            return `<div class="historico-notas-grid">
+                ${notas.map(j => `<div class="historico-nota-item${j.mvp ? ' mvp' : ''}"><span>${j.nome}${j.mvp ? ' ⭐' : ''}</span><strong>${j.nota}</strong></div>`).join('')}
+            </div>`;
+        }
+
+        function gerarHtmlEstatisticasHistorico(p) {
+            if (!p.estatisticas) return '';
+            let e = p.estatisticas;
+            return `<div class="kpi-container" style="grid-template-columns: repeat(2, 1fr); margin: 12px 0;">
+                <div class="stat-card"><span>Posse de Bola</span><strong>Nós ${e.possePro}% x ${e.posseAdv}% Adv</strong></div>
+                <div class="stat-card"><span>Finalizações</span><strong>Nós ${e.finPro} x ${e.finAdv} Adv</strong></div>
+            </div>`;
         }
 
 
