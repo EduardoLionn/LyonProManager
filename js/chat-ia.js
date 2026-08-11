@@ -102,7 +102,9 @@
         🔄 SUBSTITUIÇÕES: já foram usadas ${subsUsadas} de 5 substituições permitidas nesta partida (restam ${subsRestantes}).
         - Se o contexto (texto e/ou imagem) pedir claramente uma substituição e ainda houver substituições disponíveis, preencha o campo "sugestaoSubstituicao" do JSON com um jogador REAL que sai (titular atual) e um jogador REAL que entra (de preferência do banco listado acima), citando os nomes EXATAMENTE como aparecem no contexto, mais uma instrução tática curta pro jogador que entra.
         - Se não houver mais substituições disponíveis (restam 0), NÃO sugira substituição — dê apenas orientação tática/posicional.
-        - Se a situação não pedir substituição nenhuma, deixe "sugestaoSubstituicao" como null. Não sugira trocas só por sugerir.` : '';
+        - Se a situação não pedir substituição nenhuma, deixe "sugestaoSubstituicao" como null. Não sugira trocas só por sugerir.
+
+        🔄 MUDANÇA DE FORMAÇÃO: você também pode sugerir mudar a formação inteira do time (não gasta substituição, os mesmos 11 jogadores em campo só mudam de esquema). Se a leitura do jogo pedir isso claramente (ex: time sendo dominado no meio, precisa de mais gente na frente, etc), preencha "sugestaoFormacao" com uma formação DIFERENTE da atual (${partidaAtual.formacaoEscolhida}), escolhida EXATAMENTE entre: ${Object.keys(coordsFormacoes).join(', ')}. Caso contrário deixe "sugestaoFormacao" como null. Não sugira isso à toa — é uma mudança grande.` : '';
 
                     promptFull = `Atue como ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}".\n${contexto}\n${escalacaoStr}\nHistórico da Conversa:\n${historicoChat}\n
         INSTRUÇÕES:
@@ -115,9 +117,11 @@
         {
             "mensagem": "Sua resposta oficial.",
             "opcoes_resposta": ["Opção curta 1", "Opção curta 2"],
-            "sugestaoSubstituicao": null
+            "sugestaoSubstituicao": null,
+            "sugestaoFormacao": null
         }
-        Caso sugira substituição, "sugestaoSubstituicao" deve ser um objeto exatamente assim: {"jogadorSai": "Nome Exato", "jogadorEntra": "Nome Exato", "instrucao": "Instrução tática curta pro jogador que entra"}`;
+        Caso sugira substituição, "sugestaoSubstituicao" deve ser um objeto exatamente assim: {"jogadorSai": "Nome Exato", "jogadorEntra": "Nome Exato", "instrucao": "Instrução tática curta pro jogador que entra"}
+        Caso sugira mudança de formação, "sugestaoFormacao" deve ser um objeto exatamente assim: {"novaFormacao": "4-3-3", "motivo": "1 frase justificando a mudança"}`;
                 }
 
                 let parts = [{ text: promptFull }];
@@ -137,7 +141,11 @@
                     if (tipo === 'auxiliar' && res.sugestaoSubstituicao && res.sugestaoSubstituicao.jogadorSai && res.sugestaoSubstituicao.jogadorEntra) {
                         sugestaoSub = { jogadorSai: res.sugestaoSubstituicao.jogadorSai, jogadorEntra: res.sugestaoSubstituicao.jogadorEntra, instrucao: res.sugestaoSubstituicao.instrucao || '', status: 'pendente' };
                     }
-                    history.push({ role: 'ai', text: res.mensagem, sugestaoSub: sugestaoSub });
+                    let sugestaoFormacao = null;
+                    if (tipo === 'auxiliar' && res.sugestaoFormacao && res.sugestaoFormacao.novaFormacao && coordsFormacoes[res.sugestaoFormacao.novaFormacao]) {
+                        sugestaoFormacao = { novaFormacao: res.sugestaoFormacao.novaFormacao, motivo: res.sugestaoFormacao.motivo || '', status: 'pendente' };
+                    }
+                    history.push({ role: 'ai', text: res.mensagem, sugestaoSub: sugestaoSub, sugestaoFormacao: sugestaoFormacao });
 
                     if(quickContainer && res.opcoes_resposta) {
                         quickContainer.innerHTML = res.opcoes_resposta.map(op => `<button class="btn-quick" onclick="usarQuickReply('${op.replace(/'/g, "\\'")}', 'input-${tipo}', 'enviarChat${tipo.charAt(0).toUpperCase() + tipo.slice(1)}')">${op}</button>`).join('');
@@ -195,7 +203,8 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             log.innerHTML = history.map((h, idx) => {
                 let btnOuvir = h.role === 'ai' ? `<button class="btn-audio" onclick="lerTexto('${h.text.replace(/'/g, "\\'")}')">🔊</button>` : '';
                 let cardSub = (tipo === 'auxiliar' && h.sugestaoSub) ? renderizarCardSugestaoSub(h.sugestaoSub, idx) : '';
-                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${h.text}${btnOuvir}${cardSub}</div>`;
+                let cardFormacao = (tipo === 'auxiliar' && h.sugestaoFormacao) ? renderizarCardSugestaoFormacao(h.sugestaoFormacao, idx) : '';
+                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${h.text}${btnOuvir}${cardSub}${cardFormacao}</div>`;
             }).join('');
             log.scrollTop = log.scrollHeight;
         }
@@ -226,6 +235,53 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     <button class="btn-ssc-rejeitar" onclick="rejeitarSugestaoSub(${idx})">✖️ Não confirmo</button>
                 </div>
             </div>`;
+        }
+
+        // Card de sugestão de mudança de formação embutido numa mensagem do Auxiliar (aplicar / rejeitar)
+        function renderizarCardSugestaoFormacao(sug, idx) {
+            if (sug.status === 'confirmada') {
+                return `<div class="sugestao-sub-card sugestao-sub-resolvida sugestao-sub-ok">✅ Formação alterada para <strong>${sug.novaFormacao}</strong>.</div>`;
+            }
+            if (sug.status === 'rejeitada') {
+                return `<div class="sugestao-sub-card sugestao-sub-resolvida">✖️ Sugestão de formação não aplicada.</div>`;
+            }
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento') {
+                return `<div class="sugestao-sub-card sugestao-sub-resolvida">⏸️ Partida não está mais ao vivo.</div>`;
+            }
+            return `<div class="sugestao-sub-card">
+                <div class="ssc-titulo">🔄 Sugestão de Mudança de Formação</div>
+                <div class="ssc-troca"><span class="ssc-sai">${partida.formacaoEscolhida}</span><span class="ssc-seta">→</span><span class="ssc-entra">${sug.novaFormacao}</span></div>
+                ${sug.motivo ? `<div class="ssc-instrucao">${sug.motivo}</div>` : ''}
+                <div class="ssc-acoes">
+                    <button class="btn-ssc-confirmar" onclick="confirmarSugestaoFormacao(${idx})">✅ Aplicar</button>
+                    <button class="btn-ssc-rejeitar" onclick="rejeitarSugestaoFormacao(${idx})">✖️ Não confirmo</button>
+                </div>
+            </div>`;
+        }
+
+        function confirmarSugestaoFormacao(idx) {
+            let history = db[currentSave].chatHistory.auxiliar;
+            let msg = history && history[idx];
+            if (!msg || !msg.sugestaoFormacao || msg.sugestaoFormacao.status !== 'pendente') return;
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento') { renderizarChat('auxiliar'); return; }
+
+            let ok = aplicarNovaFormacao(msg.sugestaoFormacao.novaFormacao);
+            if (!ok) { alert('Não foi possível aplicar essa formação.'); return; }
+            msg.sugestaoFormacao.status = 'confirmada';
+            salvarDados();
+            renderizarCampinhoLimpo();
+            renderizarChat('auxiliar');
+        }
+
+        function rejeitarSugestaoFormacao(idx) {
+            let history = db[currentSave].chatHistory.auxiliar;
+            let msg = history && history[idx];
+            if (!msg || !msg.sugestaoFormacao || msg.sugestaoFormacao.status !== 'pendente') return;
+            msg.sugestaoFormacao.status = 'rejeitada';
+            salvarDados();
+            renderizarChat('auxiliar');
         }
 
         async function confirmarSugestaoSub(idx) {
@@ -280,18 +336,18 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || !partida.titulares) return;
 
-            let candidatos = Object.values(partida.titulares)
+            let opcoes = Object.values(partida.titulares)
                 .filter(j => j.nome && j.nome !== msg.sugestaoSub.jogadorEntra)
                 .map(j => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
-                    return { nome: j.nome, posicao: jogBD ? jogBD.posicao : '', ovr: jogBD ? jogBD.ovr : '?' };
+                    return { nome: j.nome, posicao: jogBD ? jogBD.posicao : '', ovr: jogBD ? jogBD.ovr : '?', onSelect: () => {
+                        msg.sugestaoSub.jogadorSai = j.nome;
+                        salvarDados();
+                        renderizarChat('auxiliar');
+                    } };
                 });
 
-            abrirModalTroca(candidatos, `Quem sai no lugar de ${msg.sugestaoSub.jogadorSai}?`, `${msg.sugestaoSub.jogadorEntra} vai entrar — escolha quem realmente sai de campo.`, [], (novoNomeSai) => {
-                msg.sugestaoSub.jogadorSai = novoNomeSai;
-                salvarDados();
-                renderizarChat('auxiliar');
-            });
+            abrirModalTroca(opcoes, [], `Quem sai no lugar de ${msg.sugestaoSub.jogadorSai}?`, `${msg.sugestaoSub.jogadorEntra} vai entrar — escolha quem realmente sai de campo.`);
         }
 
         // ============================================================
@@ -392,11 +448,15 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let acoes = document.getElementById('auxiliar-acoes-partida');
             if (partida.status === 'declarada') {
                 acoes.innerHTML = `
-                    <button onclick="iniciarPartidaDeclarada()" style="flex:1; background:var(--primary); color:black; padding:12px;">▶️ Iniciar Partida</button>
+                    <button onclick="iniciarPartidaDeclarada()" style="flex:1 1 100%; background:var(--primary); color:black; padding:12px;">▶️ Iniciar Partida</button>
+                    <button onclick="abrirMudarFormacaoManual()" style="background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
                     <button class="btn-hero-secundario" onclick="cancelarPartidaDeclarada()" style="color:var(--danger); border-color:var(--danger);">🗑️ Cancelar</button>`;
             } else {
+                let subsUsadas = (partida.substituicoes || []).length;
                 acoes.innerHTML = `
-                    <button onclick="irRegistrarResultado()" style="flex:1; background:var(--accent); color:white; padding:12px;">🏁 Ir Registrar Resultado no Dashboard</button>
+                    <button onclick="abrirDeclararSubManual()" style="flex:1 1 100%; background:var(--warning); color:black; padding:12px;" ${subsUsadas >= 5 ? 'disabled' : ''}>🔁 Declarar Substituição (${subsUsadas}/5)</button>
+                    <button onclick="abrirMudarFormacaoManual()" style="background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
+                    <button onclick="irRegistrarResultado()" style="flex:1 1 100%; background:var(--accent); color:white; padding:12px;">🏁 Ir Registrar Resultado no Dashboard</button>
                     <button class="btn-hero-secundario" onclick="cancelarPartidaDeclarada()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar Partida</button>`;
             }
 
@@ -434,14 +494,24 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                         let nomeJogador = jogInfo ? jogInfo.nome : "???";
                         let instrucao = jogInfo ? jogInfo.instrucao : "Sem instrução.";
 
-                        let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeJogador.toLowerCase().trim()));
+                        // Se esse jogador entrou como substituto, mostra um badge — clicar nele alterna
+                        // a exibição pra ver quem saiu (só visual, não mexe na escalação).
+                        let subInfo = (partida.substituicoes || []).find(s => s.entrou === nomeJogador);
+                        let vendoQuemSaiu = subInfo && pitchToggleSubView[posObj.role];
+                        let nomeExibido = vendoQuemSaiu ? subInfo.saiu : nomeJogador;
+
+                        let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeExibido.toLowerCase().trim()));
                         let ovrTxt = jogBD ? jogBD.ovr : '?';
 
                         let tooltipHTML = `<div class="jogador-tooltip"><strong>${nomeJogador}</strong><hr style="border-color:var(--border); margin:5px 0;">${instrucao}</div>`;
 
+                        let tituloBadge = vendoQuemSaiu ? 'Voltar a ver quem está em campo' : `Entrou aos ${subInfo ? subInfo.minuto : ''}' — clique pra ver quem saiu`;
+                        let badgeSub = subInfo ? `<div class="jc-sub-badge ${vendoQuemSaiu ? 'saiu' : 'entrou'}" onclick="toggleSubBadge('${posObj.role}', event)" title="${tituloBadge}">${vendoQuemSaiu ? '▼' : '▲'}</div>` : '';
+
                         campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="abrirSeletorTroca('${posObj.role}')">
                             <div class="jc-ovr">${ovrTxt}</div>
-                            <div class="jc-nome">${nomeJogador}</div>
+                            <div class="jc-nome">${nomeExibido}</div>
+                            ${badgeSub}
                             ${tooltipHTML}
                         </div>`;
                     }
@@ -597,6 +667,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                         criadaEm: Date.now()
                     };
                     imagemAdvEscalacao = null; imagemAdvTatica = null;
+                    pitchToggleSubView = {};
                     salvarDados();
                     document.getElementById('auxiliar-declarar-partida').style.display = 'none';
                     renderizarAuxiliarPartida();
@@ -611,29 +682,68 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
         // --- TROCAR JOGADOR NA ESCALAÇÃO (clique no campinho) ---
 
-        let _trocaCallbackAtual = null;
+        // Categoria "larga" (o que vem antes da barra em posicao) de cada sigla de posição no campinho —
+        // usada pra filtrar candidatos relevantes no seletor de troca.
+        const CATEGORIA_POR_ROLE = {
+            GOL: 'Goleiro',
+            ZAD: 'Zagueiro', ZAE: 'Zagueiro', ZAC: 'Zagueiro',
+            LAD: 'Lateral', LAE: 'Lateral', ALD: 'Lateral', ALE: 'Lateral',
+            VOL: 'Volante', VOLD: 'Volante', VOLE: 'Volante',
+            MCD: 'MeioCampo', MCE: 'MeioCampo', MC: 'MeioCampo', MD: 'MeioCampo', ME: 'MeioCampo', MEI: 'MeioCampo',
+            PD: 'Ponta', PE: 'Ponta',
+            ATA: 'Atacante', ATD: 'Atacante', ATE: 'Atacante'
+        };
 
-        function abrirModalTroca(candidatos, titulo, subtitulo, bancoNomes, callback) {
-            _trocaCallbackAtual = callback;
+        let _trocaOpcoesAtuais = []; // [{nome, ovr, posicao, tag, onSelect}]
+        let _trocaOpcoesExtras = [];
+
+        // Estado (só visual) de qual card do campinho está mostrando "quem saiu" em vez de "quem está agora" — por role.
+        let pitchToggleSubView = {};
+
+        function toggleSubBadge(role, event) {
+            if (event) event.stopPropagation();
+            pitchToggleSubView[role] = !pitchToggleSubView[role];
+            renderizarCampinhoLimpo();
+        }
+
+        function abrirModalTroca(opcoesPrincipais, opcoesExtras, titulo, subtitulo) {
+            _trocaOpcoesAtuais = opcoesPrincipais || [];
+            _trocaOpcoesExtras = opcoesExtras || [];
             document.getElementById('modal-trocar-titulo').innerText = `🔄 ${titulo}`;
             let elSub = document.getElementById('modal-trocar-subtitulo');
             if (elSub) elSub.innerText = subtitulo || 'Escolha quem entra no lugar dele.';
-            document.getElementById('modal-trocar-lista').innerHTML = candidatos.map(p => `
-                <div class="trocar-jogador-opcao" onclick="executarTrocaSelecionada('${p.nome.replace(/'/g, "\\'")}')">
-                    <div class="tjo-ovr">${p.ovr}</div>
-                    <div class="tjo-info">
-                        <strong>${p.nome}</strong>
-                        <span>${p.posicao}${bancoNomes.includes(p.nome) ? ' · Já no banco' : ''}</span>
-                    </div>
-                    <div class="tjo-seta">›</div>
-                </div>`).join('') || '<p style="color:var(--text-muted); text-align:center;">Nenhum outro jogador ativo disponível.</p>';
+            _renderizarListaTroca();
+            let wrapVerTodos = document.getElementById('modal-trocar-ver-todos-wrap');
+            if (wrapVerTodos) wrapVerTodos.style.display = _trocaOpcoesExtras.length > 0 ? 'block' : 'none';
             document.getElementById('modal-trocar-jogador').style.display = 'flex';
         }
 
-        function executarTrocaSelecionada(novoNome) {
-            if (typeof _trocaCallbackAtual === 'function') _trocaCallbackAtual(novoNome);
-            _trocaCallbackAtual = null;
+        function _renderizarListaTroca() {
+            document.getElementById('modal-trocar-lista').innerHTML = _trocaOpcoesAtuais.map((op, idx) => `
+                <div class="trocar-jogador-opcao" onclick="executarTrocaSelecionada(${idx})">
+                    <div class="tjo-ovr">${op.ovr}</div>
+                    <div class="tjo-info">
+                        <strong>${op.nome}</strong>
+                        <span>${op.posicao || ''}${op.tag ? ' · ' + op.tag : ''}</span>
+                    </div>
+                    <div class="tjo-seta">›</div>
+                </div>`).join('') || '<p style="color:var(--text-muted); text-align:center;">Nenhuma opção disponível.</p>';
+        }
+
+        function expandirVerTodosTroca() {
+            _trocaOpcoesAtuais = _trocaOpcoesAtuais.concat(_trocaOpcoesExtras);
+            _trocaOpcoesExtras = [];
+            _renderizarListaTroca();
+            let wrapVerTodos = document.getElementById('modal-trocar-ver-todos-wrap');
+            if (wrapVerTodos) wrapVerTodos.style.display = 'none';
+        }
+
+        function executarTrocaSelecionada(idx) {
+            let op = _trocaOpcoesAtuais[idx];
+            _trocaOpcoesAtuais = [];
+            _trocaOpcoesExtras = [];
             document.getElementById('modal-trocar-jogador').style.display = 'none';
+            if (op && typeof op.onSelect === 'function') op.onSelect();
         }
 
         function abrirSeletorTroca(role) {
@@ -641,19 +751,57 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             if (!partida || !partida.titulares) return;
             let atual = partida.titulares[role];
             let nomeAtual = atual ? atual.nome : null;
+            let aoVivo = partida.status === 'em_andamento';
+            let categoria = CATEGORIA_POR_ROLE[role];
 
-            let titularesNomes = Object.values(partida.titulares).map(j => j.nome);
-            let bancoNomes = (partida.banco || []).map(b => b.nome);
+            // Grupo 1: trocar de posição com outro titular — sempre disponível (pré-jogo ou ao vivo), não gasta substituição.
+            let opcoesPosicao = Object.entries(partida.titulares)
+                .filter(([r, j]) => r !== role && j.nome && j.nome !== '???')
+                .map(([r, j]) => {
+                    let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
+                    return { nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : r, tag: 'Trocar de posição (' + r + ')', onSelect: () => trocarPosicaoTitulares(role, r) };
+                });
+            let posRelevantes = opcoesPosicao.filter(o => o.posicao && o.posicao.split('/')[0] === categoria);
+            let posOutros = opcoesPosicao.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoria));
 
-            let candidatos = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome));
-            candidatos.sort((a, b) => {
-                let aNoBanco = bancoNomes.includes(a.nome) ? 0 : 1;
-                let bNoBanco = bancoNomes.includes(b.nome) ? 0 : 1;
-                if (aNoBanco !== bNoBanco) return aNoBanco - bNoBanco;
-                return b.ovr - a.ovr;
-            });
+            let opcoesFinal, opcoesExtras, subtitulo;
 
-            abrirModalTroca(candidatos, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, 'Escolha quem entra no time titular.', bancoNomes, (novoNome) => trocarJogadorNoCampo(role, novoNome));
+            if (!aoVivo) {
+                // Pré-jogo: também dá pra trazer alguém do banco/elenco pra essa vaga (aí sim vira uma troca de escalação normal).
+                let titularesNomes = Object.values(partida.titulares).map(j => j.nome);
+                let bancoNomes = (partida.banco || []).map(b => b.nome);
+                let candidatosBanco = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome));
+                let opcoesBanco = candidatosBanco.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: bancoNomes.includes(p.nome) ? 'Banco' : 'Fora da escalação', onSelect: () => trocarJogadorNoCampo(role, p.nome) }));
+                let bancoRelevantes = opcoesBanco.filter(o => o.posicao && o.posicao.split('/')[0] === categoria);
+                let bancoOutros = opcoesBanco.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoria));
+                bancoRelevantes.sort((a, b) => b.ovr - a.ovr);
+                bancoOutros.sort((a, b) => b.ovr - a.ovr);
+
+                opcoesFinal = posRelevantes.concat(bancoRelevantes);
+                opcoesExtras = posOutros.concat(bancoOutros);
+                subtitulo = 'Escolha outro titular pra trocar de posição, ou alguém do banco/elenco pra assumir essa vaga.';
+            } else {
+                // Ao vivo: só dá pra trocar de posição entre quem já está em campo. Pra tirar alguém do banco, usa "Declarar Substituição".
+                posRelevantes.sort((a, b) => b.ovr - a.ovr);
+                posOutros.sort((a, b) => b.ovr - a.ovr);
+                opcoesFinal = posRelevantes;
+                opcoesExtras = posOutros;
+                subtitulo = 'Partida ao vivo: só dá pra trocar de posição entre os titulares em campo (não gasta substituição). Pra tirar alguém do banco, use "🔁 Declarar Substituição".';
+            }
+
+            abrirModalTroca(opcoesFinal, opcoesExtras, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo);
+        }
+
+        // Troca dois titulares de posição entre si — não mexe no banco, não conta como substituição.
+        function trocarPosicaoTitulares(roleA, roleB) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !partida.titulares) return;
+            let a = partida.titulares[roleA];
+            let b = partida.titulares[roleB];
+            partida.titulares[roleA] = b;
+            partida.titulares[roleB] = a;
+            salvarDados();
+            renderizarCampinhoLimpo();
         }
 
         function trocarJogadorNoCampo(role, novoNome) {
@@ -682,8 +830,9 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
             let candidatos = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome) && p.nome !== atual.nome);
             candidatos.sort((a, b) => b.ovr - a.ovr);
+            let opcoes = candidatos.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: bancoNomes.includes(p.nome) ? 'Já no banco' : '', onSelect: () => trocarJogadorNoBanco(idx, p.nome) }));
 
-            abrirModalTroca(candidatos, `Trocar ${atual.nome || 'reserva'}`, 'Escolha quem entra nessa vaga do banco.', bancoNomes, (novoNome) => trocarJogadorNoBanco(idx, novoNome));
+            abrirModalTroca(opcoes, [], `Trocar ${atual.nome || 'reserva'}`, 'Escolha quem entra nessa vaga do banco.');
         }
 
         function trocarJogadorNoBanco(idx, novoNome) {
@@ -698,6 +847,124 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             renderizarCampinhoLimpo();
         }
 
+        // --- DECLARAR SUBSTITUIÇÃO MANUAL (única forma de tirar alguém do banco depois do apito inicial) ---
+
+        function abrirDeclararSubManual() {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento') return;
+            let subsUsadas = (partida.substituicoes || []).length;
+            if (subsUsadas >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
+
+            document.getElementById('modal-sub-contador').innerText = `Substituições usadas nesta partida: ${subsUsadas}/5.`;
+            document.getElementById('modal-sub-sai').innerHTML = Object.entries(partida.titulares)
+                .filter(([r, j]) => j.nome && j.nome !== '???')
+                .map(([r, j]) => `<option value="${r}">${j.nome} (${r})</option>`).join('');
+            document.getElementById('modal-sub-instrucao').value = '';
+            atualizarOpcoesEntraSub();
+            document.getElementById('modal-declarar-sub').style.display = 'flex';
+        }
+
+        function atualizarOpcoesEntraSub() {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida) return;
+            let banco = partida.banco || [];
+            document.getElementById('modal-sub-entra').innerHTML = banco.length > 0
+                ? banco.map(b => `<option value="${b.nome}">${b.nome}${b.posicao ? ' — ' + b.posicao : ''}</option>`).join('')
+                : '<option value="">Sem reservas disponíveis</option>';
+        }
+
+        async function confirmarDeclararSubManual() {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento') return;
+            if (!partida.substituicoes) partida.substituicoes = [];
+            if (partida.substituicoes.length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
+
+            let roleSai = document.getElementById('modal-sub-sai').value;
+            let nomeEntra = document.getElementById('modal-sub-entra').value;
+            let instrucao = document.getElementById('modal-sub-instrucao').value.trim();
+            if (!roleSai || !nomeEntra) { alert('Escolha quem sai e quem entra.'); return; }
+
+            let saindo = partida.titulares[roleSai];
+            if (!saindo) return;
+
+            document.getElementById('modal-declarar-sub').style.display = 'none';
+
+            let minutoStr = await promptModerno(`Em que minuto ${nomeEntra} entrou em campo?`, '', '⏱️ Minuto da Substituição');
+            if (minutoStr === null) return;
+            let minuto = parseInt(minutoStr, 10);
+            if (isNaN(minuto) || minuto < 0 || minuto > 130) { alert('Digite um minuto válido (0 a 130).'); return; }
+
+            partida.titulares[roleSai] = { nome: nomeEntra, instrucao: instrucao || 'Ajuste manual do treinador.' };
+            partida.banco = (partida.banco || []).filter(b => b.nome !== nomeEntra);
+            let jogBDSai = db[currentSave].plantel.find(p => p.nome === saindo.nome);
+            partida.banco.unshift({ nome: saindo.nome, posicao: jogBDSai ? jogBDSai.posicao : '', papel: `Substituído — saiu aos ${minuto}'` });
+
+            partida.substituicoes.push({ minuto: minuto, saiu: saindo.nome, entrou: nomeEntra, instrucao: instrucao || '', quando: Date.now() });
+
+            salvarDados();
+            renderizarAuxiliarPartida();
+        }
+
+        // --- MUDAR FORMAÇÃO (sugerida pela IA ou manual, pré-jogo ou ao vivo) ---
+
+        // Realoca os titulares atuais pra nova formação — heurística: ordena por posição vertical no campo
+        // (do goleiro ao ataque) nas duas formações e casa jogador a jogador nessa ordem. Não gasta substituição.
+        function aplicarNovaFormacao(novaFormacaoKey) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !partida.titulares) return false;
+            let novasPos = coordsFormacoes[novaFormacaoKey];
+            if (!novasPos) return false;
+            let velhasPos = coordsFormacoes[partida.formacaoEscolhida] || [];
+
+            let jogadoresOrdenados = Object.entries(partida.titulares)
+                .filter(([r, j]) => j.nome && j.nome !== '???')
+                .map(([r, j]) => {
+                    let posObj = velhasPos.find(p => p.role === r);
+                    return { nome: j.nome, instrucao: j.instrucao, topNum: posObj ? parseFloat(posObj.top) : 50 };
+                })
+                .sort((a, b) => b.topNum - a.topNum);
+
+            let novasPosOrdenadas = novasPos.slice().sort((a, b) => parseFloat(b.top) - parseFloat(a.top));
+
+            let novosTitulares = {};
+            novasPosOrdenadas.forEach((posObj, idx) => {
+                let jog = jogadoresOrdenados[idx];
+                novosTitulares[posObj.role] = jog ? { nome: jog.nome, instrucao: jog.instrucao } : { nome: '???', instrucao: 'Vaga em aberto — escolha um jogador.' };
+            });
+
+            if (jogadoresOrdenados.length > novasPosOrdenadas.length) {
+                if (!partida.banco) partida.banco = [];
+                for (let i = novasPosOrdenadas.length; i < jogadoresOrdenados.length; i++) {
+                    let sobra = jogadoresOrdenados[i];
+                    let jogBD = db[currentSave].plantel.find(p => p.nome === sobra.nome);
+                    partida.banco.unshift({ nome: sobra.nome, posicao: jogBD ? jogBD.posicao : '', papel: 'Saiu por mudança de formação' });
+                }
+            }
+
+            partida.titulares = novosTitulares;
+            partida.formacaoEscolhida = novaFormacaoKey;
+            salvarDados();
+            return true;
+        }
+
+        function abrirMudarFormacaoManual() {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida) return;
+            document.getElementById('modal-formacao-select').innerHTML = Object.keys(coordsFormacoes)
+                .map(f => `<option value="${f}" ${f === partida.formacaoEscolhida ? 'selected' : ''}>${f}</option>`).join('');
+            document.getElementById('modal-mudar-formacao').style.display = 'flex';
+        }
+
+        function confirmarMudarFormacaoManual() {
+            let novaFormacao = document.getElementById('modal-formacao-select').value;
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida) return;
+            document.getElementById('modal-mudar-formacao').style.display = 'none';
+            if (novaFormacao === partida.formacaoEscolhida) return;
+            aplicarNovaFormacao(novaFormacao);
+            renderizarAuxiliarPartida();
+        }
+
         // --- CICLO DE VIDA DA PARTIDA (iniciar / cancelar / ir registrar) ---
 
         function iniciarPartidaDeclarada() {
@@ -709,6 +976,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             partida.bancoInicial = JSON.parse(JSON.stringify(partida.banco || []));
             partida.substituicoes = [];
             partida.iniciadaEm = Date.now();
+            pitchToggleSubView = {};
             salvarDados();
             renderizarAuxiliarPartida();
         }

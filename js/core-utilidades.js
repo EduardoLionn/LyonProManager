@@ -154,8 +154,20 @@
                 btn.innerHTML = '💬 Abrir Painel de Instruções Diretas e Conversa (Chat)';
                 btn.style.background = 'var(--panel-bg)';
             }
-        }        
-         
+        }
+
+        function toggleHistoricoAuxiliarPanel() {
+            let panel = document.getElementById('auxiliar-historico-partidas');
+            let btn = document.getElementById('btn-toggle-historico-aux');
+            if (panel.style.display === 'none' || !panel.style.display) {
+                panel.style.display = 'block';
+                btn.innerText = '📂 Ocultar Histórico de Partidas';
+            } else {
+                panel.style.display = 'none';
+                btn.innerText = '📂 Ver Histórico de Partidas';
+            }
+        }
+
      function salvarPreferenciasTaticas() {
             if(!db[currentSave].taticas) db[currentSave].taticas = {};
             db[currentSave].taticas.primaria = document.getElementById('tatica-primaria').value;

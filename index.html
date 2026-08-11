@@ -1346,23 +1346,7 @@
                 </button>
             </div>
 
-            <!-- HISTÓRICO DE PARTIDAS DO AUXILIAR -->
-            <div class="panel">
-                <h2 style="margin: 0 0 15px 0; font-size:20px;">📂 Histórico de Partidas</h2>
-                <div id="auxiliar-historico-partidas"></div>
-            </div>
-
-            <!-- MODAL: TROCAR JOGADOR NA ESCALAÇÃO -->
-            <div id="modal-trocar-jogador" class="modal-troca-overlay" style="display: none;">
-                <div class="setup-box modal-troca-box">
-                    <h2 style="margin-top:0;" id="modal-trocar-titulo">🔄 Trocar Jogador</h2>
-                    <p id="modal-trocar-subtitulo" style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Escolha quem entra no lugar dele.</p>
-                    <div id="modal-trocar-lista" class="modal-troca-lista"></div>
-                    <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
-                </div>
-            </div>
-
-            <!-- CHAT DO AUXILIAR (AGORA ESCONDIDO POR PADRÃO com display: none) -->
+            <!-- CHAT DO AUXILIAR (ESCONDIDO POR PADRÃO — fica ACIMA do histórico) -->
             <div id="panel-chat-auxiliar" class="panel chat-container" style="height: 400px; margin-top: 20px; display: none;">
                 <div style="padding: 15px 20px; background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
                     <h2 style="margin: 0; font-size:18px;">💬 Dar Ordens ao Auxiliar Técnico</h2>
@@ -1380,6 +1364,67 @@
                         </label>
                         <textarea id="input-auxiliar" placeholder="Digite ordens, ou conte o contexto do jogo e anexe um print (📸) pra sugestão de mudança..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('auxiliar'); }"></textarea>
                         <button onclick="enviarChat('auxiliar')" style="padding: 10px 20px; font-size:14px;">Conversar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTÓRICO DE PARTIDAS DO AUXILIAR — sempre embaixo, oculto até o usuário abrir -->
+            <div class="panel">
+                <button id="btn-toggle-historico-aux" onclick="toggleHistoricoAuxiliarPanel()" style="width: 100%; background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
+                    📂 Ver Histórico de Partidas
+                </button>
+                <div id="auxiliar-historico-partidas" style="display:none; margin-top:15px;"></div>
+            </div>
+
+            <!-- MODAL: TROCAR JOGADOR NA ESCALAÇÃO -->
+            <div id="modal-trocar-jogador" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 style="margin-top:0;" id="modal-trocar-titulo">🔄 Trocar Jogador</h2>
+                    <p id="modal-trocar-subtitulo" style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Escolha quem entra no lugar dele.</p>
+                    <div id="modal-trocar-lista" class="modal-troca-lista"></div>
+                    <div id="modal-trocar-ver-todos-wrap" style="display:none; text-align:center; margin-top:10px;">
+                        <button id="btn-modal-trocar-ver-todos" onclick="expandirVerTodosTroca()" style="background:transparent; border:none; color:var(--accent); text-decoration:underline; cursor:pointer; font-size:12px; padding:4px;">Ver todos os jogadores</button>
+                    </div>
+                    <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
+                </div>
+            </div>
+
+            <!-- MODAL: DECLARAR SUBSTITUIÇÃO (manual, durante o jogo ao vivo) -->
+            <div id="modal-declarar-sub" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 style="margin-top:0;">🔁 Declarar Substituição</h2>
+                    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;" id="modal-sub-contador">Escolha quem sai e quem entra.</p>
+                    <div class="linha-form">
+                        <label>Quem sai (titular)</label>
+                        <select id="modal-sub-sai" onchange="atualizarOpcoesEntraSub()"></select>
+                    </div>
+                    <div class="linha-form" style="margin-top:10px;">
+                        <label>Quem entra (banco)</label>
+                        <select id="modal-sub-entra"></select>
+                    </div>
+                    <div class="linha-form" style="margin-top:10px;">
+                        <label>Instrução tática pra quem entra (opcional)</label>
+                        <input type="text" id="modal-sub-instrucao" placeholder="Ex: Jogue mais recuado, marque o lateral">
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarDeclararSubManual()">✅ Confirmar Substituição</button>
+                        <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-declarar-sub').style.display='none'">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL: MUDAR FORMAÇÃO -->
+            <div id="modal-mudar-formacao" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 style="margin-top:0;">🔄 Mudar Formação</h2>
+                    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Os jogadores atuais são realocados pra nova formação automaticamente — depois ajuste manualmente se precisar.</p>
+                    <div class="linha-form">
+                        <label>Nova formação</label>
+                        <select id="modal-formacao-select"></select>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarMudarFormacaoManual()">✅ Aplicar Nova Formação</button>
+                        <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-mudar-formacao').style.display='none'">Cancelar</button>
                     </div>
                 </div>
             </div>
