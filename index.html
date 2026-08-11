@@ -10,6 +10,252 @@
 </head>
 <body onload="carregarDados()">
 
+    <!-- LISTA DE TÉCNICOS REAIS (SUGESTÕES - O USUÁRIO PODE DIGITAR QUALQUER NOME) -->
+    <datalist id="lista-tecnicos">
+        <option value="Pep Guardiola"><option value="Jürgen Klopp"><option value="Carlo Ancelotti">
+        <option value="Diego Simeone"><option value="Xabi Alonso"><option value="Roberto De Zerbi">
+        <option value="Thomas Tuchel"><option value="Julian Nagelsmann"><option value="Mikel Arteta">
+        <option value="Unai Emery"><option value="Antonio Conte"><option value="Massimiliano Allegri">
+        <option value="Zinedine Zidane"><option value="Luis Enrique"><option value="Hansi Flick">
+        <option value="Ange Postecoglou"><option value="Enzo Maresca"><option value="Rúben Amorim">
+        <option value="Oliver Glasner"><option value="Gian Piero Gasperini"><option value="Igor Tudor">
+        <option value="Sérgio Conceição"><option value="José Mourinho"><option value="Rafael Benítez">
+        <option value="Marcelo Gallardo"><option value="Abel Ferreira"><option value="Fernando Diniz">
+        <option value="Dorival Júnior"><option value="Renato Portaluppi"><option value="Roger Machado">
+        <option value="Mano Menezes"><option value="Cuca"><option value="Vítor Pereira">
+    </datalist>
+
+    <!-- MODAL EDITAR NOME DO TÉCNICO -->
+    <div id="modal-editar-tecnico" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">✏️ Editar Nome do Técnico</h2>
+            <div class="linha-form">
+                <label>Nome do Técnico</label>
+                <input type="text" id="editar-tecnico-nome" list="lista-tecnicos">
+            </div>
+            <button style="width: 100%; margin-top: 15px;" onclick="salvarEdicaoTecnico()">Salvar</button>
+            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-editar-tecnico').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- MODAL TROCA DE LIGA (MANTIDO INTACTO COMO O SEU) -->
+    <div id="modal-troca-liga" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">Trocar Divisão / Liga</h2>
+            <p style="font-size:12px; color:var(--text-muted);">Altere o contexto da sua equipe. Isso mudará a nota exigida nas avaliações de upgrade.</p>
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Selecione a Nova Divisão</label>
+                <select id="nova-liga-select"></select>
+            </div>
+            <button style="width: 100%; margin-top: 15px;" onclick="confirmarTrocaLiga()">Salvar Alteração</button>
+            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-troca-liga').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- 2. MODAL DA DIRETORIA (1ª VEZ NO SAVE) CORRIGIDO -->
+    <div id="modal-setup-diretoria" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">👔 Setup da Diretoria</h2>
+            <p style="font-size:13px; color:var(--text-muted);">Informe os dados das últimas 5 temporadas para a IA calcular o orçamento inicial e metas.</p>
+
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Média Gasta nas Últimas 5 Temp. (€M)</label>
+                <input type="number" id="legacy-dir-media-gasto" placeholder="Ex: 50">
+            </div>
+            <div class="linha-form">
+                <label>Média Arrecadada nas Últimas 5 Temp. (€M)</label>
+                <input type="number" id="legacy-dir-media-arrecadacao" placeholder="Ex: 40">
+            </div>
+            <div class="linha-form">
+                <label>Títulos Conquistados nas Últimas 5 Temp.</label>
+                <input type="number" id="legacy-dir-titulos" placeholder="Ex: 2">
+            </div>
+            <div class="linha-form">
+                <label>Posição Média na Liga nas Últimas 5 Temp.</label>
+                <input type="number" id="legacy-dir-posicao" placeholder="Ex: 4 (para 4º lugar)">
+            </div>
+            <div class="linha-form">
+                <label>Posição Média na Copa Nacional (5 Temp.)</label>
+                <input type="text" id="legacy-dir-posicao-copa" placeholder="Ex: Quartas de Final">
+            </div>
+            <div class="linha-form" id="legacy-box-continental">
+                <label>Competição Continental Atual (Se houver)</label>
+                <select id="legacy-dir-continental">
+                    <option value="Nenhuma">Nenhuma / Não classificado</option>
+                    <optgroup label="América do Sul (CONMEBOL)">
+                        <option value="Libertadores">Copa Libertadores</option>
+                        <option value="Sul-Americana">Copa Sul-Americana</option>
+                    </optgroup>
+                    <optgroup label="Europa (UEFA)">
+                        <option value="Champions League">Champions League</option>
+                        <option value="Europa League">Europa League</option>
+                        <option value="Conference League">Conference League</option>
+                    </optgroup>
+                    <optgroup label="Outros Continentes">
+                        <option value="Concacaf Champions Cup">Concacaf Champions</option>
+                        <option value="Leagues Cup">Leagues Cup</option>
+                        <option value="CAF Champions League">Liga dos Campeões da CAF (África)</option>
+                        <option value="AFC Champions League">AFC Champions (Ásia)</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <button style="width: 100%; margin-top: 15px;" onclick="salvarSetupDiretoria()">Analisar e Definir Metas (IA)</button>
+        </div>
+    </div>
+
+<!-- 4. MODALS DE CRISE E DEMISSÃO -->
+    <div id="modal-alerta-crise" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.95); justify-content: center; align-items: center; z-index: 2000;">
+        <div class="evento-box" style="border-color: var(--warning); box-shadow: 0 0 30px rgba(255,184,0,0.15); text-align: center;">
+            <h2 style="color: var(--warning); margin-bottom: 10px;">⚠️ ALERTA DA DIRETORIA</h2>
+            <p id="texto-alerta-crise" style="font-size: 16px; margin-bottom: 20px;">Reunião de emergência necessária! Seu cargo periga.</p>
+            <button onclick="document.getElementById('modal-alerta-crise').style.display='none'" style="background: var(--warning); color: black;">Entendido. Tentarei melhorar.</button>
+        </div>
+    </div>
+
+    <div id="modal-demissao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.98); justify-content: center; align-items: center; z-index: 3000;">
+        <div class="evento-box" style="border-color: var(--danger); box-shadow: 0 0 30px rgba(255,107,107,0.3); text-align: center;">
+            <h2 style="color: var(--danger); margin-bottom: 10px;">❌ VOCÊ FOI DEMITIDO!</h2>
+            <p style="font-size: 16px; margin-bottom: 20px;">A diretoria esgotou a paciência. Seu prestígio chegou a zero devido aos péssimos resultados recentes na Liga e falta de evolução técnica.</p>
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Fim da linha. O seu contrato foi rompido antecipadamente.</p>
+            <button onclick="resetarSave()" style="background: var(--danger); color: white; width: 100%;">Apagar Carreira e Recomeçar</button>
+        </div>
+    </div>
+
+    <!-- 3. NOVO MODAL: PLANEJAMENTO PÓS-TEMPORADA -->
+    <div id="modal-renovar-diretoria" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.95); justify-content: center; align-items: center; z-index: 1000;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">👔 Planejamento de Nova Temporada</h2>
+            <p style="font-size:13px; color:var(--text-muted);">A temporada anterior acabou. Informe a diretoria sobre sua situação continental para traçar os objetivos deste ano.</p>
+
+            <div class="linha-form" id="box-renovar-continental">
+                <label>Você se classificou para qual Competição Continental?</label>
+                <select id="renovar-dir-continental">
+                    <option value="Nenhuma">Nenhuma / Não classificou</option>
+                    <optgroup label="América do Sul (CONMEBOL)">
+                        <option value="Libertadores">Copa Libertadores</option>
+                        <option value="Sul-Americana">Copa Sul-Americana</option>
+                    </optgroup>
+                    <optgroup label="Europa (UEFA)">
+                        <option value="Champions League">Champions League</option>
+                        <option value="Europa League">Europa League</option>
+                        <option value="Conference League">Conference League</option>
+                    </optgroup>
+                </select>
+            </div>
+            <button id="btn-renovar-dir" style="width: 100%; margin-top: 15px;" onclick="processarRenovacaoDiretoria()">Definir Novas Metas (IA)</button>
+        </div>
+    </div>
+
+    <div id="modal-editar-jogador" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0; color: var(--warning);">✏️ Editar Jogador</h2>
+            <p style="font-size:13px; color:var(--text-muted);">Corrija informações inseridas incorretamente no cadastro ou no meio da temporada.</p>
+            
+            <input type="hidden" id="edit-jog-nome-original">
+            
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Nome do Jogador</label>
+                <input type="text" id="edit-jog-nome">
+            </div>
+            <div class="linha-form">
+    <label>Posição</label>
+    <select id="edit-jog-pos">
+        <option value="Goleiro">Goleiro</option>
+        <optgroup label="Zagueiros">
+            <option value="Zagueiro/Construtor">Zagueiro/Construtor</option>
+            <option value="Zagueiro/Lateral">Zagueiro/Lateral</option>
+            <option value="Zagueiro/Versatil">Zagueiro/Versatil</option>
+            <option value="Zagueiro/Defesa">Zagueiro/Defesa</option>
+        </optgroup>
+        <optgroup label="Laterais">
+            <option value="Lateral/Defesa Direito">Lateral/Defesa Direito</option>
+            <option value="Lateral/Defesa Esquerdo">Lateral/Defesa Esquerdo</option>
+            <option value="Lateral/Ala Direito">Lateral/Ala Direito</option>
+            <option value="Lateral/Ala Esquerdo">Lateral/Ala Esquerdo</option>
+            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
+            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
+            <option value="Lateral/Defesa Versatil">Lateral/Defesa Versatil</option>
+            <option value="Lateral/Ala Versatil">Lateral/Ala Versatil</option>
+            <option value="Lateral/Construtor Versatil">Lateral/Construtor Versatil</option>
+        </optgroup>
+        <optgroup label="Volantes">
+            <option value="Volante/Zaga">Volante/Zaga</option>
+            <option value="Volante/Contenção">Volante/Contenção</option>
+            <option value="Volante/Armação">Volante/Armação</option>
+        </optgroup>
+        <optgroup label="Meio-Campo">
+            <option value="MeioCampo/Equilibrado">MeioCampo/Equilibrado</option>
+            <option value="MeioCampo/Armador">MeioCampo/Armador</option>
+            <option value="MeioCampo/Abertura">MeioCampo/Abertura</option>
+            <option value="MeioCampo/Ataque">MeioCampo/Ataque</option>
+            <option value="MeioCampo/Versátil">MeioCampo/Versátil</option>
+        </optgroup>
+        <optgroup label="Pontas">
+            <option value="Ponta/Ala Direita">Ponta/Ala Direita</option>
+            <option value="Ponta/Ala Esquerda">Ponta/Ala Esquerda</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Armador">Ponta/Armador</option>
+            <option value="Ponta/Versátil">Ponta/Versátil</option>
+        </optgroup>
+        <optgroup label="Atacantes">
+            <option value="Atacante/Aberto">Atacante/Aberto</option>
+            <option value="Atacante/Fisico">Atacante/Fisico</option>
+            <option value="Atacante/Armador">Atacante/Armador</option>
+            <option value="Atacante/Velocidade">Atacante/Velocidade</option>
+            <option value="Atacante/Versátil">Atacante/Versátil</option>
+        </optgroup>
+    </select>
+</div>
+            <div class="linha-form">
+                <label>Overall Atual (OVR)</label>
+                <input type="number" id="edit-jog-ovr">
+            </div>
+            <div class="linha-form">
+                <label>Idade</label>
+                <input type="number" id="edit-jog-idade" placeholder="Ex: 24">
+            </div>
+
+            <button style="width: 100%; margin-top: 15px; background: var(--warning); color: black;" onclick="salvarEdicaoJogador()">Salvar Alterações</button>
+            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-editar-jogador').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="modal-evento" style="display: none;">
+        <div class="evento-box">
+            <h2 style="color: var(--warning); margin-bottom: 10px;">⚠️ Evento Inesperado</h2>
+            <p id="evento-texto" style="font-size: 16px; margin-bottom: 20px;">Um jogador pediu para sair...</p>
+            <button onclick="document.getElementById('modal-evento').style.display='none'">Entendido</button>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h1>⚽ LyonPro Manager</h1>
+        <button class="nav-btn active" id="nav-btn-menu-principal" onclick="mudarAba('tab-menu-principal')">🏠 Menu Principal</button>
+        <button class="nav-btn" onclick="mudarAba('tab-dashboard')">📊 Dashboard & Partidas</button>
+        <button class="nav-btn" id="nav-btn-plantel" onclick="mudarAba('tab-plantel')">📋 Elenco do Time</button>
+        <button class="nav-btn" id="nav-btn-mercado" onclick="mudarAba('tab-mercado')">💰 Transferências</button>
+        <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
+        <button class="nav-btn" onclick="mudarAba('tab-historico')">🏆 Sala de Troféus</button>
+        <button class="nav-btn" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
+        <button class="nav-btn" onclick="mudarAba('tab-medico')">🏥 Departamento Médico</button>
+        <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
+        <button class="nav-btn" onclick="mudarAba('tab-social')">📱 Feed Social & Mídia</button>
+
+        <div class="save-controls">
+            <label style="color:white; font-size: 12px;">Slot de Save:</label>
+            <select id="select-save" onchange="trocarSave()">
+                <option value="clube">Time Principal (Clube)</option>
+                <option value="selecao">Seleção Nacional</option>
+            </select>
+            <button class="btn-backup" onclick="exportarBackup()">📥 Baixar Backup</button>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <div class="main-content">
+
     <!-- 1. MENU PRINCIPAL (Continuar / Novo Jogo / Carregar Save) + assistente de Novo Jogo estilo "Football Manager" -->
     <div id="tab-menu-principal" class="tab-content active">
         <div class="wizard-shell">
@@ -284,251 +530,6 @@
         </div>
     </div>
 
-    <!-- LISTA DE TÉCNICOS REAIS (SUGESTÕES - O USUÁRIO PODE DIGITAR QUALQUER NOME) -->
-    <datalist id="lista-tecnicos">
-        <option value="Pep Guardiola"><option value="Jürgen Klopp"><option value="Carlo Ancelotti">
-        <option value="Diego Simeone"><option value="Xabi Alonso"><option value="Roberto De Zerbi">
-        <option value="Thomas Tuchel"><option value="Julian Nagelsmann"><option value="Mikel Arteta">
-        <option value="Unai Emery"><option value="Antonio Conte"><option value="Massimiliano Allegri">
-        <option value="Zinedine Zidane"><option value="Luis Enrique"><option value="Hansi Flick">
-        <option value="Ange Postecoglou"><option value="Enzo Maresca"><option value="Rúben Amorim">
-        <option value="Oliver Glasner"><option value="Gian Piero Gasperini"><option value="Igor Tudor">
-        <option value="Sérgio Conceição"><option value="José Mourinho"><option value="Rafael Benítez">
-        <option value="Marcelo Gallardo"><option value="Abel Ferreira"><option value="Fernando Diniz">
-        <option value="Dorival Júnior"><option value="Renato Portaluppi"><option value="Roger Machado">
-        <option value="Mano Menezes"><option value="Cuca"><option value="Vítor Pereira">
-    </datalist>
-
-    <!-- MODAL EDITAR NOME DO TÉCNICO -->
-    <div id="modal-editar-tecnico" style="display: none;">
-        <div class="setup-box">
-            <h2 style="margin-top:0;">✏️ Editar Nome do Técnico</h2>
-            <div class="linha-form">
-                <label>Nome do Técnico</label>
-                <input type="text" id="editar-tecnico-nome" list="lista-tecnicos">
-            </div>
-            <button style="width: 100%; margin-top: 15px;" onclick="salvarEdicaoTecnico()">Salvar</button>
-            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-editar-tecnico').style.display='none'">Cancelar</button>
-        </div>
-    </div>
-
-    <!-- MODAL TROCA DE LIGA (MANTIDO INTACTO COMO O SEU) -->
-    <div id="modal-troca-liga" style="display: none;">
-        <div class="setup-box">
-            <h2 style="margin-top:0;">Trocar Divisão / Liga</h2>
-            <p style="font-size:12px; color:var(--text-muted);">Altere o contexto da sua equipe. Isso mudará a nota exigida nas avaliações de upgrade.</p>
-            <div class="linha-form" style="margin-top: 10px;">
-                <label>Selecione a Nova Divisão</label>
-                <select id="nova-liga-select"></select>
-            </div>
-            <button style="width: 100%; margin-top: 15px;" onclick="confirmarTrocaLiga()">Salvar Alteração</button>
-            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-troca-liga').style.display='none'">Cancelar</button>
-        </div>
-    </div>
-
-    <!-- 2. MODAL DA DIRETORIA (1ª VEZ NO SAVE) CORRIGIDO -->
-    <div id="modal-setup-diretoria" style="display: none;">
-        <div class="setup-box">
-            <h2 style="margin-top:0;">👔 Setup da Diretoria</h2>
-            <p style="font-size:13px; color:var(--text-muted);">Informe os dados das últimas 5 temporadas para a IA calcular o orçamento inicial e metas.</p>
-
-            <div class="linha-form" style="margin-top: 10px;">
-                <label>Média Gasta nas Últimas 5 Temp. (€M)</label>
-                <input type="number" id="legacy-dir-media-gasto" placeholder="Ex: 50">
-            </div>
-            <div class="linha-form">
-                <label>Média Arrecadada nas Últimas 5 Temp. (€M)</label>
-                <input type="number" id="legacy-dir-media-arrecadacao" placeholder="Ex: 40">
-            </div>
-            <div class="linha-form">
-                <label>Títulos Conquistados nas Últimas 5 Temp.</label>
-                <input type="number" id="legacy-dir-titulos" placeholder="Ex: 2">
-            </div>
-            <div class="linha-form">
-                <label>Posição Média na Liga nas Últimas 5 Temp.</label>
-                <input type="number" id="legacy-dir-posicao" placeholder="Ex: 4 (para 4º lugar)">
-            </div>
-            <div class="linha-form">
-                <label>Posição Média na Copa Nacional (5 Temp.)</label>
-                <input type="text" id="legacy-dir-posicao-copa" placeholder="Ex: Quartas de Final">
-            </div>
-            <div class="linha-form" id="legacy-box-continental">
-                <label>Competição Continental Atual (Se houver)</label>
-                <select id="legacy-dir-continental">
-                    <option value="Nenhuma">Nenhuma / Não classificado</option>
-                    <optgroup label="América do Sul (CONMEBOL)">
-                        <option value="Libertadores">Copa Libertadores</option>
-                        <option value="Sul-Americana">Copa Sul-Americana</option>
-                    </optgroup>
-                    <optgroup label="Europa (UEFA)">
-                        <option value="Champions League">Champions League</option>
-                        <option value="Europa League">Europa League</option>
-                        <option value="Conference League">Conference League</option>
-                    </optgroup>
-                    <optgroup label="Outros Continentes">
-                        <option value="Concacaf Champions Cup">Concacaf Champions</option>
-                        <option value="Leagues Cup">Leagues Cup</option>
-                        <option value="CAF Champions League">Liga dos Campeões da CAF (África)</option>
-                        <option value="AFC Champions League">AFC Champions (Ásia)</option>
-                    </optgroup>
-                </select>
-            </div>
-
-            <button style="width: 100%; margin-top: 15px;" onclick="salvarSetupDiretoria()">Analisar e Definir Metas (IA)</button>
-        </div>
-    </div>
-
-<!-- 4. MODALS DE CRISE E DEMISSÃO -->
-    <div id="modal-alerta-crise" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.95); justify-content: center; align-items: center; z-index: 2000;">
-        <div class="evento-box" style="border-color: var(--warning); box-shadow: 0 0 30px rgba(255,184,0,0.15); text-align: center;">
-            <h2 style="color: var(--warning); margin-bottom: 10px;">⚠️ ALERTA DA DIRETORIA</h2>
-            <p id="texto-alerta-crise" style="font-size: 16px; margin-bottom: 20px;">Reunião de emergência necessária! Seu cargo periga.</p>
-            <button onclick="document.getElementById('modal-alerta-crise').style.display='none'" style="background: var(--warning); color: black;">Entendido. Tentarei melhorar.</button>
-        </div>
-    </div>
-
-    <div id="modal-demissao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.98); justify-content: center; align-items: center; z-index: 3000;">
-        <div class="evento-box" style="border-color: var(--danger); box-shadow: 0 0 30px rgba(255,107,107,0.3); text-align: center;">
-            <h2 style="color: var(--danger); margin-bottom: 10px;">❌ VOCÊ FOI DEMITIDO!</h2>
-            <p style="font-size: 16px; margin-bottom: 20px;">A diretoria esgotou a paciência. Seu prestígio chegou a zero devido aos péssimos resultados recentes na Liga e falta de evolução técnica.</p>
-            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">Fim da linha. O seu contrato foi rompido antecipadamente.</p>
-            <button onclick="resetarSave()" style="background: var(--danger); color: white; width: 100%;">Apagar Carreira e Recomeçar</button>
-        </div>
-    </div>
-
-    <!-- 3. NOVO MODAL: PLANEJAMENTO PÓS-TEMPORADA -->
-    <div id="modal-renovar-diretoria" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.95); justify-content: center; align-items: center; z-index: 1000;">
-        <div class="setup-box">
-            <h2 style="margin-top:0;">👔 Planejamento de Nova Temporada</h2>
-            <p style="font-size:13px; color:var(--text-muted);">A temporada anterior acabou. Informe a diretoria sobre sua situação continental para traçar os objetivos deste ano.</p>
-
-            <div class="linha-form" id="box-renovar-continental">
-                <label>Você se classificou para qual Competição Continental?</label>
-                <select id="renovar-dir-continental">
-                    <option value="Nenhuma">Nenhuma / Não classificou</option>
-                    <optgroup label="América do Sul (CONMEBOL)">
-                        <option value="Libertadores">Copa Libertadores</option>
-                        <option value="Sul-Americana">Copa Sul-Americana</option>
-                    </optgroup>
-                    <optgroup label="Europa (UEFA)">
-                        <option value="Champions League">Champions League</option>
-                        <option value="Europa League">Europa League</option>
-                        <option value="Conference League">Conference League</option>
-                    </optgroup>
-                </select>
-            </div>
-            <button id="btn-renovar-dir" style="width: 100%; margin-top: 15px;" onclick="processarRenovacaoDiretoria()">Definir Novas Metas (IA)</button>
-        </div>
-    </div>
-
-    <div id="modal-editar-jogador" style="display: none;">
-        <div class="setup-box">
-            <h2 style="margin-top:0; color: var(--warning);">✏️ Editar Jogador</h2>
-            <p style="font-size:13px; color:var(--text-muted);">Corrija informações inseridas incorretamente no cadastro ou no meio da temporada.</p>
-            
-            <input type="hidden" id="edit-jog-nome-original">
-            
-            <div class="linha-form" style="margin-top: 10px;">
-                <label>Nome do Jogador</label>
-                <input type="text" id="edit-jog-nome">
-            </div>
-            <div class="linha-form">
-    <label>Posição</label>
-    <select id="edit-jog-pos">
-        <option value="Goleiro">Goleiro</option>
-        <optgroup label="Zagueiros">
-            <option value="Zagueiro/Construtor">Zagueiro/Construtor</option>
-            <option value="Zagueiro/Lateral">Zagueiro/Lateral</option>
-            <option value="Zagueiro/Versatil">Zagueiro/Versatil</option>
-            <option value="Zagueiro/Defesa">Zagueiro/Defesa</option>
-        </optgroup>
-        <optgroup label="Laterais">
-            <option value="Lateral/Defesa Direito">Lateral/Defesa Direito</option>
-            <option value="Lateral/Defesa Esquerdo">Lateral/Defesa Esquerdo</option>
-            <option value="Lateral/Ala Direito">Lateral/Ala Direito</option>
-            <option value="Lateral/Ala Esquerdo">Lateral/Ala Esquerdo</option>
-            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
-            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
-            <option value="Lateral/Defesa Versatil">Lateral/Defesa Versatil</option>
-            <option value="Lateral/Ala Versatil">Lateral/Ala Versatil</option>
-            <option value="Lateral/Construtor Versatil">Lateral/Construtor Versatil</option>
-        </optgroup>
-        <optgroup label="Volantes">
-            <option value="Volante/Zaga">Volante/Zaga</option>
-            <option value="Volante/Contenção">Volante/Contenção</option>
-            <option value="Volante/Armação">Volante/Armação</option>
-        </optgroup>
-        <optgroup label="Meio-Campo">
-            <option value="MeioCampo/Equilibrado">MeioCampo/Equilibrado</option>
-            <option value="MeioCampo/Armador">MeioCampo/Armador</option>
-            <option value="MeioCampo/Abertura">MeioCampo/Abertura</option>
-            <option value="MeioCampo/Ataque">MeioCampo/Ataque</option>
-            <option value="MeioCampo/Versátil">MeioCampo/Versátil</option>
-        </optgroup>
-        <optgroup label="Pontas">
-            <option value="Ponta/Ala Direita">Ponta/Ala Direita</option>
-            <option value="Ponta/Ala Esquerda">Ponta/Ala Esquerda</option>
-            <option value="Ponta/Invertido">Ponta/Invertido</option>
-            <option value="Ponta/Armador">Ponta/Armador</option>
-            <option value="Ponta/Versátil">Ponta/Versátil</option>
-        </optgroup>
-        <optgroup label="Atacantes">
-            <option value="Atacante/Aberto">Atacante/Aberto</option>
-            <option value="Atacante/Fisico">Atacante/Fisico</option>
-            <option value="Atacante/Armador">Atacante/Armador</option>
-            <option value="Atacante/Velocidade">Atacante/Velocidade</option>
-            <option value="Atacante/Versátil">Atacante/Versátil</option>
-        </optgroup>
-    </select>
-</div>
-            <div class="linha-form">
-                <label>Overall Atual (OVR)</label>
-                <input type="number" id="edit-jog-ovr">
-            </div>
-            <div class="linha-form">
-                <label>Idade</label>
-                <input type="number" id="edit-jog-idade" placeholder="Ex: 24">
-            </div>
-
-            <button style="width: 100%; margin-top: 15px; background: var(--warning); color: black;" onclick="salvarEdicaoJogador()">Salvar Alterações</button>
-            <button style="width: 100%; margin-top: 5px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-editar-jogador').style.display='none'">Cancelar</button>
-        </div>
-    </div>
-
-    <div id="modal-evento" style="display: none;">
-        <div class="evento-box">
-            <h2 style="color: var(--warning); margin-bottom: 10px;">⚠️ Evento Inesperado</h2>
-            <p id="evento-texto" style="font-size: 16px; margin-bottom: 20px;">Um jogador pediu para sair...</p>
-            <button onclick="document.getElementById('modal-evento').style.display='none'">Entendido</button>
-        </div>
-    </div>
-
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-        <h1>⚽ LyonPro Manager</h1>
-        <button class="nav-btn active" id="nav-btn-menu-principal" onclick="mudarAba('tab-menu-principal')">🏠 Menu Principal</button>
-        <button class="nav-btn" onclick="mudarAba('tab-dashboard')">📊 Dashboard & Partidas</button>
-        <button class="nav-btn" id="nav-btn-plantel" onclick="mudarAba('tab-plantel')">📋 Elenco do Time</button>
-        <button class="nav-btn" id="nav-btn-mercado" onclick="mudarAba('tab-mercado')">💰 Transferências</button>
-        <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
-        <button class="nav-btn" onclick="mudarAba('tab-historico')">🏆 Sala de Troféus</button>
-        <button class="nav-btn" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
-        <button class="nav-btn" onclick="mudarAba('tab-medico')">🏥 Departamento Médico</button>
-        <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
-        <button class="nav-btn" onclick="mudarAba('tab-social')">📱 Feed Social & Mídia</button>
-
-        <div class="save-controls">
-            <label style="color:white; font-size: 12px;">Slot de Save:</label>
-            <select id="select-save" onchange="trocarSave()">
-                <option value="clube">Time Principal (Clube)</option>
-                <option value="selecao">Seleção Nacional</option>
-            </select>
-            <button class="btn-backup" onclick="exportarBackup()">📥 Baixar Backup</button>
-        </div>
-    </div>
-
-    <!-- CONTEÚDO PRINCIPAL -->
-    <div class="main-content">
 
         <!-- DASHBOARD -->
         <!-- DASHBOARD -->
