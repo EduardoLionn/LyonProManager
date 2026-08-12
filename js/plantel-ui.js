@@ -285,8 +285,13 @@
             if (viewId === 'view-raiox') acionarRaioXDashboard();
         }
 
-        function renderizarCalendarioPartidas(pFiltradas) {
-    let div = document.getElementById('lista-calendario');
+        // containerId/idPrefix permitem renderizar essa mesma lista em outro lugar (ex: o modal
+        // "Ver Todas as Partidas") sem colidir com os ids/onclick da lista principal do Dashboard.
+        function renderizarCalendarioPartidas(pFiltradas, containerId, idPrefix) {
+    containerId = containerId || 'lista-calendario';
+    idPrefix = idPrefix || 'match';
+    let div = document.getElementById(containerId);
+    if (!div) return;
     if(!pFiltradas || pFiltradas.length === 0) { div.innerHTML = '<p style="text-align:center;">Nenhuma partida.</p>'; return; }
 
     let partidasSort = [...pFiltradas].sort((a,b) => b.id - a.id);
@@ -313,7 +318,7 @@
 
         return `
         <div class="match-card" style="border-left: 5px solid ${txtColor};">
-            <div class="match-card-header" onclick="toggleMatchDetails(${idx})">
+            <div class="match-card-header" onclick="toggleMatchDetails('${idPrefix}', ${idx})">
                 <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 200px;">
                     <span style="font-size: 24px;">${vitoria ? '✅' : (empate ? '➖' : '❌')}</span>
                     <div>
@@ -329,14 +334,14 @@
                     <span class="match-chevron">▾</span>
                 </div>
             </div>
-            <div class="match-details" id="match-details-${idx}">
+            <div class="match-details" id="${idPrefix}-details-${idx}">
                 <div class="match-details-inner">
                     <div class="grid-2" style="margin-bottom: 10px;">
                         <div class="stat-card"><span>Posse de Bola</span><strong>Nós ${p.possePro}% x ${p.posseAdv}% Adv</strong></div>
                         <div class="stat-card"><span>Finalizações Totais</span><strong>Nós ${p.finPro} x ${p.finAdv} Adv</strong></div>
                     </div>
-                    <button class="btn-stats-toggle" onclick="toggleFullStats(${idx})">📊 Ver Estatísticas Completas dos Jogadores <span id="stats-chevron-${idx}">▾</span></button>
-                    <div class="match-full-stats" id="match-full-stats-${idx}">
+                    <button class="btn-stats-toggle" onclick="toggleFullStats('${idPrefix}', ${idx})">📊 Ver Estatísticas Completas dos Jogadores <span id="${idPrefix}-stats-chevron-${idx}">▾</span></button>
+                    <div class="match-full-stats" id="${idPrefix}-full-stats-${idx}">
                         <h4 style="margin:20px 0 5px 0; color:var(--accent);">Estatísticas Individuais</h4>
                         ${tabelaJogadores}
                     </div>
@@ -365,19 +370,28 @@
             return map;
         }
 
-        function toggleMatchDetails(idx) {
-    let card = document.getElementById('match-details-' + idx).closest('.match-card');
+        function toggleMatchDetails(idPrefix, idx) {
+    let el = document.getElementById(idPrefix + '-details-' + idx);
+    let card = el && el.closest('.match-card');
     if (card) card.classList.toggle('open');
 }
 
 // Tabela completa por jogador só é revelada sob demanda — mantém o card compacto/dinâmico
 // por padrão em vez de despejar a tabela inteira assim que a partida é expandida.
-function toggleFullStats(idx) {
-    let el = document.getElementById('match-full-stats-' + idx);
-    let chevron = document.getElementById('stats-chevron-' + idx);
+function toggleFullStats(idPrefix, idx) {
+    let el = document.getElementById(idPrefix + '-full-stats-' + idx);
+    let chevron = document.getElementById(idPrefix + '-stats-chevron-' + idx);
     if (!el) return;
     let aberto = el.classList.toggle('open');
     if (chevron) chevron.innerText = aberto ? '▴' : '▾';
+}
+
+// Modal "Ver Todas as Partidas": reaproveita o mesmo card de partida, mas sem o limite de altura
+// da lista fixa do Dashboard — mostra TODAS as partidas (ignora o filtro de "últimos jogos").
+function abrirTodasPartidas() {
+    let partidas = db[currentSave].partidas || [];
+    renderizarCalendarioPartidas(partidas, 'lista-calendario-completa', 'modalpartida');
+    document.getElementById('modal-todas-partidas').style.display = 'flex';
 }
 
 function getAdvancedPlayerAggregates(pFiltradas) {

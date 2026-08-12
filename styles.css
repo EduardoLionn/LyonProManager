@@ -122,7 +122,10 @@
         .trofeu-item:hover { transform: translateY(-3px); border-color: #ffea00; }
         .trofeu-icon { font-size: 35px; margin-bottom: 8px; }
 
-        .match-card { background: var(--input-bg); border-radius: 8px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border); transition: 0.2s; }
+        /* flex-shrink:0 é essencial aqui — dentro de listas com altura limitada e scroll (o card
+           "Partidas Jogadas" do Dashboard, o modal "Ver Todas"), sem isso o flexbox ESPREME os
+           cards pra caber no espaço disponível em vez de deixar a lista rolar. */
+        .match-card { background: var(--input-bg); border-radius: 8px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border); transition: 0.2s; flex-shrink: 0; }
         .match-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         .noticia-box { background: var(--input-bg); padding: 20px; border-radius: 10px; border-left: 4px solid var(--primary); margin-bottom: 15px; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
         .noticia-box:hover { background: var(--panel-bg); transform: translateX(5px); }
@@ -207,7 +210,11 @@
         .donut-legend-valor { color: var(--primary); font-family: var(--font-display); }
 
         .partidas-jogadas-card { display: flex; flex-direction: column; max-height: 700px; }
-        .partidas-jogadas-lista { overflow-y: auto; padding-right: 6px; }
+        .partidas-jogadas-lista { overflow-y: auto; padding-right: 6px; min-height: 0; }
+
+        /* --- MODAL "VER TODAS AS PARTIDAS" --- */
+        .modal-partidas-box { width: 700px; max-width: 92vw; }
+        .modal-partidas-lista { max-height: 70vh; overflow-y: auto; padding-right: 6px; }
 
         @media screen and (max-width: 1150px) {
             .dash-main-grid { grid-template-columns: 1fr; }

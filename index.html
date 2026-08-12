@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>LyonPro Manager</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -226,6 +227,17 @@
             <h2 style="color: var(--warning); margin-bottom: 10px;">⚠️ Evento Inesperado</h2>
             <p id="evento-texto" style="font-size: 16px; margin-bottom: 20px;">Um jogador pediu para sair...</p>
             <button onclick="document.getElementById('modal-evento').style.display='none'">Entendido</button>
+        </div>
+    </div>
+
+    <!-- MODAL: VER TODAS AS PARTIDAS (lista completa, sem o limite de altura do card do Dashboard) -->
+    <div id="modal-todas-partidas" class="modal-troca-overlay" style="display: none;">
+        <div class="setup-box modal-partidas-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0;">📅 Todas as Partidas</h2>
+                <button onclick="document.getElementById('modal-todas-partidas').style.display='none'" style="background:transparent; border:1px solid var(--border); color:white; padding:8px 14px;">✖ Fechar</button>
+            </div>
+            <div id="lista-calendario-completa" class="modal-partidas-lista" style="display:flex; flex-direction:column; gap:15px;"></div>
         </div>
     </div>
 
@@ -631,6 +643,7 @@
                     <div class="panel partidas-jogadas-card">
                         <h3 style="margin-top:0; margin-bottom:15px; font-size:16px;">📅 Partidas Jogadas</h3>
                         <div id="lista-calendario" class="partidas-jogadas-lista" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                        <button id="btn-ver-todas-partidas" onclick="abrirTodasPartidas()" style="display:none; width:100%; margin-top:12px; background:transparent; border:1px solid var(--accent); color:var(--accent);">🔍 Ver Todas as Partidas</button>
                     </div>
 
                     <div class="panel chart-card-bar-small">
@@ -1449,6 +1462,7 @@
                     </div>
                 </div>
             </div>
+
         </div>
 
         
