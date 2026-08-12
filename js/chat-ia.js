@@ -86,7 +86,7 @@
                 } else {
                     let partidaAtual = db[currentSave].partidaAuxiliar;
                     let escalacaoStr = (partidaAtual && partidaAtual.titulares)
-                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares: ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco: ${(partidaAtual.banco || []).map(b => b.nome).join(', ') || 'nenhum registrado'}.${(partidaAtual.jogadoresForaDaPartida && partidaAtual.jogadoresForaDaPartida.length > 0) ? ` JÁ SAÍRAM DA PARTIDA E NÃO PODEM MAIS ENTRAR: ${partidaAtual.jogadoresForaDaPartida.join(', ')}.` : ''}`
+                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares (sigla da posição no campo: nome): ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco (nome e posição real do jogador): ${(partidaAtual.banco || []).map(b => { let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome); let posTxt = (jogBD ? jogBD.posicao : b.posicao) || 'posição desconhecida'; return `${b.nome} (${posTxt})`; }).join(', ') || 'nenhum registrado'}.${(partidaAtual.jogadoresForaDaPartida && partidaAtual.jogadoresForaDaPartida.length > 0) ? ` JÁ SAÍRAM DA PARTIDA E NÃO PODEM MAIS ENTRAR: ${partidaAtual.jogadoresForaDaPartida.join(', ')}.` : ''}`
                         : "Nenhuma partida declarada/escalação em campo no momento.";
 
                     let jogoAoVivo = partidaAtual && partidaAtual.status === 'em_andamento';
@@ -101,6 +101,8 @@
                     let blocoSubstituicao = jogoAoVivo ? `
         🔄 SUBSTITUIÇÕES: já foram usadas ${subsUsadas} de 5 substituições permitidas nesta partida (restam ${subsRestantes}).
         - Se o contexto (texto e/ou imagem) pedir claramente uma substituição e ainda houver substituições disponíveis, preencha o campo "sugestaoSubstituicao" do JSON com um jogador REAL que sai (titular atual) e um jogador REAL que entra (de preferência do banco listado acima), citando os nomes EXATAMENTE como aparecem no contexto, mais uma instrução tática curta pro jogador que entra.
+        - FAÇA SENTIDO POSICIONAL (REGRA CRÍTICA): "jogadorEntra" DEVE jogar numa posição compatível com a vaga de quem está saindo — use a posição indicada entre parênteses no Banco acima e a sigla/posição de quem sai pra escolher alguém coerente (ex: não tire um zagueiro pra colocar um atacante, não tire um lateral pra colocar um volante puro). Só foja disso se for uma mudança tática deliberada e MUITO clara pelo pedido do treinador — e nesse caso explique bem o motivo na instrução.
+        - Ao escolher entre mais de uma opção coerente no banco, prefira quem estiver rendendo melhor recentemente (nota em campo), não só o de OVR mais alto — se você não souber a nota de cada reserva, baseie-se no contexto e na condição física deles.
         - Se não houver mais substituições disponíveis (restam 0), NÃO sugira substituição — dê apenas orientação tática/posicional.
         - Se a situação não pedir substituição nenhuma, deixe "sugestaoSubstituicao" como null. Não sugira trocas só por sugerir.
 
@@ -410,7 +412,40 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             6. FLEXIBILIDADE POSICIONAL (REGRA CRÍTICA — TIMES REAIS NÃO SÃO ENGESSADOS): você NÃO é obrigado a escalar só quem tem a posição EXATA cadastrada igual à sigla da vaga. Times de verdade improvisam peças o tempo todo.
                - Prefira o jogador da posição exata SE o OVR dele estiver competitivo com o resto do time titular (até uns 6-8 pontos de diferença da média do time que você está montando).
                - Se o(s) único(s) jogador(es) com a posição exata tiver(em) um OVR MUITO abaixo do nível do resto do time (uma quebra gritante), é MELHOR improvisar alguém de posição parecida (ex: um lateral/ala do mesmo lado, uma ponta do lado espelhado, um meio-campista versátil) com OVR mais alto do que forçar o "encaixe perfeito" só na etiqueta. Deixe isso explícito na instrução dele (ex: "Improvisado nesta função — priorize a segurança e a posição, evite arriscar demais").
-               - Regra de ouro: NUNCA escale alguém com OVR muito inferior à média do time titular só para "bater a posição exata" quando existir uma alternativa razoável (mesmo que fora de posição) com OVR bem melhor.`;
+               - Regra de ouro: NUNCA escale alguém com OVR muito inferior à média do time titular só para "bater a posição exata" quando existir uma alternativa razoável (mesmo que fora de posição) com OVR bem melhor.
+            7. DESEMPENHO EM CAMPO PESA MAIS QUE O OVR (REGRA CRÍTICA — NÃO IGNORE): cada jogador do elenco acima traz a "Nota Média" dele nas partidas que já disputou ("Sem nota" = ainda não tem amostra suficiente, baseie-se só no OVR nesse caso). OVR é só potencial no papel — quem decide jogos é quem está rendendo bem em campo. Quando dois jogadores concorrerem à mesma posição, NÃO escale automaticamente o de OVR mais alto: compare também a Nota Média deles. Se o jogador de OVR menor tiver uma Nota Média visivelmente melhor (e baseada em pelo menos 3 jogos), ELE deve ser o titular, mesmo tendo alguns pontos de OVR a menos — desempenho recente e consistente em campo vale mais que o número de OVR. Só desconsidere a nota se a amostra for muito pequena (1-2 jogos) ou muito antiga/desatualizada.
+            8. ESCOLHA DE JOGADORES CONSIDERANDO O ADVERSÁRIO (não é só a instrução — é QUEM joga): além das instruções táticas, a própria ESCOLHA de quem entra em campo deve mudar de acordo com o adversário (${adv}). Ex: contra um time que ataca muito pelas pontas/aposta em velocidade, priorize laterais e zagueiros mais rápidos e seguros defensivamente nesse lado, mesmo abrindo mão de um pouco de OVR. Contra um time forte fisicamente ou que usa muito jogo aéreo, priorize zagueiros/volantes fortes no desarme e no jogo aéreo. Contra um time que se fecha atrás e joga recuado, priorize criatividade, drible e habilidade em espaços curtos no ataque/meio. Baseie-se no que você souber sobre o estilo do adversário (da análise/imagens) para embasar essas escolhas, não só as instruções.
+            9. APRENDA COM O HISTÓRICO (se houver um bloco de histórico de partidas anteriores no prompt): leve em conta o que já funcionou e o que não funcionou nos jogos passados do treinador com este time. Se uma formação ou abordagem já falhou repetidamente contra adversários parecidos, evite repeti-la sem motivo; se algo deu certo, é um bom sinal para manter ou repetir em contextos parecidos. Isso é conhecimento acumulado do treinador, não regra fixa — use como orientação, não como obrigação cega.`;
+        }
+
+        // Resume o histórico de partidas do Auxiliar (resultado por formação usada + últimos jogos em detalhe)
+        // pra alimentar o "aprendizado" da IA: o que já funcionou e o que não funcionou até agora.
+        function montarResumoHistoricoAuxiliarIA() {
+            let historico = db[currentSave].historicoPartidasAuxiliar || [];
+            if (historico.length === 0) return "Nenhum histórico de partidas do Auxiliar ainda — esta é a primeira partida planejada para este time, não há aprendizado prévio pra usar.";
+
+            let porFormacao = {};
+            historico.forEach(p => {
+                let f = p.formacaoEscolhida || '?';
+                if (!porFormacao[f]) porFormacao[f] = { v: 0, e: 0, d: 0, total: 0 };
+                porFormacao[f].total++;
+                if (p.resultado === 'Vitória') porFormacao[f].v++;
+                else if (p.resultado === 'Empate') porFormacao[f].e++;
+                else if (p.resultado === 'Derrota') porFormacao[f].d++;
+            });
+            let resumoFormacoes = Object.entries(porFormacao)
+                .map(([f, r]) => `${f}: ${r.v}V ${r.e}E ${r.d}D em ${r.total} jogo(s)`)
+                .join(' | ');
+
+            let ultimasStr = historico.slice(0, 5).map(p => {
+                let ajustesTxt = (p.ajustesFeitos && p.ajustesFeitos.length > 0)
+                    ? ` Ajustes feitos ao vivo: ${p.ajustesFeitos.map(a => a.resposta).join(' / ')}.`
+                    : '';
+                return `vs ${p.adversarioNome} (formação ${p.formacaoEscolhida}): ${p.golsPro}x${p.golsContra} (${p.resultado}).${p.resumoPosJogo ? ' Avaliação pós-jogo: ' + p.resumoPosJogo : ''}${ajustesTxt}`;
+            }).join(' || ');
+
+            return `DESEMPENHO POR FORMAÇÃO ATÉ AGORA (aprenda com isso — o que rendeu bem e o que não rendeu): ${resumoFormacoes}.
+            ÚLTIMAS ${Math.min(5, historico.length)} PARTIDA(S) EM DETALHE (do mais recente pro mais antigo): ${ultimasStr}`;
         }
 
         // Orquestra qual "estado" da experiência de partida aparece na aba (vazio / declarada / em andamento)
@@ -609,6 +644,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             - Diretriz: ${diretriz}
 
             🏥 BOLETIM DO DEPARTAMENTO MÉDICO (LEIA COM ATENÇÃO): ${(typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "Sem novidades."}
+            📚 HISTÓRICO E APRENDIZADO (o conhecimento acumulado deste treinador com este time): ${montarResumoHistoricoAuxiliarIA()}
             ${regrasEstrategistaTexto(nomeAdvManual || 'o adversário', formacaoSec, estiloJogo, diretriz, diasDescanso)}
 
             REGRAS ABSOLUTAS DO JSON:
