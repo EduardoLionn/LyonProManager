@@ -185,7 +185,7 @@
         .forma-recente-grande { gap: 10px; background: none; padding: 0; margin-left: 0; }
         .forma-recente-grande .forma-dot { width: 36px; height: 36px; font-size: 16px; }
 
-        @media screen and (max-width: 1024px) {
+        @media screen and (max-width: 900px) {
             .kpi-container { grid-template-columns: 1fr 1fr; } /* Fica com 2 colunas no celular */
             .dash-top-grid { grid-template-columns: 1fr; }
         }
@@ -224,7 +224,7 @@
             .donut-card-body { flex-direction: column; }
         }
         /* --- RESPONSIVIDADE PARA CELULARES E TELAS PEQUENAS --- */
-@media screen and (max-width: 1024px) {
+@media screen and (max-width: 900px) {
     body {
         flex-direction: column !important;
         height: auto !important;
@@ -364,7 +364,7 @@
 /* --- NOVA ABA: FEED SOCIAL DA TORCIDA --- */
 .social-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 .termometro-container { flex: 1; min-width: 180px; margin: 0 30px; text-align: center; }
-@media screen and (max-width: 1024px) {
+@media screen and (max-width: 900px) {
     .termometro-container { margin: 0; }
 }
 .termometro-bar { background: var(--bg-dark); height: 12px; border-radius: 6px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border); position: relative; }
