@@ -75,7 +75,7 @@
             - objCopa: Use o "Desempenho Médio na Copa Nacional" informado como referência de realismo (ex: se historicamente cai nas quartas, não exija título; exija talvez chegar às semifinais). NÃO REPITA OS OBJETIVOS ACIMA.
             - objInternacional: Seja realista conforme o nível do time. NÃO REPITA OS OBJETIVOS ACIMA.
             - objFinanceiro: Um objetivo MATEMÁTICO CLARO baseado nas métricas reais do jogo (Valor Gasto e Valor Arrecadado). Use APENAS exigências como "Arrecadar €X em vendas", "Limitar os gastos a €X" ou "Terminar com Saldo Positivo (Arrecadação maior que Gasto)". NUNCA use termos abstratos como "margem de lucro" ou "lucro de X%".
-            Retorne EXATAMENTE um objeto JSON puro:
+            Retorne EXATAMENTE um objeto JSON puro (orcamentoLiberado é SEMPRE em milhões de euros, nunca o valor cheio — ex: 30.0 significa €30M, NUNCA escreva 30000000):
             {
               "orcamentoLiberado": 30.0,
               "objLiga1": "texto",
@@ -96,7 +96,7 @@
                 let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     let res = JSON.parse(jsonMatch[0]);
-                    db[currentSave].orcamento = Number(res.orcamentoLiberado) || 20;
+                    db[currentSave].orcamento = normalizarValorOrcamento(res.orcamentoLiberado) || 20;
                     registrarComandoOrcamento(db[currentSave].orcamento, "Orçamento Inicial da Temporada");
                     let txt = `⚽ Liga: ${res.objLiga1}<br>⚽ Liga (Secundário): ${res.objLiga2}<br>🏆 Copa Nacional: ${res.objCopa}`;
                     if(res.objInternacional && res.objInternacional.trim() !== "") txt += `<br>🌍 Internacional (${continental}): ${res.objInternacional}`;

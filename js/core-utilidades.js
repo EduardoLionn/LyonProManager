@@ -1,4 +1,13 @@
-        function lerTexto(texto) {
+        // A IA às vezes devolve o orçamento em euros crus (ex: 15000000) em vez de milhões (15).
+// Nenhum clube deveria ter um orçamento de transferências >= 1000 (bilhão de euros), então
+// qualquer valor absurdamente alto é reinterpretado como estando na escala errada.
+function normalizarValorOrcamento(valor) {
+    let n = Number(valor) || 0;
+    if (n >= 1000) n = n / 1000000;
+    return Math.max(0, n);
+}
+
+function lerTexto(texto) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 let limpo = texto.replace(/[\*\[\]\(\)_]/g, ''); 
@@ -316,6 +325,13 @@ function toggleChatDiretoria() {
             if (!config.nome) {
                 if (typeof iniciarTelaNovoJogo === 'function') iniciarTelaNovoJogo();
                 return;
+            }
+
+            // Autocorrige saves antigos em que a IA guardou o orçamento em euros crus (ex: 15000000)
+            // em vez de milhões (15), o que fazia o valor aparecer como "€15000000.00M" na tela.
+            if (typeof normalizarValorOrcamento === 'function') {
+                let orcamentoCorrigido = normalizarValorOrcamento(config.orcamento);
+                if (orcamentoCorrigido !== config.orcamento) { config.orcamento = orcamentoCorrigido; salvarDados(); }
             }
 
             document.getElementById('header-nome-time').innerText = config.nome;

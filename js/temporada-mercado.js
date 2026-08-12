@@ -1,15 +1,58 @@
         // Abre o questionário único de fim de temporada — nada é processado até o usuário
         // preencher tudo e clicar em "Finalizar Temporada" dentro do próprio modal (em vez da
         // sequência antiga de confirm()/prompt() encadeados, um popup atrás do outro).
+        // Calcula o status de fase final (Campeão/Vice/etc) de UMA partida (a última jogada
+        // daquela competição na temporada), reaproveitado tanto pela prévia do formulário
+        // quanto pelo processamento de verdade — pra não haver divergência entre os dois.
+        function calcularStatusFaseFinal(lastGame) {
+            let contexto = (lastGame.contexto || '').toLowerCase();
+            let isFinal = contexto.includes('final') && !contexto.includes('quartas') && !contexto.includes('oitavas') && !contexto.includes('semi');
+            let isPrimeiro = contexto.includes('1º') || contexto.includes('campeão');
+            let status = lastGame.contexto || "Fase Desconhecida";
+            if (isPrimeiro || (isFinal && (lastGame.golsPro > lastGame.golsContra || (lastGame.golsPro === lastGame.golsContra && lastGame.penaltis)))) {
+                status = "Campeão 🏆";
+            } else if (isFinal) {
+                status = "Vice-Campeão 🥈";
+            }
+            return status;
+        }
+
         function concluirTemporadaAutomatica() {
             document.getElementById('concluir-temp-nome').innerText = `— ${db[currentSave].temporadaAtual}`;
             document.getElementById('concluir-temp-posicao').value = '1º Lugar';
             let boxContinental = document.getElementById('concluir-temp-box-continental');
+            let boxCopa = document.getElementById('concluir-temp-box-copa');
+            let boxDivisao = document.getElementById('concluir-temp-box-divisao');
             if (currentSave === 'clube') {
                 boxContinental.style.display = 'block';
                 document.getElementById('concluir-temp-continental').value = 'Nenhuma';
+
+                // Prévia automática da Copa Nacional — busca a ÚLTIMA partida da Copa jogada na temporada atual
+                let pFiltradas = db.clube.partidas.filter(p => p.temporada === db.clube.temporadaAtual && p.comp === 'Copa Nacional');
+                let previaCopa = document.getElementById('concluir-temp-copa-preview');
+                if (pFiltradas.length > 0) {
+                    previaCopa.innerText = calcularStatusFaseFinal(pFiltradas[pFiltradas.length - 1]);
+                } else {
+                    previaCopa.innerText = 'Não disputada nesta temporada';
+                }
+                boxCopa.style.display = 'block';
+
+                // Situação na divisão — monta as opções conforme a divisão atual permite acesso/rebaixamento
+                let selectDivisao = document.getElementById('concluir-temp-divisao');
+                let ligObj = ligaMap[db.clube.liga];
+                if (ligObj) {
+                    let opcoes = [`<option value="">Permanece na mesma divisão</option>`];
+                    if (ligObj.up) opcoes.push(`<option value="${ligObj.up}">🔼 Acesso para ${ligObj.up.split(' (')[0]}</option>`);
+                    if (ligObj.down) opcoes.push(`<option value="${ligObj.down}">🔽 Rebaixado para ${ligObj.down.split(' (')[0]}</option>`);
+                    selectDivisao.innerHTML = opcoes.join('');
+                    boxDivisao.style.display = (ligObj.up || ligObj.down) ? 'block' : 'none';
+                } else {
+                    boxDivisao.style.display = 'none';
+                }
             } else {
                 boxContinental.style.display = 'none';
+                boxCopa.style.display = 'none';
+                boxDivisao.style.display = 'none';
             }
             document.getElementById('modal-concluir-temporada').style.display = 'flex';
         }
@@ -20,24 +63,19 @@
             if (!posTabelaInput) { alert('Informe a posição final na tabela.'); return; }
             let novaContinental = currentSave === 'clube' ? document.getElementById('concluir-temp-continental').value : 'Nenhuma';
             if (currentSave === 'clube') db.clube.competicaoContinental = novaContinental;
+            let novaDivisao = currentSave === 'clube' ? document.getElementById('concluir-temp-divisao').value : '';
             document.getElementById('modal-concluir-temporada').style.display = 'none';
-            processarConclusaoTemporada(posTabelaInput, novaContinental);
+            processarConclusaoTemporada(posTabelaInput, novaContinental, novaDivisao);
         }
 
-        async function processarConclusaoTemporada(posTabelaInput, novaContinental) {
+        async function processarConclusaoTemporada(posTabelaInput, novaContinental, novaDivisao) {
             let pFiltradas = db[currentSave].partidas.filter(p => p.temporada === db[currentSave].temporadaAtual);
             let comps = {}; let trofeusGanhos = []; let detalhesComp = [];
             pFiltradas.forEach(p => { comps[p.comp] = p; });
 
             for(let c in comps) {
-                let lastGame = comps[c];
-                let isFinal = lastGame.contexto.toLowerCase().includes('final') && !lastGame.contexto.toLowerCase().includes('quartas') && !lastGame.contexto.toLowerCase().includes('oitavas') && !lastGame.contexto.toLowerCase().includes('semi');
-                let isPrimeiro = lastGame.contexto.toLowerCase().includes('1º') || lastGame.contexto.toLowerCase().includes('campeão');
-                let status = lastGame.contexto || "Fase Desconhecida";
-
-                if (isPrimeiro || (isFinal && (lastGame.golsPro > lastGame.golsContra || (lastGame.golsPro === lastGame.golsContra && lastGame.penaltis)))) {
-                    status = "Campeão 🏆"; trofeusGanhos.push(c); adicionarNoticiaAutomatica(`🏆 É CAMPEÃO de ${c}!`, `Toda a cidade está em festa!`);
-                } else if (isFinal) { status = "Vice-Campeão 🥈"; }
+                let status = calcularStatusFaseFinal(comps[c]);
+                if (status === "Campeão 🏆") { trofeusGanhos.push(c); adicionarNoticiaAutomatica(`🏆 É CAMPEÃO de ${c}!`, `Toda a cidade está em festa!`); }
                 detalhesComp.push({ competicao: c, fase_final: status });
             }
 
@@ -78,9 +116,9 @@ ${blocoAvaliacao}
             - objLiga2: Uma meta estatística RASTREÁVEL E DIFERENTE DA PRIMEIRA (ex: Saldo de gols +10, Melhor defesa. NÃO REPITA A META 1).
             - objCopa e objInternacional: Adapte a exigência. NÃO REPITA OBJETIVOS.
             - objFinanceiro: Uma meta numérica baseada nas métricas do jogo (Valor Gasto e Valor Arrecadado). Ex: "Arrecadar €15M em vendas" ou "Não gastar mais que €20M". NUNCA exija "margem de lucro" ou porcentagens.
-            Retorne EXATAMENTE JSON: 
-            { 
-              "novoOrcamento": numero,
+            Retorne EXATAMENTE JSON (novoOrcamento é SEMPRE em milhões de euros, nunca o valor cheio — ex: 25.0 significa €25M, NUNCA escreva 25000000):
+            {
+              "novoOrcamento": 25.0,
               ${objAnt ? '"cumpriuLiga1": true, "cumpriuLiga2": true, "cumpriuCopa": true, "cumpriuInternacional": true,' : ''}
               "objLiga1": "texto", 
               "objLiga2": "texto", 
@@ -100,7 +138,7 @@ ${blocoAvaliacao}
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
                 if(match) {
                     let resAI = JSON.parse(match[0]);
-                    db[currentSave].orcamento = Number(resAI.novoOrcamento) || 25;
+                    db[currentSave].orcamento = normalizarValorOrcamento(resAI.novoOrcamento) || 25;
                     registrarComandoOrcamento(db[currentSave].orcamento, "Orçamento da Nova Temporada");
 
                     // --- NOVO SISTEMA DE NOTA: pontos fixos por objetivo cumprido/não cumprido, nunca "reseta" ---
@@ -158,7 +196,11 @@ ${blocoAvaliacao}
                     }
                 });
                 
-                await checarPromocaoRebaixamento();
+                if (novaDivisao) {
+                    let nomeAntiga = db.clube.liga.split(' (')[0];
+                    db.clube.liga = novaDivisao;
+                    adicionarNoticiaAutomatica(`🔄 MUDANÇA DE DIVISÃO: sai de ${nomeAntiga} para ${novaDivisao.split(' (')[0]}.`, `A diretoria já foi avisada e a expectativa para a próxima temporada muda de patamar.`);
+                }
             } else {
                 let anoAtual = parseInt(db.selecao.temporadaAtual.replace(/\D/g, '')); db.selecao.temporadaAtual = `Ciclo ${anoAtual + 4}`;
             }
@@ -170,14 +212,6 @@ ${blocoAvaliacao}
             msgFinal += "\n\n📥 Aproveite e baixe um backup do seu save (botão na barra lateral) — é rápido e evita perder seu progresso.";
 
             salvarDados(); alert(msgFinal); atualizarFiltroTemporadas(); ajustarInterfaceSave(); mudarAba('tab-diretoria');
-        }
-
-        async function checarPromocaoRebaixamento() {
-            let ligObj = ligaMap[db[currentSave].liga];
-            if(ligObj) {
-                if(!ligObj.isTop && ligObj.up && await confirmarModerno(`Acesso para a divisão superior (${ligObj.up.split(' (')[0]})?`, "Acesso de Divisão")) { db[currentSave].liga = ligObj.up; }
-                else if(ligObj.down && await confirmarModerno(`Rebaixado para a divisão inferior (${ligObj.down.split(' (')[0]})?`, "Rebaixamento")) { db[currentSave].liga = ligObj.down; }
-            }
         }
 
         async function gerarEventoAleatorio() {
@@ -217,7 +251,8 @@ ${blocoAvaliacao}
                     let ev = JSON.parse(match[0]);
 
                     if (ev.efeitoOrcamento && currentSave === 'clube') {
-                        db.clube.orcamento = Math.max(0, (db.clube.orcamento || 0) + Number(ev.efeitoOrcamento));
+                        let efeito = Math.max(-3, Math.min(5, Number(ev.efeitoOrcamento) || 0));
+                        db.clube.orcamento = Math.max(0, (db.clube.orcamento || 0) + efeito);
                         registrarComandoOrcamento(db.clube.orcamento, "Evento Inesperado nos Bastidores");
                     }
                     if (ev.efeitoNotaDiretoria) {
