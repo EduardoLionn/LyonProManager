@@ -501,3 +501,49 @@
 .historico-nota-item { display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
 .historico-nota-item strong { color: var(--primary); font-family: var(--font-display); font-size: 15px; }
 .historico-nota-item.mvp { border-color: var(--primary); background: rgba(232, 184, 75, 0.08); }
+
+/* --- DASHBOARD: BARRA DE ABAS DOS GRÁFICOS (substitui o antigo <select> nativo) --- */
+.graf-tabs {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px;
+    border-bottom: 1px solid var(--border); scrollbar-width: thin;
+}
+.graf-tab {
+    flex: 0 0 auto; background: var(--input-bg); color: var(--text-muted); border: 1px solid var(--border);
+    padding: 9px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; text-transform: none;
+    letter-spacing: normal; white-space: nowrap; cursor: pointer; transition: 0.15s;
+}
+.graf-tab:hover { color: white; border-color: var(--accent); transform: none; }
+.graf-tab.active { background: var(--primary); color: #14150F; border-color: var(--primary); }
+
+/* --- DASHBOARD: BOLINHAS DE FORMA RECENTE COM TOOLTIP --- */
+.forma-dot {
+    position: relative; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 800; font-family: var(--font-display); color: #0D1512;
+    cursor: default; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.forma-dot-tooltip {
+    visibility: hidden; opacity: 0; position: absolute; bottom: 135%; left: 50%; transform: translateX(-50%) translateY(4px);
+    background: rgba(15, 17, 21, 0.97); color: var(--primary); padding: 10px 13px; border-radius: 8px;
+    font-size: 11px; white-space: nowrap; z-index: 999; transition: 0.2s; border: 1px solid var(--primary);
+    text-align: center; pointer-events: none; box-shadow: 0 10px 25px rgba(0,0,0,0.55); font-weight: normal; line-height: 1.6;
+}
+.forma-dot-tooltip::after {
+    content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid;
+    border-color: var(--primary) transparent transparent transparent;
+}
+.forma-dot:hover .forma-dot-tooltip { visibility: visible; opacity: 1; bottom: 145%; transform: translateX(-50%) translateY(0); z-index: 1000; }
+
+/* --- DASHBOARD: CARDS DE PARTIDA DO CALENDÁRIO (expandir/colapsar animado) --- */
+.match-card-header { padding: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; background: rgba(255,255,255,0.03); cursor: pointer; transition: 0.15s; }
+.match-card-header:hover { background: rgba(255,255,255,0.06); }
+.match-mando-badge { background: rgba(75, 159, 226, 0.12); color: var(--accent); padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+.match-delete-btn { background: var(--danger); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.match-chevron { color: var(--text-muted); font-size: 13px; display: inline-block; transition: transform 0.25s; }
+.match-card.open .match-chevron { transform: rotate(180deg); }
+.match-details { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; background: var(--panel-bg); }
+.match-card.open .match-details { max-height: 2600px; border-top: 1px solid var(--border); }
+.match-details-inner { padding: 25px; }
+.btn-stats-toggle { background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 13px; padding: 9px 16px; margin-top: 5px; text-transform: none; letter-spacing: normal; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.btn-stats-toggle:hover { background: rgba(75, 159, 226, 0.1); transform: none; }
+.match-full-stats { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+.match-full-stats.open { max-height: 1800px; }

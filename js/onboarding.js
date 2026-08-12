@@ -173,7 +173,7 @@ function wizardMostrarEtapa(idx) {
     ).join('');
 
     document.getElementById('wizard-nav').style.display = 'flex';
-    document.querySelector('.btn-wizard-voltar').style.display = idx === 0 ? 'none' : 'inline-block';
+    document.querySelector('#wizard-nav .btn-wizard-voltar').style.display = 'inline-block';
     document.getElementById('wizard-btn-avancar').style.display = (etapaId === 'resumo') ? 'none' : 'inline-block';
 
     if (etapaId === 'perfil') wizardRenderStepPerfil();
@@ -200,6 +200,9 @@ function wizardVoltar() {
     if (wizardEtapaIdx > 0) {
         wizardEtapaIdx--;
         wizardMostrarEtapa(wizardEtapaIdx);
+    } else {
+        // Primeira etapa: "Voltar" sai do assistente e retorna pra tela de escolha do Menu Principal.
+        menuVoltarHero();
     }
 }
 

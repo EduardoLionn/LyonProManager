@@ -303,12 +303,13 @@ function toggleChatDiretoria() {
             let optRaioxDash = document.getElementById('opt-raiox-dash');
 
             if (currentSave === 'selecao') {
-                btnPlantel.style.display = 'none'; btnMercado.style.display = 'none'; optRaioxDash.style.display = 'block'; 
+                btnPlantel.style.display = 'none'; btnMercado.style.display = 'none'; optRaioxDash.style.display = 'inline-block';
                 let activeTab = document.querySelector('.tab-content.active');
                 if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado')) mudarAba('tab-dashboard');
             } else {
-                btnPlantel.style.display = 'block'; btnMercado.style.display = 'block'; optRaioxDash.style.display = 'none'; 
-                if(document.getElementById('seletor-grafico').value === 'view-raiox') document.getElementById('seletor-grafico').value = 'view-calendario';
+                btnPlantel.style.display = 'block'; btnMercado.style.display = 'block'; optRaioxDash.style.display = 'none';
+                let tabGraficoAtiva = document.querySelector('.graf-tab.active');
+                if (tabGraficoAtiva && tabGraficoAtiva.dataset.view === 'view-raiox' && typeof mudarGrafico === 'function') mudarGrafico('view-calendario');
             }
 
             if (!config.nome) {

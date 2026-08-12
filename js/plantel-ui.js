@@ -271,10 +271,17 @@
         Chart.defaults.elements.point.radius = 3;
         function limparGraficos() { ['efetividade', 'eficiencia', 'artilheiros', 'assistentes', 'criacao', 'notaMedia', 'defesa', 'radarSetor', 'finalizacoes', 'dribles'].forEach(k => { if(charts[k]) { charts[k].destroy(); charts[k] = null; } }); }
 
-        function mudarGrafico() {
+        // viewId opcional: se omitido, reaplica a aba de gráfico já ativa no momento (útil quando os
+        // dados são redesenhados sem o usuário ter trocado de aba).
+        function mudarGrafico(viewId) {
+            if (!viewId) {
+                let tabAtiva = document.querySelector('.graf-tab.active');
+                viewId = tabAtiva ? tabAtiva.dataset.view : 'view-calendario';
+            }
             document.querySelectorAll('.chart-container').forEach(el => el.classList.remove('active'));
-            document.getElementById(document.getElementById('seletor-grafico').value).classList.add('active');
-            if(document.getElementById('seletor-grafico').value === 'view-raiox') acionarRaioXDashboard();
+            document.getElementById(viewId).classList.add('active');
+            document.querySelectorAll('.graf-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewId));
+            if (viewId === 'view-raiox') acionarRaioXDashboard();
         }
 
         function renderizarCalendarioPartidas(pFiltradas) {
@@ -286,7 +293,9 @@
         let vitoria = p.golsPro > p.golsContra || (p.golsPro === p.golsContra && p.penaltis);
         let empate = p.golsPro === p.golsContra && !p.penaltis;
         let txtColor = vitoria ? 'var(--primary)' : (empate ? 'var(--warning)' : 'var(--danger)');
-        
+        let mandoTxt = { Casa: '🏠 Casa', Fora: '✈️ Fora', Neutro: '🌐 Neutro' }[p.mando] || '';
+        let mandoBadge = mandoTxt ? `<span class="match-mando-badge">${mandoTxt}</span>` : '';
+
         let tabelaJogadores = `
         <div style="overflow-x:auto;">
             <table style="width:100%; font-size:12px; margin-top:15px; background: rgba(0,0,0,0.2); border-radius:8px;">
@@ -303,26 +312,34 @@
 
         return `
         <div class="match-card" style="border-left: 5px solid ${txtColor};">
-            <div style="padding: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03);">
-                <div style="display: flex; align-items: center; gap: 15px; cursor: pointer; flex: 1;" onclick="toggleMatchDetails(${idx})">
+            <div class="match-card-header" onclick="toggleMatchDetails(${idx})">
+                <div style="display: flex; align-items: center; gap: 15px; flex: 1; min-width: 200px;">
                     <span style="font-size: 24px;">${vitoria ? '✅' : (empate ? '➖' : '❌')}</span>
                     <div>
                         <strong style="font-size: 18px; color: white;">vs ${p.adversario}</strong>
-                        <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">${p.comp} | Clique para ver detalhes</div>
+                        <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span>${p.comp}</span>${mandoBadge}
+                        </div>
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 20px;">
-                    <div style="font-size: 24px; font-weight: bold; color: ${txtColor}; cursor: pointer;" onclick="toggleMatchDetails(${idx})">${p.golsPro} x ${p.golsContra}</div>
-                    <button onclick="excluirPartida(${p.id})" style="background: var(--danger); color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer;" title="Excluir Partida">🗑️</button>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="font-size: 24px; font-weight: bold; color: ${txtColor};">${p.golsPro} x ${p.golsContra}</div>
+                    <button onclick="event.stopPropagation(); excluirPartida(${p.id})" class="match-delete-btn" title="Excluir Partida">🗑️</button>
+                    <span class="match-chevron">▾</span>
                 </div>
             </div>
-            <div id="match-details-${idx}" style="display: none; padding: 25px; background: var(--panel-bg); border-top: 1px solid var(--border);">
-                <div class="grid-2" style="margin-bottom: 10px;">
-                    <div class="stat-card"><span>Posse de Bola</span><strong>Nós ${p.possePro}% x ${p.posseAdv}% Adv</strong></div>
-                    <div class="stat-card"><span>Finalizações Totais</span><strong>Nós ${p.finPro} x ${p.finAdv} Adv</strong></div>
+            <div class="match-details" id="match-details-${idx}">
+                <div class="match-details-inner">
+                    <div class="grid-2" style="margin-bottom: 10px;">
+                        <div class="stat-card"><span>Posse de Bola</span><strong>Nós ${p.possePro}% x ${p.posseAdv}% Adv</strong></div>
+                        <div class="stat-card"><span>Finalizações Totais</span><strong>Nós ${p.finPro} x ${p.finAdv} Adv</strong></div>
+                    </div>
+                    <button class="btn-stats-toggle" onclick="toggleFullStats(${idx})">📊 Ver Estatísticas Completas dos Jogadores <span id="stats-chevron-${idx}">▾</span></button>
+                    <div class="match-full-stats" id="match-full-stats-${idx}">
+                        <h4 style="margin:20px 0 5px 0; color:var(--accent);">Estatísticas Individuais</h4>
+                        ${tabelaJogadores}
+                    </div>
                 </div>
-                <h4 style="margin:20px 0 5px 0; color:var(--accent);">Estatísticas Individuais</h4>
-                ${tabelaJogadores}
             </div>
         </div>`;
     }).join('');
@@ -348,8 +365,18 @@
         }
 
         function toggleMatchDetails(idx) {
-    let el = document.getElementById('match-details-' + idx);
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    let card = document.getElementById('match-details-' + idx).closest('.match-card');
+    if (card) card.classList.toggle('open');
+}
+
+// Tabela completa por jogador só é revelada sob demanda — mantém o card compacto/dinâmico
+// por padrão em vez de despejar a tabela inteira assim que a partida é expandida.
+function toggleFullStats(idx) {
+    let el = document.getElementById('match-full-stats-' + idx);
+    let chevron = document.getElementById('stats-chevron-' + idx);
+    if (!el) return;
+    let aberto = el.classList.toggle('open');
+    if (chevron) chevron.innerText = aberto ? '▴' : '▾';
 }
 
 function getAdvancedPlayerAggregates(pFiltradas) {

@@ -172,7 +172,8 @@
         });
     }
 
-    if(document.getElementById('seletor-grafico').value === 'view-raiox') acionarRaioXDashboard();
+    let tabGraficoAtiva = document.querySelector('.graf-tab.active');
+    if(tabGraficoAtiva && tabGraficoAtiva.dataset.view === 'view-raiox') acionarRaioXDashboard();
 }
 
         function acionarRaioXDashboard() {

@@ -745,21 +745,22 @@
                             <option value="10">Últimos 10 Jogos</option>
                             <option value="15">Últimos 15 Jogos</option>
                         </select>
-                        <select id="seletor-grafico" onchange="mudarGrafico()" style="width: 320px; font-weight: bold; color: var(--primary); border-radius:8px; padding: 10px;">
-    <option value="view-calendario">📅 0. Calendário e Detalhes da Partida</option>
-    <option value="view-efetividade">🎯 1. Efetividade das Finalizações (%)</option>
-    <option value="view-eficiencia">⚡ 2. Domínio (Posse x Finalizações)</option>
-    <option value="view-artilheiros">⚽ 3. Artilharia (Gols por Jogador)</option>
-    <option value="view-assistentes">🎯 4. Assistentes (Passes para Gol)</option>
-    <option value="view-criacao">📈 5. Desgaste Físico & Média Geral</option>
-    <option value="view-notamedia">⭐ 5.5. Nota Média por Jogador</option>
-    <option value="view-defesa">🛡️ 6. Muralha Defensiva e Goleiros</option>
-    <option value="view-radar">🔍 7. Central de Criação (Passes)</option>
-    <option value="view-finalizacoes">🎯 8. Precisão e Volume de Finalizações</option>
-    <option value="view-dribles">🤹 9. Habilidade e Dribles</option>
-    <option value="view-raiox" id="opt-raiox-dash">🕸️ 10. Raio-X do Atleta (Radar)</option>
-</select>
                     </div>
+                </div>
+
+                <div class="graf-tabs" id="graf-tabs">
+                    <button class="graf-tab active" data-view="view-calendario" onclick="mudarGrafico('view-calendario')">📅 Calendário</button>
+                    <button class="graf-tab" data-view="view-efetividade" onclick="mudarGrafico('view-efetividade')">🎯 Efetividade</button>
+                    <button class="graf-tab" data-view="view-eficiencia" onclick="mudarGrafico('view-eficiencia')">⚡ Domínio</button>
+                    <button class="graf-tab" data-view="view-artilheiros" onclick="mudarGrafico('view-artilheiros')">⚽ Artilharia</button>
+                    <button class="graf-tab" data-view="view-assistentes" onclick="mudarGrafico('view-assistentes')">🎯 Assistências</button>
+                    <button class="graf-tab" data-view="view-criacao" onclick="mudarGrafico('view-criacao')">📈 Desgaste &amp; Média</button>
+                    <button class="graf-tab" data-view="view-notamedia" onclick="mudarGrafico('view-notamedia')">⭐ Nota Média</button>
+                    <button class="graf-tab" data-view="view-defesa" onclick="mudarGrafico('view-defesa')">🛡️ Defesa</button>
+                    <button class="graf-tab" data-view="view-radar" onclick="mudarGrafico('view-radar')">🔍 Criação (Passes)</button>
+                    <button class="graf-tab" data-view="view-finalizacoes" onclick="mudarGrafico('view-finalizacoes')">🎯 Finalizações</button>
+                    <button class="graf-tab" data-view="view-dribles" onclick="mudarGrafico('view-dribles')">🤹 Dribles</button>
+                    <button class="graf-tab" id="opt-raiox-dash" data-view="view-raiox" onclick="mudarGrafico('view-raiox')">🕸️ Raio-X</button>
                 </div>
 
                 <div id="view-calendario" class="chart-container active">

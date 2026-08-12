@@ -1,15 +1,24 @@
 function atualizarKPIsEForma(pFiltradas) {
-            // 1. Forma Recente (Últimos 5 jogos)
+            // 1. Forma Recente (Últimos 5 jogos) — bolinhas coloridas com tooltip no hover
+            // (resultado, placar, adversário e se foi em casa/fora/neutro).
             let formaHTML = "";
             let ultimos5 = pFiltradas.slice(-5);
-            
+
             ultimos5.forEach(p => {
                 let vitoria = p.golsPro > p.golsContra || (p.golsPro === p.golsContra && p.penaltis);
                 let derrota = p.golsPro < p.golsContra;
-                
-                if (vitoria) formaHTML += "🟢";
-                else if (derrota) formaHTML += "🔴";
-                else formaHTML += "🟡";
+                let resultado = vitoria ? 'Vitória' : (derrota ? 'Derrota' : 'Empate');
+                let cor = vitoria ? '#2ecc71' : (derrota ? 'var(--danger)' : 'var(--warning)');
+                let letra = vitoria ? 'V' : (derrota ? 'D' : 'E');
+                let mandoTxt = { Casa: '🏠 Casa', Fora: '✈️ Fora', Neutro: '🌐 Neutro' }[p.mando] || '';
+
+                formaHTML += `<div class="forma-dot" style="background:${cor};">${letra}
+                    <div class="forma-dot-tooltip">
+                        <strong>${resultado}</strong> ${p.golsPro} x ${p.golsContra}<br>
+                        vs ${p.adversario}${mandoTxt ? ` · ${mandoTxt}` : ''}
+                        ${p.comp ? `<br><span style="opacity:0.7;">${p.comp}</span>` : ''}
+                    </div>
+                </div>`;
             });
             document.getElementById('header-forma-recente').innerHTML = formaHTML;
 
