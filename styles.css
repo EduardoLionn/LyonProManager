@@ -1,3 +1,5 @@
+        *, *::before, *::after { box-sizing: border-box; }
+
         :root {
             --bg-dark: #0D1512; --sidebar-bg: #131C17; --panel-bg: #182420; --input-bg: #22322B;
             --primary: #E8B84B; --primary-hover: #F2C868; --accent: #4B9FE2;
@@ -97,7 +99,10 @@
         .stat-card strong { font-family: var(--font-display); font-size: 24px; color: white; letter-spacing: 0.02em; }
 
         #setup-screen, #modal-evento, #modal-troca-liga, #modal-setup-diretoria, #modal-editar-jogador { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 17, 21, 0.95); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .setup-box, .evento-box { background: var(--panel-bg); padding: 40px; border-radius: 12px; width: 420px; border: 1px solid var(--primary); box-shadow: 0 0 30px rgba(232, 184, 75, 0.15); max-height: 90vh; overflow-y: auto; }
+        .setup-box, .evento-box { background: var(--panel-bg); padding: 40px; border-radius: 12px; width: 420px; max-width: 90vw; border: 1px solid var(--primary); box-shadow: 0 0 30px rgba(232, 184, 75, 0.15); max-height: 90vh; overflow-y: auto; }
+        @media screen and (max-width: 480px) {
+            .setup-box, .evento-box { padding: 24px 20px; }
+        }
         .evento-box { border-color: var(--warning); box-shadow: 0 0 30px rgba(217, 130, 43, 0.15); text-align: center; }
 
         .chat-container { display: flex; flex-direction: column; height: 500px; background: var(--input-bg); border-radius: 8px; border: 1px solid var(--border); overflow: hidden;}
@@ -152,7 +157,7 @@
 
         /* --- MODAL DE TROCA DE JOGADOR (visual profissional) --- */
         .modal-troca-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 12, 14, 0.75); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1200; }
-        .modal-troca-box { width: 440px; }
+        .modal-troca-box { width: 440px; max-width: 90vw; }
         .modal-troca-lista { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; padding-right: 2px; }
         .trocar-jogador-opcao { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, var(--input-bg), rgba(255,255,255,0.02)); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; cursor: pointer; transition: 0.15s; }
         .trocar-jogador-opcao:hover { border-color: var(--primary); background: rgba(232, 184, 75, 0.1); transform: translateX(2px); }
@@ -197,6 +202,13 @@
         grid-template-columns: 1fr !important;
         gap: 10px !important;
     }
+    /* Alguns itens desses grids têm "grid-column: span N" fixo no HTML (pra ocupar
+       várias colunas no desktop) — com o grid virando 1 coluna só, um span > 1 faz o
+       navegador CRIAR colunas implícitas extras só pra caber o span, o que quebra o
+       empilhamento e vaza a tela pros lados. Reseta o span nesses breakpoints. */
+    .grid-2 > *, .grid-3 > *, .grid-4 > *, .grid-5 > * {
+        grid-column: auto !important;
+    }
 
     /* Ajusta tabelas para não quebrarem a tela */
     table {
@@ -208,6 +220,31 @@
 
     .raiox-container {
         grid-template-columns: 1fr !important;
+    }
+
+    /* Muitos cabeçalhos de painel (título + filtros/selects à direita) e alguns selects/inputs
+       têm largura fixa em px definida inline no HTML (ex: um <select> de 320px) — em telas
+       estreitas isso empurra a página inteira pros lados. Trava a largura máxima e permite
+       que a linha quebre em vez de vazar horizontalmente. */
+    select, input, textarea, button {
+        max-width: 100%;
+        min-width: 0;
+    }
+    [style*="display: flex"], [style*="display:flex"] {
+        flex-wrap: wrap !important;
+        row-gap: 10px;
+    }
+
+    /* Linha de filtros do gráfico do Dashboard: vários <select> com largura fixa em px
+       (um deles tem 320px). Sendo item de um flex row sem largura própria, "max-width:100%"
+       não resolve (containing block indefinido) — força a linha a ocupar 100% e cada
+       select a dividir o espaço/encolher de verdade. */
+    .grafico-filtros-row {
+        width: 100%;
+    }
+    .grafico-filtros-row select {
+        flex: 1 1 130px;
+        min-width: 0;
     }
 }
 
@@ -279,8 +316,11 @@
         .jc-sub-badge:hover { transform: scale(1.15); }
 
 /* --- NOVA ABA: FEED SOCIAL DA TORCIDA --- */
-.social-header { display: flex; justify-content: space-between; align-items: center; background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.termometro-container { flex: 1; margin: 0 30px; text-align: center; }
+.social-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.termometro-container { flex: 1; min-width: 180px; margin: 0 30px; text-align: center; }
+@media screen and (max-width: 1024px) {
+    .termometro-container { margin: 0; }
+}
 .termometro-bar { background: var(--bg-dark); height: 12px; border-radius: 6px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border); position: relative; }
 .termometro-fill { height: 100%; transition: width 0.5s, background 0.5s; }
 .tweet-card { background: var(--panel-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 15px; display: flex; gap: 15px; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
