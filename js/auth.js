@@ -93,11 +93,22 @@ function authGoogle() {
     document.getElementById('auth-erro').innerText = '';
     _authSetCarregando(true);
     let provider = new firebase.auth.GoogleAuthProvider();
-    // GitHub Pages manda um cabeçalho (Cross-Origin-Opener-Policy) que quebra o fluxo de
-    // popup do Firebase (a aba abre e fecha sem completar o login). Redirecionamento não
-    // depende desse cabeçalho — a própria página navega pro Google e volta.
-    firebase.auth().signInWithRedirect(provider)
-        .catch(err => { _authMostrarErro(err); _authSetCarregando(false); });
+    // Popup em vez de redirecionamento: o redirecionamento depende do sessionStorage sobreviver
+    // à ida-e-volta pro Google, o que quebra em navegadores móveis com armazenamento particionado
+    // ou quando o usuário troca de "site mobile" pra "site desktop" no meio do fluxo (erro "missing
+    // initial state"). O popup não tem esse problema — e agora que o site está no Firebase Hosting
+    // (não mais no GitHub Pages), não há mais o cabeçalho COOP que quebrava popups antes.
+    firebase.auth().signInWithPopup(provider)
+        .catch(err => {
+            // Popup bloqueado pelo navegador, ou ambiente que não suporta popup (ex: alguns
+            // navegadores in-app) — cai pro redirecionamento como última alternativa.
+            if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
+                firebase.auth().signInWithRedirect(provider).catch(err2 => { _authMostrarErro(err2); _authSetCarregando(false); });
+                return;
+            }
+            _authMostrarErro(err);
+            _authSetCarregando(false);
+        });
 }
 
 function authLogout() {

@@ -106,8 +106,11 @@
         .evento-box { border-color: var(--warning); box-shadow: 0 0 30px rgba(217, 130, 43, 0.15); text-align: center; }
 
         .chat-container { display: flex; flex-direction: column; height: 500px; background: var(--input-bg); border-radius: 8px; border: 1px solid var(--border); overflow: hidden;}
-        .chat-log { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .chat-msg { padding: 14px 20px; border-radius: 12px; font-size: 15px; max-width: 85%; line-height: 1.6; white-space: pre-wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;}
+        /* min-width/min-height: 0 são essenciais aqui — sem eles, um item flex (chat-log) dentro de
+           outro flex (chat-container) usa o tamanho do CONTEÚDO como mínimo (o texto sem quebra de
+           linha nenhuma), ficando mais largo/alto que o container e sendo cortado pelo overflow:hidden. */
+        .chat-log { flex: 1; min-height: 0; min-width: 0; padding: 25px; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 15px; }
+        .chat-msg { padding: 14px 20px; border-radius: 12px; font-size: 15px; max-width: 85%; min-width: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: break-word; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;}
         .msg-user { background: var(--accent); color: white; align-self: flex-end; border-bottom-right-radius: 2px;}
         .msg-ai { background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 2px;}
         
@@ -240,6 +243,19 @@
         height: auto !important;
         overflow: auto !important;
     }
+
+    /* No desktop a barra da conta (e-mail + Sair) fica "flutuando" fixa no canto porque
+       normalmente não há nada embaixo dela. No mobile o layout inteiro é uma coluna só que
+       rola — "fixed" faz ela ficar grudada no topo da TELA (não da página) e cobrir/cortar
+       qualquer conteúdo que passe por trás dela ao rolar (botões, textos do chat, etc).
+       Tira do "fixed" e deixa ela no fluxo normal, no topo da página, acima da sidebar. */
+    #barra-conta {
+        position: static !important;
+        width: 100%;
+        box-sizing: border-box;
+        justify-content: flex-end;
+        border-radius: 0;
+    }
     
     .sidebar {
         width: 100% !important;
@@ -289,6 +305,14 @@
     [style*="display: flex"], [style*="display:flex"] {
         flex-wrap: wrap !important;
         row-gap: 10px;
+    }
+    /* O chat (auxiliar/diretoria) é ligado via JS (panel.style.display = 'flex'), então o
+       inline style dele passa a bater com o seletor genérico acima — mas ele é uma coluna
+       (flex-direction: column) de altura fixa, não uma linha de itens pra quebrar. "wrap" nesse
+       caso faz o layout dividir os itens em "colunas" extras, estourando a largura do balão de
+       chat pra fora do container (que tem overflow:hidden), cortando o texto das mensagens. */
+    .chat-container[style*="display: flex"], .chat-container[style*="display:flex"] {
+        flex-wrap: nowrap !important;
     }
 
     /* Linha de filtros do gráfico do Dashboard: vários <select> com largura fixa em px
@@ -354,13 +378,9 @@
         .jogador-campo .jc-ovr-label { font-size: clamp(4px, 1.2vw, 6px); font-weight: 700; color: rgba(20,21,15,0.7); letter-spacing: 0.06em; line-height: 1; }
         .jogador-campo .jc-ovr-num { font-family: var(--font-display); font-weight: 800; font-size: clamp(9px, 2.6vw, 15px); color: #14150F; line-height: 1.1; }
         .jogador-campo .jc-nome {
-            color: white; font-size: clamp(7px, 2vw, 11px); font-weight: 700;
-            white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.7);
-        }
-        /* Telas bem estreitas: o nome só cabe se a camisa ficar minúscula demais — some daqui e mostra
-           só no toque (o clique já abre o seletor com o nome no título) ou no hover em telas maiores. */
-        @media screen and (max-width: 420px) {
-            .jogador-campo .jc-nome { display: none; }
+            color: white; font-size: clamp(6px, 2vw, 11px); font-weight: 700;
+            white-space: normal; text-align: center; line-height: 1.15; max-width: 15vw;
+            overflow-wrap: break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.7);
         }
         .jc-sub-badge {
             position: absolute; top: -6px; right: -6px; width: 17px; height: 17px; border-radius: 50%;
