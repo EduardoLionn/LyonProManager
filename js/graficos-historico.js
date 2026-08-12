@@ -27,11 +27,11 @@
     }
 
     atualizarKPIsEForma(pFiltradas);
-    // O card fixo de "Partidas Jogadas" mostra só as últimas 4 (sem scroll interno) — o botão
+    // O card fixo de "Partidas Jogadas" mostra só as últimas 3 (sem scroll interno) — o botão
     // "Ver Todas" abre o modal com a lista completa e ampliada.
-    renderizarCalendarioPartidas(pFiltradas.slice(-4));
+    renderizarCalendarioPartidas(pFiltradas.slice(-3));
     let btnVerTodas = document.getElementById('btn-ver-todas-partidas');
-    if (btnVerTodas) btnVerTodas.style.display = (db[currentSave].partidas.length > 4) ? 'block' : 'none';
+    if (btnVerTodas) btnVerTodas.style.display = (db[currentSave].partidas.length > 3) ? 'block' : 'none';
 
     if(currentSave === 'selecao') {
         let datalistRaiox = document.getElementById('datalist-raiox');

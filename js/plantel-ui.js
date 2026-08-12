@@ -394,12 +394,28 @@ function abrirTodasPartidas() {
     document.getElementById('modal-todas-partidas').style.display = 'flex';
 }
 
-// Os gráficos de barra viviam sempre visíveis no Dashboard; agora moraram num modal que só abre
-// sob demanda. Os canvases ficam com tamanho 0 enquanto o modal está escondido, então redesenha
-// tudo de novo (desenharGraficos já destrói e recria os charts) assim que o modal aparece.
-function abrirGraficosBarra() {
+// Os gráficos de barra ficam visíveis (compactos) direto no Dashboard. "Ampliar" move o MESMO
+// bloco (tabs + canvases) pra dentro do modal — sem duplicar canvases nem recriar os charts — e
+// "Fechar" devolve ele pro lugar de origem. Só precisa mandar cada Chart.js recalcular o tamanho
+// (chart.resize()) porque o container mudou de dimensão.
+function abrirGraficosBarraModal() {
+    document.getElementById('modal-graficos-barra-slot').appendChild(document.getElementById('graficos-barra-conteudo'));
+    document.getElementById('painel-graficos-barra-home').style.display = 'none';
     document.getElementById('modal-graficos-barra').style.display = 'flex';
-    if (typeof desenharGraficos === 'function') desenharGraficos();
+    setTimeout(_redimensionarGraficosBarra, 50);
+}
+
+function fecharGraficosBarraModal() {
+    document.getElementById('painel-graficos-barra-home').appendChild(document.getElementById('graficos-barra-conteudo'));
+    document.getElementById('modal-graficos-barra').style.display = 'none';
+    document.getElementById('painel-graficos-barra-home').style.display = '';
+    setTimeout(_redimensionarGraficosBarra, 50);
+}
+
+function _redimensionarGraficosBarra() {
+    ['notaMedia', 'defesa', 'radarSetor', 'finalizacoes', 'dribles', 'raioXRadarDash'].forEach(k => {
+        if (charts[k] && typeof charts[k].resize === 'function') charts[k].resize();
+    });
 }
 
 function getAdvancedPlayerAggregates(pFiltradas) {
