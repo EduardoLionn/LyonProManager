@@ -241,6 +241,48 @@
         </div>
     </div>
 
+    <!-- MODAL: CONCLUIR TEMPORADA (questionário único — preenche tudo e só então finaliza) -->
+    <div id="modal-concluir-temporada" class="modal-troca-overlay" style="display: none;">
+        <div class="setup-box">
+            <h2 style="margin-top:0;">🏁 Concluir Temporada <span id="concluir-temp-nome" style="color:var(--text-muted); font-size:14px; font-weight:normal;"></span></h2>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Preencha os dados finais da temporada — a Diretoria usa isso pra avaliar as metas e definir os objetivos da próxima.</p>
+
+            <div class="linha-form" style="margin-top: 10px;">
+                <label>Posição Final na Tabela da Liga</label>
+                <input type="text" id="concluir-temp-posicao" placeholder="Ex: 1º Lugar">
+            </div>
+
+            <div id="concluir-temp-box-continental">
+                <div class="linha-form">
+                    <label>Classificação Continental para a Próxima Temporada</label>
+                    <select id="concluir-temp-continental">
+                        <option value="Nenhuma">Nenhuma / Não classificado</option>
+                        <optgroup label="América do Sul (CONMEBOL)">
+                            <option value="Libertadores">Copa Libertadores</option>
+                            <option value="Sul-Americana">Copa Sul-Americana</option>
+                        </optgroup>
+                        <optgroup label="Europa (UEFA)">
+                            <option value="Champions League">Champions League</option>
+                            <option value="Europa League">Europa League</option>
+                            <option value="Conference League">Conference League</option>
+                        </optgroup>
+                        <optgroup label="Outros Continentes">
+                            <option value="Concacaf Champions Cup">Concacaf Champions</option>
+                            <option value="Leagues Cup">Leagues Cup</option>
+                            <option value="CAF Champions League">Liga dos Campeões da CAF (África)</option>
+                            <option value="AFC Champions League">AFC Champions (Ásia)</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button style="flex:1; background:var(--gold); color:black;" onclick="processarConclusaoTemporadaForm()">🏁 Finalizar Temporada</button>
+                <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-concluir-temporada').style.display='none'">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SIDEBAR -->
     <div class="sidebar">
         <h1>⚽ LyonPro Manager</h1>
@@ -559,13 +601,13 @@
                         <button onclick="abrirModalEditarTecnico()" title="Editar nome do técnico" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:0 4px;">✏️</button>
                     </span>
                     <span style="font-size:14px; color:var(--text-muted);">Ciclo/Temporada: <strong id="header-temp-ano" style="color:var(--primary); font-size:16px;">25/26</strong></span>
-                    <button onclick="concluirTemporadaAutomatica()" style="background: var(--gold); color: black;">🏁 Concluir Temporada</button>
                 </div>
             </div>
 
             <!-- TOPO: KPIs de gols + últimos 5 jogos em destaque -->
             <div class="dash-top-grid">
                 <div class="kpi-container" id="dashboard-kpis">
+                    <div class="kpi-card" style="border-top-color: var(--gold);"><span style="color: var(--gold);">Partidas Jogadas</span><strong id="kpi-partidas-jogadas">0</strong></div>
                     <div class="kpi-card" style="border-top-color: var(--primary);"><span style="color: var(--primary);">Aproveitamento</span><strong id="kpi-aproveitamento">0%</strong></div>
                     <div class="kpi-card" style="border-top-color: #2ecc71;"><span style="color: #2ecc71;">Gols Feitos</span><strong id="kpi-gols-feitos">0</strong></div>
                     <div class="kpi-card" style="border-top-color: var(--danger);"><span style="color: var(--danger);">Gols Sofridos</span><strong id="kpi-gols-sofridos">0</strong></div>
@@ -683,9 +725,12 @@
         <div id="tab-salvar-partida" class="tab-content">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
                 <h2 style="margin:0; font-size:28px; color:white;">💾 Salvar Partida</h2>
-                <button id="btn-toggle-video" onclick="toggleModoVideo()" style="background: var(--primary); border: none; color: black; font-weight: bold;">
-                    ✏️ Mostrar Controles
-                </button>
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <button onclick="concluirTemporadaAutomatica()" style="background: var(--gold); color: black;">🏁 Concluir Temporada</button>
+                    <button id="btn-toggle-video" onclick="toggleModoVideo()" style="background: var(--primary); border: none; color: black; font-weight: bold;">
+                        ✏️ Mostrar Controles
+                    </button>
+                </div>
             </div>
 
             <!-- ÁREA DE INSERÇÃO (IA VISÍVEL, MANUAL ESCONDIDO) -->

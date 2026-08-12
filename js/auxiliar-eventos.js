@@ -22,6 +22,8 @@ function atualizarKPIsEForma(pFiltradas) {
             });
             document.getElementById('header-forma-recente').innerHTML = formaHTML;
 
+            document.getElementById('kpi-partidas-jogadas').innerText = pFiltradas.length;
+
             // Se não tem jogos na temporada, zera os cartões
             if (pFiltradas.length === 0) {
                 document.getElementById('kpi-aproveitamento').innerText = "0%";

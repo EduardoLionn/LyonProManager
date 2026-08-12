@@ -171,7 +171,7 @@
         .trocar-jogador-opcao .tjo-seta { color: var(--primary); font-size: 20px; font-weight: bold; opacity: 0.6; }
 
 /* --- NOVOS ESTILOS: KPIs e Forma Recente --- */
-        .kpi-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .kpi-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px; }
         .kpi-card { background: var(--panel-bg); padding: 15px; border-radius: 5px; border-top: 3px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
         .kpi-card span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 5px; letter-spacing: 0.06em; }
         .kpi-card strong { font-family: var(--font-display); font-size: 20px; color: white; letter-spacing: 0.02em; }

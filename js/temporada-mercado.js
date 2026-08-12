@@ -1,20 +1,30 @@
-        async function concluirTemporadaAutomatica() {
-            if(!(await confirmarModerno(`Deseja encerrar a temporada ${db[currentSave].temporadaAtual}?`, "Encerrar Temporada"))) return;
-            let posTabelaInput = await promptModerno("Posição Final exata na tabela da Liga? (Ex: 1º Lugar)", "1º Lugar", "Posição na Tabela");
-            if(posTabelaInput === null) return;
-
-            let continentalEstaTemporada = db[currentSave].competicaoContinental || 'Nenhuma'; // captura ANTES de sobrescrever com a próxima
-
-            // Pergunta sobre classificação continental se for clube
-            let novaContinental = 'Nenhuma';
+        // Abre o questionário único de fim de temporada — nada é processado até o usuário
+        // preencher tudo e clicar em "Finalizar Temporada" dentro do próprio modal (em vez da
+        // sequência antiga de confirm()/prompt() encadeados, um popup atrás do outro).
+        function concluirTemporadaAutomatica() {
+            document.getElementById('concluir-temp-nome').innerText = `— ${db[currentSave].temporadaAtual}`;
+            document.getElementById('concluir-temp-posicao').value = '1º Lugar';
+            let boxContinental = document.getElementById('concluir-temp-box-continental');
             if (currentSave === 'clube') {
-                let classificou = await confirmarModerno("O clube garantiu classificação para alguma Competição Continental para a PRÓXIMA temporada?", "Classificação Continental");
-                if (classificou) {
-                    novaContinental = (await promptModerno("Qual o nome da competição? (Ex: Libertadores, Champions League, Sul-Americana, etc)", "Libertadores", "Competição Continental")) || 'Nenhuma';
-                }
-                db.clube.competicaoContinental = novaContinental;
+                boxContinental.style.display = 'block';
+                document.getElementById('concluir-temp-continental').value = 'Nenhuma';
+            } else {
+                boxContinental.style.display = 'none';
             }
-            
+            document.getElementById('modal-concluir-temporada').style.display = 'flex';
+        }
+
+        // Lê o formulário do modal, fecha e dispara o processamento de verdade.
+        function processarConclusaoTemporadaForm() {
+            let posTabelaInput = document.getElementById('concluir-temp-posicao').value.trim();
+            if (!posTabelaInput) { alert('Informe a posição final na tabela.'); return; }
+            let novaContinental = currentSave === 'clube' ? document.getElementById('concluir-temp-continental').value : 'Nenhuma';
+            if (currentSave === 'clube') db.clube.competicaoContinental = novaContinental;
+            document.getElementById('modal-concluir-temporada').style.display = 'none';
+            processarConclusaoTemporada(posTabelaInput, novaContinental);
+        }
+
+        async function processarConclusaoTemporada(posTabelaInput, novaContinental) {
             let pFiltradas = db[currentSave].partidas.filter(p => p.temporada === db[currentSave].temporadaAtual);
             let comps = {}; let trofeusGanhos = []; let detalhesComp = [];
             pFiltradas.forEach(p => { comps[p.comp] = p; });
