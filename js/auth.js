@@ -50,7 +50,10 @@ function _authSetCarregando(carregando) {
 }
 
 function _authMostrarErro(err) {
-    document.getElementById('auth-erro').innerText = traduzirErroFirebase(err);
+    console.error('Erro de autenticação:', err);
+    let msg = traduzirErroFirebase(err);
+    if (err && err.code) msg += ` (${err.code})`;
+    document.getElementById('auth-erro').innerText = msg;
 }
 
 function authEntrar() {
