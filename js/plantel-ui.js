@@ -394,6 +394,14 @@ function abrirTodasPartidas() {
     document.getElementById('modal-todas-partidas').style.display = 'flex';
 }
 
+// Os gráficos de barra viviam sempre visíveis no Dashboard; agora moraram num modal que só abre
+// sob demanda. Os canvases ficam com tamanho 0 enquanto o modal está escondido, então redesenha
+// tudo de novo (desenharGraficos já destrói e recria os charts) assim que o modal aparece.
+function abrirGraficosBarra() {
+    document.getElementById('modal-graficos-barra').style.display = 'flex';
+    if (typeof desenharGraficos === 'function') desenharGraficos();
+}
+
 function getAdvancedPlayerAggregates(pFiltradas) {
     let map = {};
     pFiltradas.forEach(p => {

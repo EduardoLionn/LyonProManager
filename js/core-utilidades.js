@@ -271,10 +271,6 @@ function toggleChatDiretoria() {
             if(btn) btn.classList.add('active');
 
             if(abaId === 'tab-menu-principal') {
-                // O Menu Principal é uma "tela cheia": esconde o resto da navegação enquanto ele está ativo
-                document.querySelectorAll('.sidebar .nav-btn').forEach(b => { if (b.id !== 'nav-btn-menu-principal') b.style.display = 'none'; });
-                let saveControls = document.querySelector('.save-controls');
-                if (saveControls) saveControls.style.display = 'none';
                 if (typeof menuPrincipalResetView === 'function') menuPrincipalResetView();
             }
             if(abaId === 'tab-dashboard') { atualizarFiltroTemporadas(); desenharGraficos(); }
@@ -302,7 +298,9 @@ function toggleChatDiretoria() {
         }
 
         function ajustarInterfaceSave() {
-            // Restaura a navegação completa (o Menu Principal esconde tudo menos ele mesmo)
+            // Restaura a navegação completa (o Menu Principal esconde tudo, inclusive a barra lateral)
+            let sidebar = document.querySelector('.sidebar');
+            if (sidebar) sidebar.style.display = 'flex';
             document.querySelectorAll('.sidebar .nav-btn').forEach(b => b.style.display = '');
             let saveControls = document.querySelector('.save-controls');
             if (saveControls) saveControls.style.display = 'block';

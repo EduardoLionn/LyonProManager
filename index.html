@@ -61,6 +61,12 @@
         </div>
     </div>
 
+    <!-- BARRA DA CONTA (e-mail + Sair) — fixa no canto, sempre visível, independente da sidebar -->
+    <div id="barra-conta" style="position:fixed; top:12px; right:16px; z-index:500; display:flex; align-items:center; gap:8px; background:var(--panel-bg); border:1px solid var(--border); border-radius:8px; padding:6px 10px;">
+        <span id="auth-usuario-email" style="color:var(--text-muted); font-size:11px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        <button onclick="authLogout()" style="background:transparent; border:1px solid var(--border); color:var(--text-muted); font-size:12px; padding:5px 9px; white-space:nowrap;">🚪 Sair</button>
+    </div>
+
     <!-- LISTA DE TÉCNICOS REAIS (SUGESTÕES - O USUÁRIO PODE DIGITAR QUALQUER NOME) -->
     <datalist id="lista-tecnicos">
         <option value="Pep Guardiola"><option value="Jürgen Klopp"><option value="Carlo Ancelotti">
@@ -291,6 +297,44 @@
         </div>
     </div>
 
+    <!-- MODAL: GRÁFICOS DE DESEMPENHO (barras) — antes ficavam sempre visíveis no Dashboard,
+         agora só abrem sob demanda pra caber tudo na tela sem rolagem -->
+    <div id="modal-graficos-barra" class="modal-troca-overlay" style="display: none;">
+        <div class="setup-box modal-partidas-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="margin:0;">📊 Gráficos de Desempenho</h2>
+                <button onclick="document.getElementById('modal-graficos-barra').style.display='none'" style="background:transparent; border:1px solid var(--border); color:white; padding:8px 14px;">✖ Fechar</button>
+            </div>
+            <div class="graf-tabs graf-tabs-compact" id="graf-tabs-barra">
+                <button class="graf-tab active" data-view="view-notamedia" onclick="mudarGrafico('view-notamedia', 'graf-tabs-barra', 'grupo-barra')">⭐ Nota</button>
+                <button class="graf-tab" data-view="view-defesa" onclick="mudarGrafico('view-defesa', 'graf-tabs-barra', 'grupo-barra')">🛡️ Defesa</button>
+                <button class="graf-tab" data-view="view-radar" onclick="mudarGrafico('view-radar', 'graf-tabs-barra', 'grupo-barra')">🔍 Passes</button>
+                <button class="graf-tab" data-view="view-finalizacoes" onclick="mudarGrafico('view-finalizacoes', 'graf-tabs-barra', 'grupo-barra')">🎯 Finaliz.</button>
+                <button class="graf-tab" data-view="view-dribles" onclick="mudarGrafico('view-dribles', 'graf-tabs-barra', 'grupo-barra')">🤹 Dribles</button>
+                <button class="graf-tab" id="opt-raiox-dash" data-view="view-raiox" onclick="mudarGrafico('view-raiox', 'graf-tabs-barra', 'grupo-barra')">🕸️ Raio-X</button>
+            </div>
+            <div id="grupo-barra">
+                <div id="view-notamedia" class="chart-container active"><canvas id="graficoNotaMedia"></canvas></div>
+                <div id="view-defesa" class="chart-container"><canvas id="graficoDefesa"></canvas></div>
+                <div id="view-radar" class="chart-container"><canvas id="graficoRadarSetor"></canvas></div>
+                <div id="view-finalizacoes" class="chart-container"><canvas id="graficoFinalizacoes"></canvas></div>
+                <div id="view-dribles" class="chart-container"><canvas id="graficoDribles"></canvas></div>
+                <div id="view-raiox" class="chart-container">
+                    <div style="margin-bottom: 15px;">
+                        <input type="text" id="select-raio-x-input" placeholder="Buscar Jogador..." list="datalist-raiox" onchange="acionarRaioXDashboard()" style="width:100%;">
+                        <datalist id="datalist-raiox"></datalist>
+                    </div>
+                    <div class="raiox-container">
+                        <div id="raiox-dados-dash" style="background: var(--bg-dark); padding: 20px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;">
+                            <p style="color:var(--text-muted); text-align:center; margin: 0;">Selecione um jogador acima</p>
+                        </div>
+                        <div><canvas id="graficoRaioXRadarDash"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: CONCLUIR TEMPORADA (questionário único — preenche tudo e só então finaliza) -->
     <div id="modal-concluir-temporada" class="modal-troca-overlay" style="display: none;">
         <div class="setup-box">
@@ -366,11 +410,6 @@
                 <option value="selecao">Seleção Nacional</option>
             </select>
             <button class="btn-backup" onclick="exportarBackup()">📥 Baixar Backup</button>
-        </div>
-
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
-            <span id="auth-usuario-email" style="color:var(--text-muted); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
-            <button onclick="authLogout()" style="background:transparent; border:1px solid var(--border); color:var(--text-muted); font-size:12px; padding:6px 10px; white-space:nowrap;">🚪 Sair</button>
         </div>
     </div>
 
@@ -657,8 +696,8 @@
         <div id="tab-dashboard" class="tab-content">
             
             <!-- CABEÇALHO DO DASHBOARD -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
-                <h2 style="margin:0; font-size:28px; color:white;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin:0; font-size:24px; color:white;">
                     <span id="header-nome-time">Nome do Time</span>
                 </h2>
                 <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
@@ -685,8 +724,8 @@
             </div>
 
             <!-- CENTRAL DE ANÁLISE -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                <h2 style="margin:0; font-size: 22px; color: white;">3. Central de Análise Tática Avançada</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin:0; font-size: 18px; color: white;">3. Central de Análise Tática Avançada</h2>
                 <div class="grafico-filtros-row" style="display: flex; gap:10px;">
                     <select id="filtro-top-jogadores" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
                         <option value="5">Top 5 Jogadores</option>
@@ -749,39 +788,11 @@
                 <div class="dash-col-right">
                     <div class="panel partidas-jogadas-card">
                         <h3 style="margin-top:0; margin-bottom:15px; font-size:16px;">📅 Partidas Jogadas</h3>
-                        <div id="lista-calendario" class="partidas-jogadas-lista" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                        <div id="lista-calendario" class="partidas-jogadas-lista" style="display: flex; flex-direction: column; gap: 8px;"></div>
                         <button id="btn-ver-todas-partidas" onclick="abrirTodasPartidas()" style="display:none; width:100%; margin-top:12px; background:transparent; border:1px solid var(--accent); color:var(--accent);">🔍 Ver Todas as Partidas</button>
                     </div>
 
-                    <div class="panel chart-card-bar-small">
-                        <div class="graf-tabs graf-tabs-compact" id="graf-tabs-barra">
-                            <button class="graf-tab active" data-view="view-notamedia" onclick="mudarGrafico('view-notamedia', 'graf-tabs-barra', 'grupo-barra')">⭐ Nota</button>
-                            <button class="graf-tab" data-view="view-defesa" onclick="mudarGrafico('view-defesa', 'graf-tabs-barra', 'grupo-barra')">🛡️ Defesa</button>
-                            <button class="graf-tab" data-view="view-radar" onclick="mudarGrafico('view-radar', 'graf-tabs-barra', 'grupo-barra')">🔍 Passes</button>
-                            <button class="graf-tab" data-view="view-finalizacoes" onclick="mudarGrafico('view-finalizacoes', 'graf-tabs-barra', 'grupo-barra')">🎯 Finaliz.</button>
-                            <button class="graf-tab" data-view="view-dribles" onclick="mudarGrafico('view-dribles', 'graf-tabs-barra', 'grupo-barra')">🤹 Dribles</button>
-                            <button class="graf-tab" id="opt-raiox-dash" data-view="view-raiox" onclick="mudarGrafico('view-raiox', 'graf-tabs-barra', 'grupo-barra')">🕸️ Raio-X</button>
-                        </div>
-                        <div id="grupo-barra">
-                            <div id="view-notamedia" class="chart-container active"><canvas id="graficoNotaMedia"></canvas></div>
-                            <div id="view-defesa" class="chart-container"><canvas id="graficoDefesa"></canvas></div>
-                            <div id="view-radar" class="chart-container"><canvas id="graficoRadarSetor"></canvas></div>
-                            <div id="view-finalizacoes" class="chart-container"><canvas id="graficoFinalizacoes"></canvas></div>
-                            <div id="view-dribles" class="chart-container"><canvas id="graficoDribles"></canvas></div>
-                            <div id="view-raiox" class="chart-container">
-                                <div style="margin-bottom: 15px;">
-                                    <input type="text" id="select-raio-x-input" placeholder="Buscar Jogador..." list="datalist-raiox" onchange="acionarRaioXDashboard()" style="width:100%;">
-                                    <datalist id="datalist-raiox"></datalist>
-                                </div>
-                                <div class="raiox-container">
-                                    <div id="raiox-dados-dash" style="background: var(--bg-dark); padding: 20px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;">
-                                        <p style="color:var(--text-muted); text-align:center; margin: 0;">Selecione um jogador acima</p>
-                                    </div>
-                                    <div><canvas id="graficoRaioXRadarDash"></canvas></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <button onclick="abrirGraficosBarra()" style="width:100%; background:transparent; border:1px solid var(--accent); color:var(--accent);">📊 Ver Gráficos de Desempenho</button>
                 </div>
             </div>
         </div>

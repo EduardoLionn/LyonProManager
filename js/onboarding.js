@@ -17,6 +17,11 @@ let wizardIsNovoSaveCompleto = false; // true = veio do "Novo Jogo" do Menu Prin
 
 // Chamada pelo mudarAba() sempre que a aba "tab-menu-principal" fica ativa: volta pra tela de escolha (hero).
 function menuPrincipalResetView() {
+    // Tela de escolha (Continuar/Novo Jogo/Carregar Save) é "tela cheia" — sem a barra lateral,
+    // que só volta a aparecer quando um save é de fato aberto (ver menuNovoJogo/ajustarInterfaceSave).
+    let sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+
     document.getElementById('wizard-tela-hero').style.display = 'block';
     document.getElementById('menu-carregar-save-lista').style.display = 'none';
     document.getElementById('wizard-header').style.display = 'none';
@@ -52,6 +57,8 @@ function menuNovoJogo() {
     db = dbPadrao();
     saveAtualId = null;
     wizardIsNovoSaveCompleto = true;
+    let sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.style.display = 'flex';
     document.getElementById('wizard-tela-hero').style.display = 'none';
     document.getElementById('menu-carregar-save-lista').style.display = 'none';
     wizardIniciar();
