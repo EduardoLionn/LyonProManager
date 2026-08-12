@@ -8,16 +8,24 @@ let _authEmProgresso = false;
 
 function iniciarAuthGate() {
     document.getElementById('tela-login').style.display = 'flex';
-    firebase.auth().onAuthStateChanged(function (user) {
-        document.getElementById('auth-carregando').style.display = 'none';
-        if (user) {
-            document.getElementById('tela-login').style.display = 'none';
-            document.getElementById('auth-usuario-email').innerText = user.email || '';
-            carregarDados();
-        } else {
-            document.getElementById('auth-form-box').style.display = 'block';
-        }
-    });
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+        document.getElementById('auth-carregando').innerHTML = '⚠️ Não foi possível carregar o sistema de login (Firebase). Verifique sua internet ou desative bloqueadores de script (ex: Brave Shields / adblock) para este site e recarregue a página.';
+        return;
+    }
+    try {
+        firebase.auth().onAuthStateChanged(function (user) {
+            document.getElementById('auth-carregando').style.display = 'none';
+            if (user) {
+                document.getElementById('tela-login').style.display = 'none';
+                document.getElementById('auth-usuario-email').innerText = user.email || '';
+                carregarDados();
+            } else {
+                document.getElementById('auth-form-box').style.display = 'block';
+            }
+        });
+    } catch (e) {
+        document.getElementById('auth-carregando').innerHTML = '⚠️ Não foi possível carregar o sistema de login. Verifique sua internet ou desative bloqueadores de script (ex: Brave Shields / adblock) para este site e recarregue a página.';
+    }
 }
 
 function authAlternarModo(modo) {
