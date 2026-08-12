@@ -25,13 +25,13 @@ function atualizarKPIsEForma(pFiltradas) {
             // Se não tem jogos na temporada, zera os cartões
             if (pFiltradas.length === 0) {
                 document.getElementById('kpi-aproveitamento').innerText = "0%";
+                document.getElementById('kpi-gols-feitos').innerText = "0";
+                document.getElementById('kpi-gols-sofridos').innerText = "0";
                 document.getElementById('kpi-saldo').innerText = "0";
-                document.getElementById('kpi-artilheiro').innerText = "-";
-                document.getElementById('kpi-garcom').innerText = "-";
                 return;
             }
 
-            // 2. Aproveitamento (%) e Saldo de Gols
+            // 2. Aproveitamento (%), Gols Feitos/Sofridos e Saldo de Gols
             let ptsGanhos = 0;
             let golsProTot = 0;
             let golsConTot = 0;
@@ -41,31 +41,19 @@ function atualizarKPIsEForma(pFiltradas) {
                 golsConTot += p.golsContra;
                 let vitoria = p.golsPro > p.golsContra || (p.golsPro === p.golsContra && p.penaltis);
                 let empate = p.golsPro === p.golsContra && !p.penaltis;
-                
+
                 if (vitoria) ptsGanhos += 3;
                 else if (empate) ptsGanhos += 1;
             });
-            
+
             let ptsPossiveis = pFiltradas.length * 3;
             let aprov = ((ptsGanhos / ptsPossiveis) * 100).toFixed(1);
             let saldo = golsProTot - golsConTot;
 
             document.getElementById('kpi-aproveitamento').innerText = aprov + "%";
+            document.getElementById('kpi-gols-feitos').innerText = golsProTot;
+            document.getElementById('kpi-gols-sofridos').innerText = golsConTot;
             document.getElementById('kpi-saldo').innerText = saldo > 0 ? "+" + saldo : saldo;
-
-            // 3. Artilheiro e Assistente usando o agregador existente
-            let advData = getAdvancedPlayerAggregates(pFiltradas); 
-            let jogadoresArr = Object.keys(advData).map(nome => ({
-                nome: nome.split(' ').pop(), // Usando .pop() para pegar sempre o último sobrenome
-                gols: advData[nome].gols,
-                assist: advData[nome].assist
-            }));
-
-            let artilheiro = jogadoresArr.sort((a,b) => b.gols - a.gols)[0];
-            let garcom = jogadoresArr.sort((a,b) => b.assist - a.assist)[0];
-
-            document.getElementById('kpi-artilheiro').innerText = artilheiro && artilheiro.gols > 0 ? `${artilheiro.nome} (${artilheiro.gols})` : "-";
-            document.getElementById('kpi-garcom').innerText = garcom && garcom.assist > 0 ? `${garcom.nome} (${garcom.assist})` : "-";
         }
 
 // Atualiza o indicador de carregamento tanto na aba "Elenco" quanto na etapa de Elenco do assistente de Novo Jogo

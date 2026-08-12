@@ -1,3 +1,20 @@
+        // Paleta cíclica usada nos gráficos de doughnut (artilharia/assistências) — cada jogador
+        // do ranking pega uma cor, repetindo o ciclo se a lista for maior que a paleta.
+        const PALETA_DONUT = ['#E8B84B', '#4B9FE2', '#2ecc71', '#a855f7', '#E24B4B', '#D9822B', '#FFD700', '#22d3ee', '#f472b6', '#94a3b8'];
+
+        // Lista ao lado do doughnut (nome + valor, com a bolinha da cor correspondente à fatia).
+        function renderizarListaDonut(containerId, cData, key) {
+            let el = document.getElementById(containerId);
+            if (!el) return;
+            if (cData.length === 0) { el.innerHTML = '<p class="wizard-elenco-vazio" style="padding:0; text-align:left;">Sem dados no período selecionado.</p>'; return; }
+            el.innerHTML = cData.map((d, i) => `
+                <div class="donut-legend-item">
+                    <span class="donut-legend-dot" style="background:${PALETA_DONUT[i % PALETA_DONUT.length]};"></span>
+                    <span class="donut-legend-nome">${d.nome}</span>
+                    <strong class="donut-legend-valor">${d[key]}</strong>
+                </div>`).join('');
+        }
+
         function desenharGraficos() {
     limparGraficos(); 
     let temporadaFiltro = document.getElementById('filtro-temporada').value;
@@ -23,54 +40,57 @@
     let labelsPartidas = pFiltradas.map((p, i) => `J${i+1} (${p.adversario})`);
     let advData = getAdvancedPlayerAggregates(pFiltradas); // Calcula os novos dados avançados
 
-    // 1. Efetividade (Linha)
-    let ctxEfet = document.getElementById('graficoEfetividade');
-    if(ctxEfet) {
+    // 1. Precisão de Finalização & Domínio (Linha combinada — dois eixos, já que as escalas são diferentes)
+    let ctxPD = document.getElementById('graficoPrecisaoDominio');
+    if(ctxPD) {
         let dataEfet = pFiltradas.map(p => p.finPro > 0 ? ((p.golsPro / p.finPro) * 100).toFixed(1) : 0);
-        charts.efetividade = new Chart(ctxEfet, {
-            type: 'line',
-            data: { labels: labelsPartidas, datasets: [{ label: 'Conversão em Gol (%)', data: dataEfet, borderColor: '#E8B84B', backgroundColor: 'rgba(232, 184, 75, 0.1)', fill: true, tension: 0.3 }] },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    // 2. Eficiência Tática -> Domínio (Linha Única)
-    let ctxEfic = document.getElementById('graficoEficiencia');
-    if(ctxEfic) {
         // Cálculo de Domínio = (Posse * Finalizações) / 10
         let dataDominio = pFiltradas.map(p => ((p.possePro * p.finPro) / 10).toFixed(1));
-        charts.eficiencia = new Chart(ctxEfic, {
+        charts.precisaoDominio = new Chart(ctxPD, {
             type: 'line',
-            data: { 
-                labels: labelsPartidas, 
+            data: {
+                labels: labelsPartidas,
                 datasets: [
-                    { label: 'Domínio Score', data: dataDominio, borderColor: '#4B9FE2', backgroundColor: 'rgba(75, 159, 226, 0.1)', fill: true, tension: 0.3 }
-                ] 
+                    { label: 'Conversão em Gol (%)', data: dataEfet, borderColor: '#E8B84B', backgroundColor: 'rgba(232, 184, 75, 0.1)', fill: true, tension: 0.3, yAxisID: 'y' },
+                    { label: 'Domínio Score', data: dataDominio, borderColor: '#4B9FE2', backgroundColor: 'rgba(75, 159, 226, 0.1)', fill: true, tension: 0.3, yAxisID: 'y1' }
+                ]
             },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Conversão (%)' } },
+                    y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'Domínio' } }
+                }
+            }
         });
     }
 
-    // 3. Artilheiros
+    // 2. Artilharia — doughnut + lista de artilheiros ao lado
     let ctxArt = document.getElementById('graficoArtilheiros');
     if(ctxArt) {
         let cData = processMultiChartData(advData, 'gols');
         charts.artilheiros = new Chart(ctxArt, {
-            type: 'bar',
-            data: { labels: cData.map(d=>d.nome), datasets: [{ label: 'Gols Marcados', data: cData.map(d=>d.gols), backgroundColor: '#FFD700' }] },
-            options: { responsive: true, maintainAspectRatio: false }
+            type: 'doughnut',
+            data: { labels: cData.map(d=>d.nome), datasets: [{ data: cData.map(d=>d.gols), backgroundColor: cData.map((_,i) => PALETA_DONUT[i % PALETA_DONUT.length]), borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } }
         });
+        let elCenter = document.getElementById('donut-center-artilheiros');
+        if (elCenter) elCenter.innerHTML = `<strong>${cData.reduce((a,d) => a + d.gols, 0)}</strong><span>Gols</span>`;
+        renderizarListaDonut('lista-artilheiros', cData, 'gols');
     }
 
-    // 4. Assistentes
+    // 3. Assistências — doughnut + lista de garçons ao lado
     let ctxAst = document.getElementById('graficoAssistentes');
     if(ctxAst) {
         let cData = processMultiChartData(advData, 'assist');
         charts.assistentes = new Chart(ctxAst, {
-            type: 'bar',
-            data: { labels: cData.map(d=>d.nome), datasets: [{ label: 'Assistências', data: cData.map(d=>d.assist), backgroundColor: '#E8B84B' }] },
-            options: { responsive: true, maintainAspectRatio: false }
+            type: 'doughnut',
+            data: { labels: cData.map(d=>d.nome), datasets: [{ data: cData.map(d=>d.assist), backgroundColor: cData.map((_,i) => PALETA_DONUT[i % PALETA_DONUT.length]), borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } }
         });
+        let elCenter = document.getElementById('donut-center-assistentes');
+        if (elCenter) elCenter.innerHTML = `<strong>${cData.reduce((a,d) => a + d.assist, 0)}</strong><span>Assist.</span>`;
+        renderizarListaDonut('lista-assistentes', cData, 'assist');
     }
 
     // 5. Desgaste físico / notas
@@ -172,8 +192,8 @@
         });
     }
 
-    let tabGraficoAtiva = document.querySelector('.graf-tab.active');
-    if(tabGraficoAtiva && tabGraficoAtiva.dataset.view === 'view-raiox') acionarRaioXDashboard();
+    let tabBarraAtiva = document.querySelector('#graf-tabs-barra .graf-tab.active');
+    if(tabBarraAtiva && tabBarraAtiva.dataset.view === 'view-raiox') acionarRaioXDashboard();
 }
 
         function acionarRaioXDashboard() {

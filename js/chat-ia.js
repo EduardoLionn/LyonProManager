@@ -1057,7 +1057,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let advInput = document.getElementById('adversario');
                 if (advInput) advInput.value = partida.adversarioNome;
             }
-            mudarAba('tab-dashboard');
+            mudarAba('tab-salvar-partida');
             let formPart = document.getElementById('manual-partida-form');
             if (formPart && formPart.style.display === 'none' && typeof toggleModoVideo === 'function') toggleModoVideo();
         }

@@ -269,6 +269,7 @@ function toggleChatDiretoria() {
                 if (typeof menuPrincipalResetView === 'function') menuPrincipalResetView();
             }
             if(abaId === 'tab-dashboard') { atualizarFiltroTemporadas(); desenharGraficos(); }
+            if(abaId === 'tab-salvar-partida') preencherDatalistJogadores();
             if(abaId === 'tab-plantel') atualizarPlantelUI();
             if(abaId === 'tab-mercado') { filtrarMercado(statusFiltroMercado); checarEmbargoMercado(); }
             if(abaId === 'tab-upgrades') atualizarUpgradesUI();
@@ -308,8 +309,8 @@ function toggleChatDiretoria() {
                 if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado')) mudarAba('tab-dashboard');
             } else {
                 btnPlantel.style.display = 'block'; btnMercado.style.display = 'block'; optRaioxDash.style.display = 'none';
-                let tabGraficoAtiva = document.querySelector('.graf-tab.active');
-                if (tabGraficoAtiva && tabGraficoAtiva.dataset.view === 'view-raiox' && typeof mudarGrafico === 'function') mudarGrafico('view-calendario');
+                let tabBarraAtiva = document.querySelector('#graf-tabs-barra .graf-tab.active');
+                if (tabBarraAtiva && tabBarraAtiva.dataset.view === 'view-raiox' && typeof mudarGrafico === 'function') mudarGrafico('view-notamedia', 'graf-tabs-barra', 'grupo-barra');
             }
 
             if (!config.nome) {

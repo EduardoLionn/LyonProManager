@@ -269,18 +269,19 @@
         Chart.defaults.elements.bar.borderSkipped = false;
         Chart.defaults.elements.line.borderWidth = 2.5;
         Chart.defaults.elements.point.radius = 3;
-        function limparGraficos() { ['efetividade', 'eficiencia', 'artilheiros', 'assistentes', 'criacao', 'notaMedia', 'defesa', 'radarSetor', 'finalizacoes', 'dribles'].forEach(k => { if(charts[k]) { charts[k].destroy(); charts[k] = null; } }); }
+        function limparGraficos() { ['precisaoDominio', 'artilheiros', 'assistentes', 'criacao', 'notaMedia', 'defesa', 'radarSetor', 'finalizacoes', 'dribles'].forEach(k => { if(charts[k]) { charts[k].destroy(); charts[k] = null; } }); }
 
-        // viewId opcional: se omitido, reaplica a aba de gráfico já ativa no momento (útil quando os
-        // dados são redesenhados sem o usuário ter trocado de aba).
-        function mudarGrafico(viewId) {
-            if (!viewId) {
-                let tabAtiva = document.querySelector('.graf-tab.active');
-                viewId = tabAtiva ? tabAtiva.dataset.view : 'view-calendario';
-            }
-            document.querySelectorAll('.chart-container').forEach(el => el.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
-            document.querySelectorAll('.graf-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewId));
+        // O Dashboard tem dois grupos de abas independentes (o card de gráficos de linha e o card de
+        // gráficos de barra) — tabsId/contentId escopam a troca só dentro do grupo clicado, pra um não
+        // interferir no estado do outro.
+        function mudarGrafico(viewId, tabsId, contentId) {
+            let tabsContainer = document.getElementById(tabsId);
+            let contentContainer = document.getElementById(contentId);
+            if (!tabsContainer || !contentContainer) return;
+            contentContainer.querySelectorAll('.chart-container').forEach(el => el.classList.remove('active'));
+            let alvo = document.getElementById(viewId);
+            if (alvo) alvo.classList.add('active');
+            tabsContainer.querySelectorAll('.graf-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewId));
             if (viewId === 'view-raiox') acionarRaioXDashboard();
         }
 

@@ -234,6 +234,7 @@
         <h1>⚽ LyonPro Manager</h1>
         <button class="nav-btn active" id="nav-btn-menu-principal" onclick="mudarAba('tab-menu-principal')">🏠 Menu Principal</button>
         <button class="nav-btn" onclick="mudarAba('tab-dashboard')">📊 Dashboard & Partidas</button>
+        <button class="nav-btn" id="nav-btn-salvar-partida" onclick="mudarAba('tab-salvar-partida')">💾 Salvar Partida</button>
         <button class="nav-btn" id="nav-btn-plantel" onclick="mudarAba('tab-plantel')">📋 Elenco do Time</button>
         <button class="nav-btn" id="nav-btn-mercado" onclick="mudarAba('tab-mercado')">💰 Transferências</button>
         <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
@@ -538,9 +539,8 @@
             
             <!-- CABEÇALHO DO DASHBOARD -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
-                <h2 style="margin:0; font-size:28px; color:white; display: flex; align-items: center;">
+                <h2 style="margin:0; font-size:28px; color:white;">
                     <span id="header-nome-time">Nome do Time</span>
-                    <div id="header-forma-recente" class="forma-recente"></div> <!-- Bolinhas aqui -->
                 </h2>
                 <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                     <span style="font-size:14px; color:var(--text-muted); display:flex; align-items:center; gap:4px;">Técnico: <strong id="header-nome-tecnico" style="color:var(--primary); font-size:15px;">-</strong>
@@ -548,24 +548,136 @@
                     </span>
                     <span style="font-size:14px; color:var(--text-muted);">Ciclo/Temporada: <strong id="header-temp-ano" style="color:var(--primary); font-size:16px;">25/26</strong></span>
                     <button onclick="concluirTemporadaAutomatica()" style="background: var(--gold); color: black;">🏁 Concluir Temporada</button>
-                    <!-- Botão alterado para começar fechado e verde -->
-                    <button id="btn-toggle-video" onclick="toggleModoVideo()" style="background: var(--primary); border: none; color: black; font-weight: bold;">
-                        ✏️ Mostrar Controles
-                    </button>
                 </div>
             </div>
 
-            <!-- NOVOS CARDS DE RESUMO RÁPIDO (KPIs) -->
-            <div class="kpi-container" id="dashboard-kpis">
-                <div class="kpi-card" style="border-top-color: var(--primary);"><span style="color: var(--primary);">Aproveitamento</span><strong id="kpi-aproveitamento">0%</strong></div>
-                <div class="kpi-card" style="border-top-color: var(--accent);"><span style="color: var(--accent);">Saldo de Gols</span><strong id="kpi-saldo">0</strong></div>
-                <div class="kpi-card" style="border-top-color: var(--gold);"><span style="color: var(--gold);">Artilheiro</span><strong id="kpi-artilheiro">-</strong></div>
-                <div class="kpi-card" style="border-top-color: var(--warning);"><span style="color: var(--warning);">Assistências</span><strong id="kpi-garcom">-</strong></div>
+            <!-- TOPO: KPIs de gols + últimos 5 jogos em destaque -->
+            <div class="dash-top-grid">
+                <div class="kpi-container" id="dashboard-kpis">
+                    <div class="kpi-card" style="border-top-color: var(--primary);"><span style="color: var(--primary);">Aproveitamento</span><strong id="kpi-aproveitamento">0%</strong></div>
+                    <div class="kpi-card" style="border-top-color: #2ecc71;"><span style="color: #2ecc71;">Gols Feitos</span><strong id="kpi-gols-feitos">0</strong></div>
+                    <div class="kpi-card" style="border-top-color: var(--danger);"><span style="color: var(--danger);">Gols Sofridos</span><strong id="kpi-gols-sofridos">0</strong></div>
+                    <div class="kpi-card" style="border-top-color: var(--accent);"><span style="color: var(--accent);">Saldo de Gols</span><strong id="kpi-saldo">0</strong></div>
+                </div>
+                <div class="panel forma-destaque-card">
+                    <span class="forma-destaque-titulo">Últimos 5 Jogos</span>
+                    <div id="header-forma-recente" class="forma-recente forma-recente-grande"></div>
+                </div>
+            </div>
+
+            <!-- CENTRAL DE ANÁLISE -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin:0; font-size: 22px; color: white;">3. Central de Análise Tática Avançada</h2>
+                <div class="grafico-filtros-row" style="display: flex; gap:10px;">
+                    <select id="filtro-top-jogadores" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
+                        <option value="5">Top 5 Jogadores</option>
+                        <option value="10">Top 10 Jogadores</option>
+                        <option value="999">Todos os Jogadores</option>
+                    </select>
+                    <select id="filtro-ordem-grafico" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
+                        <option value="desc">Maiores ⬇️</option>
+                        <option value="asc">Menores ⬆️</option>
+                    </select>
+                    <select id="filtro-temporada" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;"></select>
+                    <select id="filtro-ultimos-jogos" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
+                        <option value="Todas">Todos os Jogos do Filtro</option>
+                        <option value="5">Últimos 5 Jogos</option>
+                        <option value="10">Últimos 10 Jogos</option>
+                        <option value="15">Últimos 15 Jogos</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="dash-main-grid">
+                <!-- COLUNA ESQUERDA: gráfico de linha selecionável + donuts de artilharia/assistências -->
+                <div class="dash-col-left">
+                    <div class="panel chart-card-line">
+                        <div class="graf-tabs" id="graf-tabs-linha">
+                            <button class="graf-tab active" data-view="view-precisao-dominio" onclick="mudarGrafico('view-precisao-dominio', 'graf-tabs-linha', 'grupo-linha')">🎯 Precisão &amp; Domínio</button>
+                            <button class="graf-tab" data-view="view-criacao" onclick="mudarGrafico('view-criacao', 'graf-tabs-linha', 'grupo-linha')">📈 Desgaste &amp; Média</button>
+                        </div>
+                        <div id="grupo-linha">
+                            <div id="view-precisao-dominio" class="chart-container active"><canvas id="graficoPrecisaoDominio"></canvas></div>
+                            <div id="view-criacao" class="chart-container"><canvas id="graficoCriacao"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="donut-row">
+                        <div class="panel donut-card">
+                            <h3 style="margin-top:0;">⚽ Artilharia</h3>
+                            <div class="donut-card-body">
+                                <div class="donut-chart-wrap">
+                                    <canvas id="graficoArtilheiros"></canvas>
+                                    <div class="donut-center-label" id="donut-center-artilheiros"></div>
+                                </div>
+                                <div class="donut-legend-list" id="lista-artilheiros"></div>
+                            </div>
+                        </div>
+                        <div class="panel donut-card">
+                            <h3 style="margin-top:0;">🎯 Assistências</h3>
+                            <div class="donut-card-body">
+                                <div class="donut-chart-wrap">
+                                    <canvas id="graficoAssistentes"></canvas>
+                                    <div class="donut-center-label" id="donut-center-assistentes"></div>
+                                </div>
+                                <div class="donut-legend-list" id="lista-assistentes"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUNA DIREITA: partidas jogadas (fixo) + gráficos de barra selecionáveis -->
+                <div class="dash-col-right">
+                    <div class="panel partidas-jogadas-card">
+                        <h3 style="margin-top:0; margin-bottom:15px; font-size:16px;">📅 Partidas Jogadas</h3>
+                        <div id="lista-calendario" class="partidas-jogadas-lista" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                    </div>
+
+                    <div class="panel chart-card-bar-small">
+                        <div class="graf-tabs graf-tabs-compact" id="graf-tabs-barra">
+                            <button class="graf-tab active" data-view="view-notamedia" onclick="mudarGrafico('view-notamedia', 'graf-tabs-barra', 'grupo-barra')">⭐ Nota</button>
+                            <button class="graf-tab" data-view="view-defesa" onclick="mudarGrafico('view-defesa', 'graf-tabs-barra', 'grupo-barra')">🛡️ Defesa</button>
+                            <button class="graf-tab" data-view="view-radar" onclick="mudarGrafico('view-radar', 'graf-tabs-barra', 'grupo-barra')">🔍 Passes</button>
+                            <button class="graf-tab" data-view="view-finalizacoes" onclick="mudarGrafico('view-finalizacoes', 'graf-tabs-barra', 'grupo-barra')">🎯 Finaliz.</button>
+                            <button class="graf-tab" data-view="view-dribles" onclick="mudarGrafico('view-dribles', 'graf-tabs-barra', 'grupo-barra')">🤹 Dribles</button>
+                            <button class="graf-tab" id="opt-raiox-dash" data-view="view-raiox" onclick="mudarGrafico('view-raiox', 'graf-tabs-barra', 'grupo-barra')">🕸️ Raio-X</button>
+                        </div>
+                        <div id="grupo-barra">
+                            <div id="view-notamedia" class="chart-container active"><canvas id="graficoNotaMedia"></canvas></div>
+                            <div id="view-defesa" class="chart-container"><canvas id="graficoDefesa"></canvas></div>
+                            <div id="view-radar" class="chart-container"><canvas id="graficoRadarSetor"></canvas></div>
+                            <div id="view-finalizacoes" class="chart-container"><canvas id="graficoFinalizacoes"></canvas></div>
+                            <div id="view-dribles" class="chart-container"><canvas id="graficoDribles"></canvas></div>
+                            <div id="view-raiox" class="chart-container">
+                                <div style="margin-bottom: 15px;">
+                                    <input type="text" id="select-raio-x-input" placeholder="Buscar Jogador..." list="datalist-raiox" onchange="acionarRaioXDashboard()" style="width:100%;">
+                                    <datalist id="datalist-raiox"></datalist>
+                                </div>
+                                <div class="raiox-container">
+                                    <div id="raiox-dados-dash" style="background: var(--bg-dark); padding: 20px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;">
+                                        <p style="color:var(--text-muted); text-align:center; margin: 0;">Selecione um jogador acima</p>
+                                    </div>
+                                    <div><canvas id="graficoRaioXRadarDash"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA: SALVAR PARTIDA (registro de resultado + atuação dos jogadores, fora do Dashboard) -->
+        <div id="tab-salvar-partida" class="tab-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin:0; font-size:28px; color:white;">💾 Salvar Partida</h2>
+                <button id="btn-toggle-video" onclick="toggleModoVideo()" style="background: var(--primary); border: none; color: black; font-weight: bold;">
+                    ✏️ Mostrar Controles
+                </button>
             </div>
 
             <!-- ÁREA DE INSERÇÃO (IA VISÍVEL, MANUAL ESCONDIDO) -->
             <div class="grid-2" id="controles-insercao">
-                
+
                 <!-- 1. JOGADORES -->
                 <div class="panel" style="padding: 25px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -580,7 +692,7 @@
                             </label>
                         </div>
                     </div>
-                    
+
                     <!-- ESCONDIDO POR PADRÃO -->
                     <div id="manual-jogador-form" style="display: none;">
                         <div class="grid-3" style="margin-bottom: 12px;">
@@ -591,7 +703,7 @@
                             </div>
                             <div class="linha-form" id="box-jog-ovr"><label>OVR Atual</label><input type="number" id="jog-ovr-atual"></div>
                         </div>
-                        
+
                         <div class="grid-2" style="margin-bottom: 12px;">
     <div class="linha-form">
         <label>Posição</label>
@@ -674,7 +786,7 @@
                         </label>
                         <button style="width:100%; padding: 12px;" onclick="addJogadorPartida()">+ Inserir Manualmente</button>
                     </div> <!-- FIM DO ESCONDIDO -->
-                    
+
                     <!-- Lista de quem já foi lido (deve aparecer sempre) -->
                     <div id="titulo-lista-temp" style="margin-top: 25px; font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 8px; font-size: 16px;">Lista de Jogadores nesta Partida (0):</div>
                     <div id="lista-jogadores-temp" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;"></div>
@@ -699,12 +811,12 @@
                             <div class="linha-form"><label>Adversário</label><input type="text" id="adversario" placeholder="Ex: Real Madrid"></div>
                             <div class="linha-form"><label>Mando</label><select id="partida-mando"><option>Casa</option><option>Fora</option><option>Neutro</option></select></div>
                         </div>
-                        
+
                         <div class="grid-2">
                             <div class="linha-form"><label>Sua Posição na Tabela / Fase da Copa</label><input type="text" id="partida-contexto" placeholder="Ex: 3º lugar, Quartas de final, Final"></div>
                             <div class="linha-form"><label style="color:var(--warning);">Dias para a Próxima Partida</label><input type="number" id="partida-dias-proxima" value="3" placeholder="Ex: 3"><small style="color:var(--text-muted); font-size:10px; margin-top:4px;">Atualiza a condição física de todo o elenco assim que a partida for salva.</small></div>
                         </div>
-                        
+
                         <div class="grid-2">
                             <div class="linha-form"><label style="color:var(--primary)">Gols Pró (Meus)</label><input type="number" id="gols-pro" value="0"></div>
                             <div class="linha-form"><label class="label-adv">Gols Contra (Adv)</label><input type="number" id="gols-contra" value="0"></div>
@@ -721,75 +833,6 @@
 
                     <!-- Botão de Salvar Partida SEMPRE visível -->
                     <button class="btn-salvar" style="padding: 14px; margin-top: 20px; font-size:16px;" onclick="salvarPartida()">💾 Finalizar e Salvar Partida</button>
-                </div>
-            </div>
-
-            <!-- CENTRAL DE ANÁLISE -->
-            <div class="panel" style="padding: 30px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-                    <h2 style="margin:0; font-size: 24px;">3. Central de Análise Tática Avançada</h2>
-                    <div class="grafico-filtros-row" style="display: flex; gap:10px;">
-                        <select id="filtro-top-jogadores" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
-                            <option value="5">Top 5 Jogadores</option>
-                            <option value="10">Top 10 Jogadores</option>
-                            <option value="999">Todos os Jogadores</option>
-                        </select>
-                        <select id="filtro-ordem-grafico" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
-                            <option value="desc">Maiores ⬇️</option>
-                            <option value="asc">Menores ⬆️</option>
-                        </select>
-                        <select id="filtro-temporada" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;"></select>
-                        <select id="filtro-ultimos-jogos" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
-                            <option value="Todas">Todos os Jogos do Filtro</option>
-                            <option value="5">Últimos 5 Jogos</option>
-                            <option value="10">Últimos 10 Jogos</option>
-                            <option value="15">Últimos 15 Jogos</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="graf-tabs" id="graf-tabs">
-                    <button class="graf-tab active" data-view="view-calendario" onclick="mudarGrafico('view-calendario')">📅 Calendário</button>
-                    <button class="graf-tab" data-view="view-efetividade" onclick="mudarGrafico('view-efetividade')">🎯 Efetividade</button>
-                    <button class="graf-tab" data-view="view-eficiencia" onclick="mudarGrafico('view-eficiencia')">⚡ Domínio</button>
-                    <button class="graf-tab" data-view="view-artilheiros" onclick="mudarGrafico('view-artilheiros')">⚽ Artilharia</button>
-                    <button class="graf-tab" data-view="view-assistentes" onclick="mudarGrafico('view-assistentes')">🎯 Assistências</button>
-                    <button class="graf-tab" data-view="view-criacao" onclick="mudarGrafico('view-criacao')">📈 Desgaste &amp; Média</button>
-                    <button class="graf-tab" data-view="view-notamedia" onclick="mudarGrafico('view-notamedia')">⭐ Nota Média</button>
-                    <button class="graf-tab" data-view="view-defesa" onclick="mudarGrafico('view-defesa')">🛡️ Defesa</button>
-                    <button class="graf-tab" data-view="view-radar" onclick="mudarGrafico('view-radar')">🔍 Criação (Passes)</button>
-                    <button class="graf-tab" data-view="view-finalizacoes" onclick="mudarGrafico('view-finalizacoes')">🎯 Finalizações</button>
-                    <button class="graf-tab" data-view="view-dribles" onclick="mudarGrafico('view-dribles')">🤹 Dribles</button>
-                    <button class="graf-tab" id="opt-raiox-dash" data-view="view-raiox" onclick="mudarGrafico('view-raiox')">🕸️ Raio-X</button>
-                </div>
-
-                <div id="view-calendario" class="chart-container active">
-                    <h3 style="margin-top:0; margin-bottom:20px; font-size:18px;">Últimas Partidas (Ordem Cronológica)</h3>
-                    <div id="lista-calendario" style="display: flex; flex-direction: column; gap: 15px;"></div>
-                </div>
-                <div id="view-efetividade" class="chart-container"><h3>Efetividade das Finalizações (Conversão em Gol %)</h3><canvas id="graficoEfetividade"></canvas></div>
-                <div id="view-eficiencia" class="chart-container"><h3>Domínio Geral (Posse x Finalizações)</h3><canvas id="graficoEficiencia"></canvas></div>
-                <div id="view-artilheiros" class="chart-container"><h3>Artilharia (Gols por Jogador)</h3><canvas id="graficoArtilheiros"></canvas></div>
-                <div id="view-assistentes" class="chart-container"><h3>Assistentes (Líderes em Assistências)</h3><canvas id="graficoAssistentes"></canvas></div>
-                <div id="view-criacao" class="chart-container"><h3>Desgaste Físico & Média Geral de Notas do Time</h3><canvas id="graficoCriacao"></canvas></div>
-                <div id="view-notamedia" class="chart-container"><h3>Nota Média por Jogador</h3><canvas id="graficoNotaMedia"></canvas></div>
-                <div id="view-defesa" class="chart-container"><h3>Muralha Defensiva (Desarmes e Divididas Ganhas por Jogador)</h3><canvas id="graficoDefesa"></canvas></div>
-                <div id="view-radar" class="chart-container"><h3>Central de Criação (Passes Certos por Jogador)</h3><canvas id="graficoRadarSetor"></canvas></div>
-                <div id="view-finalizacoes" class="chart-container"><h3>Volume de Finalizações por Jogador</h3><canvas id="graficoFinalizacoes"></canvas></div>
-                <div id="view-dribles" class="chart-container"><h3>Volume de Dribles por Jogador</h3><canvas id="graficoDribles"></canvas></div>
-                
-                <div id="view-raiox" class="chart-container">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin:0;">Raio-X de Atributos Médios</h3>
-                        <input type="text" id="select-raio-x-input" placeholder="Buscar Jogador..." list="datalist-raiox" onchange="acionarRaioXDashboard()" style="width: 250px;">
-                        <datalist id="datalist-raiox"></datalist>
-                    </div>
-                    <div class="raiox-container">
-                        <div id="raiox-dados-dash" style="background: var(--bg-dark); padding: 20px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px;">
-                            <p style="color:var(--text-muted); text-align:center; margin: 0;">Selecione um jogador acima</p>
-                        </div>
-                        <div><canvas id="graficoRaioXRadarDash"></canvas></div>
-                    </div>
                 </div>
             </div>
         </div>
