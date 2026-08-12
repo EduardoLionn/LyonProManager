@@ -6,7 +6,7 @@
 // senão o "Entrar com Google" não funciona fora do localhost.
 // ============================================================
 const firebaseConfig = {
-    apiKey: "AIzaSyCmFDsGDA3yk3E0_UJl5QD9kZh-dF1foY",
+    apiKey: "AIzaSyCmFDsGDA3yk3E0_UJl5QD9kZh-dF1fo0Y",
     authDomain: "lyonpromanager.firebaseapp.com",
     projectId: "lyonpromanager",
     storageBucket: "lyonpromanager.firebasestorage.app",
