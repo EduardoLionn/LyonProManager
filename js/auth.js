@@ -13,6 +13,10 @@ function iniciarAuthGate() {
         return;
     }
     try {
+        // Resultado de um login com Google via redirecionamento (ver authGoogle) — se der erro
+        // (ex: domínio não autorizado no console do Firebase), mostra assim que a página volta.
+        firebase.auth().getRedirectResult().catch(_authMostrarErro);
+
         firebase.auth().onAuthStateChanged(function (user) {
             document.getElementById('auth-carregando').style.display = 'none';
             if (user) {
@@ -81,9 +85,11 @@ function authGoogle() {
     document.getElementById('auth-erro').innerText = '';
     _authSetCarregando(true);
     let provider = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithPopup(provider)
-        .catch(_authMostrarErro)
-        .finally(() => _authSetCarregando(false));
+    // GitHub Pages manda um cabeçalho (Cross-Origin-Opener-Policy) que quebra o fluxo de
+    // popup do Firebase (a aba abre e fecha sem completar o login). Redirecionamento não
+    // depende desse cabeçalho — a própria página navega pro Google e volta.
+    firebase.auth().signInWithRedirect(provider)
+        .catch(err => { _authMostrarErro(err); _authSetCarregando(false); });
 }
 
 function authLogout() {
