@@ -13,6 +13,11 @@ function iniciarAuthGate() {
         return;
     }
     try {
+        // Força persistência em localStorage (em vez de IndexedDB) — navegadores com proteções
+        // agressivas contra rastreamento (ex: Brave Shields) às vezes bloqueiam/isolam IndexedDB
+        // entre a ida e a volta do redirecionamento do Google, perdendo a sessão no meio do caminho.
+        firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (e) { console.error('Erro ao definir persistência:', e); });
+
         // Resultado de um login com Google via redirecionamento (ver authGoogle) — se der erro
         // (ex: domínio não autorizado no console do Firebase), mostra assim que a página volta.
         firebase.auth().getRedirectResult().catch(_authMostrarErro);
