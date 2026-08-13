@@ -24,31 +24,76 @@ function iniciarAuthGate() {
 
         firebase.auth().onAuthStateChanged(async function (user) {
             if (user) {
-                window._authUidAtual = user.uid;
-                // Antes de abrir o Menu Principal, busca os saves da nuvem vinculados a essa conta
-                // e sincroniza com o que já existe neste navegador — assim o jogador vê os mesmos
-                // saves em qualquer aparelho logado na mesma conta.
-                document.getElementById('auth-carregando').innerText = '⏳ Sincronizando seus saves...';
-                document.getElementById('auth-carregando').style.display = 'block';
-                document.getElementById('auth-form-box').style.display = 'none';
-                if (typeof sincronizarSavesComNuvem === 'function') {
-                    try { await sincronizarSavesComNuvem(user.uid); } catch (e) { console.error('Erro ao sincronizar saves com a nuvem:', e); }
+                // Quem se cadastrou com e-mail/senha e ainda não confirmou o e-mail fica travado
+                // numa tela própria — não entra no jogo até clicar no link e voltar aqui pra
+                // confirmar. Login com Google já chega verificado, então nunca cai nesse bloqueio.
+                let logouPorSenha = (user.providerData || []).some(p => p.providerId === 'password');
+                if (logouPorSenha && !user.emailVerified) {
+                    document.getElementById('auth-carregando').style.display = 'none';
+                    document.getElementById('auth-form-box').style.display = 'none';
+                    document.getElementById('auth-verificacao-obrigatoria').style.display = 'block';
+                    document.getElementById('auth-verificacao-email-destino').innerText = user.email || '';
+                    document.getElementById('tela-login').style.display = 'flex';
+                    return;
                 }
-                document.getElementById('auth-carregando').style.display = 'none';
-                document.getElementById('tela-login').style.display = 'none';
-                let nomeExibido = user.displayName || user.email || '';
-                document.getElementById('auth-usuario-email-sidebar').innerText = nomeExibido;
-                document.getElementById('auth-usuario-email-hero').innerText = nomeExibido;
-                _authAtualizarBannerVerificacao(user);
-                carregarDados();
+                document.getElementById('auth-verificacao-obrigatoria').style.display = 'none';
+                await _authDestravarApp(user);
             } else {
                 window._authUidAtual = null;
                 document.getElementById('auth-carregando').style.display = 'none';
+                document.getElementById('auth-verificacao-obrigatoria').style.display = 'none';
                 document.getElementById('auth-form-box').style.display = 'block';
             }
         });
     } catch (e) {
         document.getElementById('auth-carregando').innerHTML = '⚠️ Não foi possível carregar o sistema de login. Verifique sua internet ou desative bloqueadores de script (ex: Brave Shields / adblock) para este site e recarregue a página.';
+    }
+}
+
+// Sincroniza os saves da nuvem e libera o app de fato — chamada tanto pelo fluxo normal de
+// login (onAuthStateChanged) quanto por "Já verifiquei, continuar" na tela de bloqueio.
+async function _authDestravarApp(user) {
+    document.getElementById('auth-carregando').innerText = '⏳ Sincronizando seus saves...';
+    document.getElementById('auth-carregando').style.display = 'block';
+    document.getElementById('auth-form-box').style.display = 'none';
+    window._authUidAtual = user.uid;
+    if (typeof sincronizarSavesComNuvem === 'function') {
+        try { await sincronizarSavesComNuvem(user.uid); } catch (e) { console.error('Erro ao sincronizar saves com a nuvem:', e); }
+    }
+    document.getElementById('auth-carregando').style.display = 'none';
+    document.getElementById('tela-login').style.display = 'none';
+    let nomeExibido = user.displayName || user.email || '';
+    document.getElementById('auth-usuario-email-sidebar').innerText = nomeExibido;
+    document.getElementById('auth-usuario-email-hero').innerText = nomeExibido;
+    carregarDados();
+}
+
+// Botão "Já verifiquei, continuar" na tela de bloqueio — o objeto `user` local só reflete o que
+// era verdade no login, então precisa de user.reload() pra buscar o emailVerified atualizado.
+let _authRecheckEmProgresso = false;
+async function authRecheckVerificacao() {
+    let user = firebase.auth().currentUser;
+    if (!user || _authRecheckEmProgresso) return;
+    _authRecheckEmProgresso = true;
+    let btn = document.getElementById('auth-btn-ja-verifiquei');
+    let msgEl = document.getElementById('auth-verificacao-msg');
+    btn.disabled = true;
+    msgEl.innerText = '';
+    try {
+        await user.reload();
+        user = firebase.auth().currentUser;
+        if (user.emailVerified) {
+            document.getElementById('auth-verificacao-obrigatoria').style.display = 'none';
+            await _authDestravarApp(user);
+        } else {
+            msgEl.innerText = 'Ainda não confirmado. Verifique sua caixa de entrada (e o spam) e clique no link antes de tentar de novo.';
+        }
+    } catch (e) {
+        console.error('Erro ao checar verificação de e-mail:', e);
+        msgEl.innerText = 'Não foi possível checar agora. Tente de novo em instantes.';
+    } finally {
+        btn.disabled = false;
+        _authRecheckEmProgresso = false;
     }
 }
 
@@ -110,15 +155,6 @@ function authRegistrar() {
         ]))
         .catch(_authMostrarErro)
         .finally(() => _authSetCarregando(false));
-}
-
-// Mostra o aviso de "confirme seu e-mail" só pra quem se cadastrou por e-mail/senha e ainda não
-// verificou — quem entrou pelo Google já chega com o e-mail verificado, então nunca vê o aviso.
-function _authAtualizarBannerVerificacao(user) {
-    let banner = document.getElementById('auth-banner-verificacao');
-    if (!banner) return;
-    let logouPorSenha = user.providerData.some(p => p.providerId === 'password');
-    banner.style.display = (logouPorSenha && !user.emailVerified) ? 'block' : 'none';
 }
 
 let _authReenvioEmProgresso = false;
