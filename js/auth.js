@@ -39,6 +39,7 @@ function iniciarAuthGate() {
                 let nomeExibido = user.displayName || user.email || '';
                 document.getElementById('auth-usuario-email-sidebar').innerText = nomeExibido;
                 document.getElementById('auth-usuario-email-hero').innerText = nomeExibido;
+                _authAtualizarBannerVerificacao(user);
                 carregarDados();
             } else {
                 window._authUidAtual = null;
@@ -61,6 +62,7 @@ function authAlternarModo(modo) {
     document.getElementById('auth-btn-principal').setAttribute('onclick', ehRegistro ? 'authRegistrar()' : 'authEntrar()');
     document.getElementById('auth-link-login').style.display = ehRegistro ? 'block' : 'none';
     document.getElementById('auth-link-registro').style.display = ehRegistro ? 'none' : 'block';
+    document.getElementById('auth-link-esqueci-senha').style.display = ehRegistro ? 'none' : 'block';
 }
 
 function _authSetCarregando(carregando) {
@@ -73,6 +75,7 @@ function _authMostrarErro(err) {
     console.error('Erro de autenticação:', err);
     let msg = traduzirErroFirebase(err);
     if (err && err.code) msg += ` (${err.code})`;
+    document.getElementById('auth-erro').style.color = 'var(--warning)';
     document.getElementById('auth-erro').innerText = msg;
 }
 
@@ -101,7 +104,49 @@ function authRegistrar() {
     document.getElementById('auth-erro').innerText = '';
     _authSetCarregando(true);
     firebase.auth().createUserWithEmailAndPassword(email, senha)
-        .then(cred => cred.user.updateProfile({ displayName: apelido }))
+        .then(cred => Promise.all([
+            cred.user.updateProfile({ displayName: apelido }),
+            cred.user.sendEmailVerification().catch(e => console.error('Erro ao enviar e-mail de verificação:', e))
+        ]))
+        .catch(_authMostrarErro)
+        .finally(() => _authSetCarregando(false));
+}
+
+// Mostra o aviso de "confirme seu e-mail" só pra quem se cadastrou por e-mail/senha e ainda não
+// verificou — quem entrou pelo Google já chega com o e-mail verificado, então nunca vê o aviso.
+function _authAtualizarBannerVerificacao(user) {
+    let banner = document.getElementById('auth-banner-verificacao');
+    if (!banner) return;
+    let logouPorSenha = user.providerData.some(p => p.providerId === 'password');
+    banner.style.display = (logouPorSenha && !user.emailVerified) ? 'block' : 'none';
+}
+
+let _authReenvioEmProgresso = false;
+function authReenviarVerificacao() {
+    let user = firebase.auth().currentUser;
+    if (!user || _authReenvioEmProgresso) return;
+    _authReenvioEmProgresso = true;
+    let link = document.getElementById('auth-link-reenviar-verificacao');
+    let textoOriginal = link.innerText;
+    user.sendEmailVerification()
+        .then(() => { link.innerText = 'E-mail enviado! Confira sua caixa de entrada.'; })
+        .catch(err => { console.error('Erro ao reenviar verificação:', err); link.innerText = 'Não foi possível enviar. Tente de novo mais tarde.'; })
+        .finally(() => {
+            setTimeout(() => { link.innerText = textoOriginal; _authReenvioEmProgresso = false; }, 15000);
+        });
+}
+
+function authEsqueciSenha() {
+    if (_authEmProgresso) return;
+    let email = document.getElementById('auth-email').value.trim();
+    if (!email) { _authMostrarErro({ code: 'email-vazio' }); return; }
+    document.getElementById('auth-erro').innerText = '';
+    _authSetCarregando(true);
+    firebase.auth().sendPasswordResetEmail(email)
+        .then(() => {
+            document.getElementById('auth-erro').style.color = 'var(--success, #4caf50)';
+            document.getElementById('auth-erro').innerText = 'Enviamos um link para redefinir sua senha em ' + email + '.';
+        })
         .catch(_authMostrarErro)
         .finally(() => _authSetCarregando(false));
 }
@@ -153,6 +198,7 @@ function authLogout() {
 function traduzirErroFirebase(err) {
     let mapa = {
         'campos-vazios': 'Preencha e-mail e senha.',
+        'email-vazio': 'Informe seu e-mail para redefinir a senha.',
         'apelido-vazio': 'Informe um apelido.',
         'senhas-diferentes': 'As senhas não coincidem.',
         'auth/invalid-email': 'E-mail inválido.',

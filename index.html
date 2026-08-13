@@ -45,6 +45,10 @@
 
                 <button id="auth-btn-principal" style="width:100%; margin-top:14px;" onclick="authEntrar()">Entrar</button>
 
+                <p id="auth-link-esqueci-senha" style="text-align:center; font-size:13px; margin-top:10px;">
+                    <a href="javascript:void(0)" onclick="authEsqueciSenha()" style="color:var(--text-muted);">Esqueci minha senha</a>
+                </p>
+
                 <p id="auth-link-registro" style="text-align:center; font-size:13px; margin-top:12px;">
                     Não tem conta? <a href="javascript:void(0)" onclick="authAlternarModo('registro')" style="color:var(--primary);">Criar conta</a>
                 </p>
@@ -398,6 +402,11 @@
             <div id="wizard-tela-hero" class="wizard-hero">
                 <div class="wizard-logo">⚽ LyonPro Manager</div>
                 <p class="wizard-tagline" id="wizard-hero-sub">Assuma o comando. Sua carreira como técnico começa aqui.</p>
+
+                <div id="auth-banner-verificacao" style="display:none; max-width:420px; margin: 0 auto 16px; padding:10px 14px; border-radius:8px; background:rgba(232,184,75,0.12); border:1px solid var(--primary); font-size:13px; color:var(--text-muted); text-align:center;">
+                    ⚠️ Confirme seu e-mail para proteger sua conta.
+                    <a href="javascript:void(0)" id="auth-link-reenviar-verificacao" onclick="authReenviarVerificacao()" style="color:var(--primary);">Reenviar e-mail de verificação</a>
+                </div>
 
                 <div id="menu-continuar-box" style="display:none; margin-bottom: 14px;">
                     <button onclick="menuContinuarSave()" style="width: 320px; max-width: 90vw; padding: 16px;">▶️ Continuar: <span id="menu-continuar-nome"></span></button>
