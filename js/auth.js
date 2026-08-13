@@ -22,15 +22,27 @@ function iniciarAuthGate() {
         // (ex: domínio não autorizado no console do Firebase), mostra assim que a página volta.
         firebase.auth().getRedirectResult().catch(_authMostrarErro);
 
-        firebase.auth().onAuthStateChanged(function (user) {
-            document.getElementById('auth-carregando').style.display = 'none';
+        firebase.auth().onAuthStateChanged(async function (user) {
             if (user) {
+                window._authUidAtual = user.uid;
+                // Antes de abrir o Menu Principal, busca os saves da nuvem vinculados a essa conta
+                // e sincroniza com o que já existe neste navegador — assim o jogador vê os mesmos
+                // saves em qualquer aparelho logado na mesma conta.
+                document.getElementById('auth-carregando').innerText = '⏳ Sincronizando seus saves...';
+                document.getElementById('auth-carregando').style.display = 'block';
+                document.getElementById('auth-form-box').style.display = 'none';
+                if (typeof sincronizarSavesComNuvem === 'function') {
+                    try { await sincronizarSavesComNuvem(user.uid); } catch (e) { console.error('Erro ao sincronizar saves com a nuvem:', e); }
+                }
+                document.getElementById('auth-carregando').style.display = 'none';
                 document.getElementById('tela-login').style.display = 'none';
                 let nomeExibido = user.displayName || user.email || '';
                 document.getElementById('auth-usuario-email-sidebar').innerText = nomeExibido;
                 document.getElementById('auth-usuario-email-hero').innerText = nomeExibido;
                 carregarDados();
             } else {
+                window._authUidAtual = null;
+                document.getElementById('auth-carregando').style.display = 'none';
                 document.getElementById('auth-form-box').style.display = 'block';
             }
         });

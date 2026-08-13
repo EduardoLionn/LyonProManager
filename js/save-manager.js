@@ -78,6 +78,8 @@ function registrarNovoSaveAtivo(nomeSave) {
     _gravarIndiceSaves(indice);
     saveAtualId = id;
     localStorage.setItem(ACTIVE_SAVE_KEY, id);
+    localStorage.setItem(_chaveDadosSave(id), JSON.stringify(db));
+    _enviarSaveParaNuvem(id);
     return id;
 }
 
@@ -86,6 +88,7 @@ function excluirSave(id) {
     localStorage.removeItem(_chaveDadosSave(id));
     if (obterIdSaveAtivo() === id) localStorage.removeItem(ACTIVE_SAVE_KEY);
     if (saveAtualId === id) saveAtualId = null;
+    _removerSaveDaNuvem(id);
 }
 
 // Importa um backup .json (baixado via "Baixar Backup") como um save NOVO na lista, sem mexer no save ativo atual.
@@ -101,5 +104,80 @@ function importarSaveDeBackup(dbImportado, nomeSugerido) {
     let indice = _lerIndiceSaves();
     indice.push({ id: id, nome: nome, criadoEm: agora, atualizadoEm: agora, resumo: _resumoDeDb(dbNovo) });
     _gravarIndiceSaves(indice);
+    _enviarSaveParaNuvem(id);
     return id;
+}
+
+// ============================================================
+// SINCRONIZAÇÃO COM A NUVEM (Firestore) — os saves continuam vivendo no localStorage
+// (rápido, funciona offline), mas agora também ficam espelhados em usuarios/{uid}/saves/{id}
+// no Firestore, pra estarem disponíveis em qualquer navegador/aparelho logado na mesma conta.
+// window._authUidAtual é setado pelo auth.js assim que o login é confirmado.
+// ============================================================
+
+let _syncNuvemTimeoutId = null;
+
+// Chamada toda vez que salvarDados() roda — não manda pra nuvem a cada chamada (aconteceria
+// dezenas de vezes por minuto), só agenda um envio único alguns segundos depois da última mudança.
+function _agendarSyncNuvem(id) {
+    if (!window._authUidAtual || !id) return;
+    clearTimeout(_syncNuvemTimeoutId);
+    _syncNuvemTimeoutId = setTimeout(() => _enviarSaveParaNuvem(id), 4000);
+}
+
+async function _enviarSaveParaNuvem(id) {
+    if (!window._authUidAtual || !id || typeof firebase === 'undefined' || !firebase.firestore) return;
+    let indice = _lerIndiceSaves();
+    let meta = indice.find(s => s.id === id);
+    let raw = localStorage.getItem(_chaveDadosSave(id));
+    if (!meta || !raw) return;
+    try {
+        await firebase.firestore().collection('usuarios').doc(window._authUidAtual).collection('saves').doc(id)
+            .set({ meta: meta, dados: JSON.parse(raw) });
+    } catch (e) { console.error('Erro ao enviar save pra nuvem:', e); }
+}
+
+async function _removerSaveDaNuvem(id) {
+    if (!window._authUidAtual || !id || typeof firebase === 'undefined' || !firebase.firestore) return;
+    try {
+        await firebase.firestore().collection('usuarios').doc(window._authUidAtual).collection('saves').doc(id).delete();
+    } catch (e) { console.error('Erro ao remover save da nuvem:', e); }
+}
+
+// Roda uma vez, logo após o login (antes de carregarDados()): busca os saves da nuvem e faz a
+// sincronização nos dois sentidos — o mais recente (por atualizadoEm) de cada save vence, e
+// saves que só existem de um lado são copiados pro outro. Assim nenhum progresso se perde ao
+// ativar isso pela primeira vez com saves que já existiam só localmente.
+async function sincronizarSavesComNuvem(uid) {
+    if (!uid || typeof firebase === 'undefined' || !firebase.firestore) return;
+    let firestoreDB = firebase.firestore();
+    let indiceLocalPorId = {};
+    _lerIndiceSaves().forEach(s => { indiceLocalPorId[s.id] = s; });
+
+    let snap;
+    try {
+        snap = await firestoreDB.collection('usuarios').doc(uid).collection('saves').get();
+    } catch (e) { console.error('Erro ao buscar saves da nuvem:', e); return; }
+
+    let uploads = [];
+    snap.forEach(doc => {
+        let nuvem = doc.data();
+        let local = indiceLocalPorId[doc.id];
+        if (!local || nuvem.meta.atualizadoEm > local.atualizadoEm) {
+            // Nuvem está mais atualizada (ou o save nem existe aqui ainda) — baixa.
+            localStorage.setItem(_chaveDadosSave(doc.id), JSON.stringify(nuvem.dados));
+            indiceLocalPorId[doc.id] = nuvem.meta;
+        } else if (local.atualizadoEm > nuvem.meta.atualizadoEm) {
+            // Local está mais atualizado — sobe a versão local por cima.
+            uploads.push(_enviarSaveParaNuvem(doc.id));
+        }
+    });
+
+    let idsNaNuvem = {}; snap.forEach(doc => { idsNaNuvem[doc.id] = true; });
+    for (let id in indiceLocalPorId) {
+        if (!idsNaNuvem[id]) uploads.push(_enviarSaveParaNuvem(id)); // save só local — sobe pela primeira vez
+    }
+
+    await Promise.all(uploads);
+    _gravarIndiceSaves(Object.values(indiceLocalPorId));
 }

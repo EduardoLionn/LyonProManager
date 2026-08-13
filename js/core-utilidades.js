@@ -236,6 +236,7 @@ function toggleChatDiretoria() {
                 entrada.resumo = _resumoDeDb(db);
                 _gravarIndiceSaves(indice);
             }
+            if (typeof _agendarSyncNuvem === 'function') _agendarSyncNuvem(saveAtualId);
         }
 
         // Indicador genérico de carregamento (usado pelas chamadas de IA que não têm loader próprio)
