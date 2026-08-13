@@ -42,6 +42,7 @@ function iniciarAuthGate() {
                 window._authUidAtual = null;
                 document.getElementById('auth-carregando').style.display = 'none';
                 document.getElementById('auth-verificacao-obrigatoria').style.display = 'none';
+                document.getElementById('auth-paywall').style.display = 'none';
                 document.getElementById('auth-form-box').style.display = 'block';
             }
         });
@@ -51,15 +52,30 @@ function iniciarAuthGate() {
 }
 
 // Sincroniza os saves da nuvem e libera o app de fato — chamada tanto pelo fluxo normal de
-// login (onAuthStateChanged) quanto por "Já verifiquei, continuar" na tela de bloqueio.
+// login (onAuthStateChanged) quanto por "Já verifiquei, continuar" e "Já assinei, verificar".
 async function _authDestravarApp(user) {
     document.getElementById('auth-carregando').innerText = '⏳ Sincronizando seus saves...';
     document.getElementById('auth-carregando').style.display = 'block';
     document.getElementById('auth-form-box').style.display = 'none';
+    document.getElementById('auth-paywall').style.display = 'none';
     window._authUidAtual = user.uid;
     if (typeof sincronizarSavesComNuvem === 'function') {
         try { await sincronizarSavesComNuvem(user.uid); } catch (e) { console.error('Erro ao sincronizar saves com a nuvem:', e); }
     }
+
+    // Sem assinatura ativa, fica travado na tela de pagamento em vez de abrir o jogo. Se acabou
+    // de voltar da Stripe (?checkout=sucesso), dá um tempo pro webhook confirmar antes de mostrar
+    // os botões de novo.
+    let assinaturaAtiva = typeof _authAssinaturaEstaAtiva === 'function' ? await _authAssinaturaEstaAtiva(user.uid).catch(() => false) : true;
+    if (!assinaturaAtiva) {
+        document.getElementById('auth-carregando').style.display = 'none';
+        document.getElementById('auth-paywall').style.display = 'block';
+        if (/[?&]checkout=sucesso/.test(location.search) && typeof _authAguardarConfirmacaoPagamento === 'function') {
+            await _authAguardarConfirmacaoPagamento(user.uid);
+        }
+        return;
+    }
+
     document.getElementById('auth-carregando').style.display = 'none';
     document.getElementById('tela-login').style.display = 'none';
     let nomeExibido = user.displayName || user.email || '';

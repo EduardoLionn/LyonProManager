@@ -7,7 +7,15 @@
       ".git/**",
       ".github/**",
       ".claude/**",
+      "functions/**",
       "**/.*"
     ]
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs20"
+    }
+  ]
 }
