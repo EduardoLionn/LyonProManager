@@ -26,7 +26,9 @@ function iniciarAuthGate() {
             document.getElementById('auth-carregando').style.display = 'none';
             if (user) {
                 document.getElementById('tela-login').style.display = 'none';
-                document.getElementById('auth-usuario-email').innerText = user.email || '';
+                let nomeExibido = user.displayName || user.email || '';
+                document.getElementById('auth-usuario-email-sidebar').innerText = nomeExibido;
+                document.getElementById('auth-usuario-email-hero').innerText = nomeExibido;
                 carregarDados();
             } else {
                 document.getElementById('auth-form-box').style.display = 'block';
@@ -41,6 +43,7 @@ function authAlternarModo(modo) {
     document.getElementById('auth-erro').innerText = '';
     let ehRegistro = modo === 'registro';
     document.getElementById('auth-titulo').innerText = ehRegistro ? 'Criar Conta' : 'Entrar';
+    document.getElementById('auth-campo-apelido').style.display = ehRegistro ? 'block' : 'none';
     document.getElementById('auth-campo-confirmar').style.display = ehRegistro ? 'block' : 'none';
     document.getElementById('auth-btn-principal').innerText = ehRegistro ? 'Criar Conta' : 'Entrar';
     document.getElementById('auth-btn-principal').setAttribute('onclick', ehRegistro ? 'authRegistrar()' : 'authEntrar()');
@@ -77,13 +80,16 @@ function authRegistrar() {
     if (_authEmProgresso) return;
     let email = document.getElementById('auth-email').value.trim();
     let senha = document.getElementById('auth-senha').value;
+    let apelido = document.getElementById('auth-apelido').value.trim();
     let confirmar = document.getElementById('auth-confirmar-senha').value;
     if (!email || !senha) { _authMostrarErro({ code: 'campos-vazios' }); return; }
+    if (!apelido) { _authMostrarErro({ code: 'apelido-vazio' }); return; }
     if (senha.length < 6) { _authMostrarErro({ code: 'auth/weak-password' }); return; }
     if (senha !== confirmar) { _authMostrarErro({ code: 'senhas-diferentes' }); return; }
     document.getElementById('auth-erro').innerText = '';
     _authSetCarregando(true);
     firebase.auth().createUserWithEmailAndPassword(email, senha)
+        .then(cred => cred.user.updateProfile({ displayName: apelido }))
         .catch(_authMostrarErro)
         .finally(() => _authSetCarregando(false));
 }
@@ -99,6 +105,7 @@ function authGoogle() {
     // initial state"). O popup não tem esse problema — e agora que o site está no Firebase Hosting
     // (não mais no GitHub Pages), não há mais o cabeçalho COOP que quebrava popups antes.
     firebase.auth().signInWithPopup(provider)
+        .then(result => _authPedirApelidoSeNovo(result))
         .catch(err => {
             // Popup bloqueado pelo navegador, ou ambiente que não suporta popup (ex: alguns
             // navegadores in-app) — cai pro redirecionamento como última alternativa.
@@ -111,6 +118,22 @@ function authGoogle() {
         });
 }
 
+// Primeiro login (registro ou Google): pergunta o apelido, mesmo que o Google já tenha um nome —
+// o jogador pode querer ser chamado de outro jeito dentro do jogo.
+async function _authPedirApelidoSeNovo(result) {
+    let ehNovo = result && result.additionalUserInfo && result.additionalUserInfo.isNewUser;
+    if (!ehNovo || typeof promptModerno !== 'function') return;
+    let apelido = await promptModerno('Como você quer ser chamado no jogo?', result.user.displayName || '', 'Bem-vindo(a) ao LyonPro Manager!');
+    if (apelido && apelido.trim()) {
+        await result.user.updateProfile({ displayName: apelido.trim() });
+        let nomeExibido = apelido.trim();
+        let elSidebar = document.getElementById('auth-usuario-email-sidebar');
+        let elHero = document.getElementById('auth-usuario-email-hero');
+        if (elSidebar) elSidebar.innerText = nomeExibido;
+        if (elHero) elHero.innerText = nomeExibido;
+    }
+}
+
 function authLogout() {
     firebase.auth().signOut().then(() => location.reload());
 }
@@ -118,6 +141,7 @@ function authLogout() {
 function traduzirErroFirebase(err) {
     let mapa = {
         'campos-vazios': 'Preencha e-mail e senha.',
+        'apelido-vazio': 'Informe um apelido.',
         'senhas-diferentes': 'As senhas não coincidem.',
         'auth/invalid-email': 'E-mail inválido.',
         'auth/user-disabled': 'Esta conta foi desativada.',

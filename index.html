@@ -31,6 +31,10 @@
                     <label>Senha</label>
                     <input type="password" id="auth-senha" autocomplete="current-password" placeholder="••••••••">
                 </div>
+                <div class="linha-form" id="auth-campo-apelido" style="display:none;">
+                    <label>Apelido (como quer ser chamado no jogo)</label>
+                    <input type="text" id="auth-apelido" autocomplete="nickname" maxlength="30" placeholder="Ex: Mister Silva">
+                </div>
                 <div class="linha-form" id="auth-campo-confirmar" style="display:none;">
                     <label>Confirmar Senha</label>
                     <input type="password" id="auth-confirmar-senha" autocomplete="new-password" placeholder="••••••••">
@@ -59,12 +63,6 @@
                 </button>
             </div>
         </div>
-    </div>
-
-    <!-- BARRA DA CONTA (e-mail + Sair) — fixa no canto, sempre visível, independente da sidebar -->
-    <div id="barra-conta" style="position:fixed; top:12px; right:16px; z-index:500; display:flex; align-items:center; gap:8px; background:var(--panel-bg); border:1px solid var(--border); border-radius:8px; padding:6px 10px;">
-        <span id="auth-usuario-email" style="color:var(--text-muted); font-size:11px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
-        <button onclick="authLogout()" style="background:transparent; border:1px solid var(--border); color:var(--text-muted); font-size:12px; padding:5px 9px; white-space:nowrap;">🚪 Sair</button>
     </div>
 
     <!-- LISTA DE TÉCNICOS REAIS (SUGESTÕES - O USUÁRIO PODE DIGITAR QUALQUER NOME) -->
@@ -384,6 +382,7 @@
                 <option value="selecao">Seleção Nacional</option>
             </select>
             <button class="btn-backup" onclick="exportarBackup()">📥 Baixar Backup</button>
+            <button onclick="authLogout()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border); color:var(--text-muted);">🚪 Sair (<span id="auth-usuario-email-sidebar"></span>)</button>
         </div>
     </div>
 
@@ -407,6 +406,8 @@
                     <button onclick="menuNovoJogo()">🎮 Novo Jogo</button>
                     <button class="btn-hero-secundario" onclick="menuAbrirCarregarSave()">📂 Carregar Save</button>
                 </div>
+
+                <button onclick="authLogout()" style="margin-top:20px; background:transparent; border:1px solid var(--border); color:var(--text-muted); font-size:12px; padding:6px 12px;">🚪 Sair (<span id="auth-usuario-email-hero"></span>)</button>
             </div>
 
             <!-- LISTA DE SAVES SALVOS NESTE NAVEGADOR -->
