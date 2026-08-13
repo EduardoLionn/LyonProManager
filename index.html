@@ -21,6 +21,22 @@
 
             <div id="auth-carregando" style="text-align:center; padding: 30px 0; color: var(--text-muted);">Carregando...</div>
 
+            <!-- Bloqueia o app inteiro pra quem se cadastrou com e-mail/senha e ainda não clicou
+                 no link de confirmação — só libera depois de "Já verifiquei" reconfirmar. -->
+            <div id="auth-verificacao-obrigatoria" style="display:none; text-align:center;">
+                <h2 style="margin: 6px 0 14px;">📧 Confirme seu e-mail</h2>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:20px;">
+                    Enviamos um link de confirmação para <strong id="auth-verificacao-email-destino" style="color:var(--primary);"></strong>.
+                    Clique nele e volte aqui pra continuar.
+                </p>
+                <p id="auth-verificacao-msg" style="color:var(--warning); font-size:13px; min-height:16px; margin: 0 0 10px;"></p>
+                <button id="auth-btn-ja-verifiquei" style="width:100%;" onclick="authRecheckVerificacao()">✅ Já verifiquei, continuar</button>
+                <p style="text-align:center; font-size:13px; margin-top:14px;">
+                    <a href="javascript:void(0)" id="auth-link-reenviar-verificacao" onclick="authReenviarVerificacao()" style="color:var(--text-muted);">Reenviar e-mail de verificação</a>
+                </p>
+                <button onclick="authLogout()" style="width:100%; margin-top:14px; background:transparent; border:1px solid var(--border); color:var(--text-muted);">🚪 Sair</button>
+            </div>
+
             <div id="auth-form-box" style="display:none;">
                 <h2 id="auth-titulo" style="text-align:center; margin: 6px 0 18px;">Entrar</h2>
 
@@ -402,11 +418,6 @@
             <div id="wizard-tela-hero" class="wizard-hero">
                 <div class="wizard-logo">⚽ LyonPro Manager</div>
                 <p class="wizard-tagline" id="wizard-hero-sub">Assuma o comando. Sua carreira como técnico começa aqui.</p>
-
-                <div id="auth-banner-verificacao" style="display:none; max-width:420px; margin: 0 auto 16px; padding:10px 14px; border-radius:8px; background:rgba(232,184,75,0.12); border:1px solid var(--primary); font-size:13px; color:var(--text-muted); text-align:center;">
-                    ⚠️ Confirme seu e-mail para proteger sua conta.
-                    <a href="javascript:void(0)" id="auth-link-reenviar-verificacao" onclick="authReenviarVerificacao()" style="color:var(--primary);">Reenviar e-mail de verificação</a>
-                </div>
 
                 <div id="menu-continuar-box" style="display:none; margin-bottom: 14px;">
                     <button onclick="menuContinuarSave()" style="width: 320px; max-width: 90vw; padding: 16px;">▶️ Continuar: <span id="menu-continuar-nome"></span></button>
