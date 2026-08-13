@@ -47,7 +47,7 @@
         .btn-backup:hover { filter: brightness(1.1); }
 
         .main-content { flex: 1; padding: 20px 30px; overflow-y: auto; }
-        .tab-content { display: none; max-width: 1400px; margin: 0 auto; }
+        .tab-content { display: none; max-width: 1900px; margin: 0 auto; }
         .tab-content.active { display: block; }
         
         h2, h3 { font-family: var(--font-display); color: var(--primary); margin-top: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
@@ -207,6 +207,16 @@
         .chart-card-bar-small .chart-container { height: 130px; padding-top: 8px; }
         #modal-graficos-barra .chart-container { height: 340px; padding-top: 15px; }
         .graf-tabs-compact .graf-tab { padding: 7px 12px; font-size: 12px; }
+
+        /* Monitores grandes (ex: 32") têm sobra de espaço vertical, não só horizontal — os tamanhos
+           acima foram calibrados pro Dashboard caber sem rolar numa tela ~900px de altura útil, então
+           essa escala maior só entra em telas realmente largas (que normalmente também são mais altas). */
+        @media (min-width: 1800px) {
+            .chart-card-line .chart-container { height: 320px; }
+            .chart-card-bar-small .chart-container { height: 220px; }
+            .donut-chart-wrap { width: 190px; height: 190px; }
+            .donut-chart-wrap canvas { max-height: 190px !important; }
+        }
 
         .donut-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .donut-card { padding: 12px 20px; }
