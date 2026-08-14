@@ -51,16 +51,15 @@ module.exports = async function handler(req, res) {
         }
 
         let priceId = tipo === 'usd' ? process.env.STRIPE_PRICE_USD : process.env.STRIPE_PRICE_BRL;
-        // Pix fica de fora até a conta Stripe sair do modo "área restrita" (ativação pendente) —
-        // até lá, a Stripe rejeita esse tipo de pagamento. Reativar assim que a conta liberar:
-        // paymentMethodTypes = tipo === 'usd' ? ['card'] : ['card', 'pix', 'boleto'];
-        let paymentMethodTypes = tipo === 'usd' ? ['card'] : ['card', 'boleto'];
 
+        // Sem payment_method_types: a Stripe escolhe sozinha, entre o que está habilitado na
+        // conta (Settings > Payment methods), tudo que for compatível com a moeda do preço —
+        // assim card/boleto/Pix/carteiras aparecem ou somem automaticamente sem precisar mexer
+        // aqui de novo a cada mudança na conta.
         let session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             customer: stripeCustomerId,
             client_reference_id: uid,
-            payment_method_types: paymentMethodTypes,
             line_items: [{ price: priceId, quantity: 1 }],
             subscription_data: { metadata: { uid } },
             success_url: `${SITE_URL}/?checkout=sucesso`,
