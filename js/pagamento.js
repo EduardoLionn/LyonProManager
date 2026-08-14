@@ -59,7 +59,7 @@ async function _authAguardarConfirmacaoPagamento(uid) {
             return;
         }
     }
-    msgEl.innerText = 'Ainda confirmando... isso pode levar alguns segundos. Clique em "Já assinei, verificar novamente" em instantes.';
+    msgEl.innerText = 'Ainda confirmando... com cartão costuma ser na hora; com boleto, só depois que ele for pago (pode levar até alguns dias úteis). Volte aqui e clique em "Já assinei, verificar novamente" depois de pagar.';
 }
 
 let _authRecheckAssinaturaEmProgresso = false;

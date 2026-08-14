@@ -47,8 +47,8 @@ module.exports = async function handler(req, res) {
         let priceId = tipo === 'usd' ? process.env.STRIPE_PRICE_USD : process.env.STRIPE_PRICE_BRL;
         // Pix fica de fora até a conta Stripe sair do modo "área restrita" (ativação pendente) —
         // até lá, a Stripe rejeita esse tipo de pagamento. Reativar assim que a conta liberar:
-        // paymentMethodTypes = tipo === 'usd' ? ['card'] : ['card', 'pix'];
-        let paymentMethodTypes = ['card'];
+        // paymentMethodTypes = tipo === 'usd' ? ['card'] : ['card', 'pix', 'boleto'];
+        let paymentMethodTypes = tipo === 'usd' ? ['card'] : ['card', 'boleto'];
 
         let session = await stripe.checkout.sessions.create({
             mode: 'subscription',
