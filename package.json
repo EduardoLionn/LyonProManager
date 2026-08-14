@@ -2,7 +2,7 @@
   "name": "lyonpromanager-api",
   "private": true,
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",
