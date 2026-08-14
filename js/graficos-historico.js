@@ -39,7 +39,19 @@
         db.selecao.plantel.forEach(j => { datalistRaiox.innerHTML += `<option value="${j.nome}">${j.posicao}</option>`; });
     }
 
-    if(pFiltradas.length === 0) return; 
+    if(pFiltradas.length === 0) {
+        // limparGraficos() só destrói os canvases dos gráficos — sem isso aqui, os painéis de
+        // texto ao lado (lista de artilheiros/assistentes e os números no centro do doughnut)
+        // ficavam com os dados da última vez que tinham partidas (ex: trocar do Clube pra uma
+        // Seleção sem nenhum jogo ainda mostrava os artilheiros do Clube).
+        renderizarListaDonut('lista-artilheiros', [], 'gols');
+        renderizarListaDonut('lista-assistentes', [], 'assist');
+        let elArt = document.getElementById('donut-center-artilheiros');
+        if (elArt) elArt.innerHTML = '<strong>0</strong><span>Gols</span>';
+        let elAst = document.getElementById('donut-center-assistentes');
+        if (elAst) elAst.innerHTML = '<strong>0</strong><span>Assist.</span>';
+        return;
+    }
 
     let labelsPartidas = pFiltradas.map((p, i) => `J${i+1} (${p.adversario})`);
     let advData = getAdvancedPlayerAggregates(pFiltradas); // Calcula os novos dados avançados
