@@ -406,8 +406,9 @@
         <button class="nav-btn" id="nav-btn-mercado" onclick="mudarAba('tab-mercado')">💰 Transferências</button>
         <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
         <button class="nav-btn" onclick="mudarAba('tab-historico')">🏆 Sala de Troféus</button>
-        <button class="nav-btn" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
-        <button class="nav-btn" onclick="mudarAba('tab-medico')">🏥 Departamento Médico</button>
+        <button class="nav-btn" id="nav-btn-diretoria" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
+        <button class="nav-btn" id="nav-btn-medico" onclick="mudarAba('tab-medico')">🏥 Departamento Médico</button>
+        <button class="nav-btn" id="nav-btn-convocacao" style="display:none;" onclick="mudarAba('tab-convocacao')">📋 Convocação</button>
         <button class="nav-btn" onclick="mudarAba('tab-perfil-treinador')">🧑‍💼 Perfil do Treinador</button>
         <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
         <button class="nav-btn" onclick="mudarAba('tab-social')">📱 Feed Social & Mídia</button>
@@ -1424,6 +1425,38 @@
             </div>
         </div>
 
+        <!-- ABA: CONVOCAÇÃO DA SELEÇÃO (substitui Diretoria/Médico só no slot Seleção Nacional) -->
+        <div id="tab-convocacao" class="tab-content">
+            <div class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                    <div>
+                        <h2 style="margin:0;">📋 Convocação</h2>
+                        <span style="font-size:13px; color:var(--text-muted);">Envie o print da lista de convocados a cada Data FIFA</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div id="loader-convocacao" class="loader" style="display:none;"></div>
+                        <span id="loader-convocacao-text" style="font-size:13px; color:var(--text-muted);"></span>
+                        <label style="cursor:pointer; background:var(--primary); color:black; padding:10px 16px; border-radius:8px; font-weight:bold;">
+                            📸 Ler Lista de Convocados
+                            <input type="file" accept="image/*" multiple style="display:none;" onchange="lerImagemConvocacao(event)">
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3 style="margin-top:0;">✅ Convocados (Ativos)</h3>
+                <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Só esses jogadores entram nas sugestões de escalação do Auxiliar Técnico.</p>
+                <div id="convocacao-lista-ativos" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:10px;"></div>
+            </div>
+
+            <div class="panel">
+                <h3 style="margin-top:0;">📋 Geral (histórico completo)</h3>
+                <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Todo jogador que já foi convocado alguma vez — sai da lista de Ativos, mas o histórico de partidas e estatísticas dele continua intacto.</p>
+                <div id="convocacao-lista-geral" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:10px;"></div>
+            </div>
+        </div>
+
                 <div id="tab-perfil-treinador" class="tab-content">
             <div class="panel">
                 <h2 style="margin: 0 0 6px 0; font-size:24px;">🧑‍💼 Perfil do Treinador</h2>
@@ -1671,6 +1704,7 @@
     <script src="js/diretoria-partidas.js"></script>
     <script src="js/temporada-mercado.js"></script>
     <script src="js/plantel-ui.js"></script>
+    <script src="js/convocacao.js"></script>
     <script src="js/graficos-historico.js"></script>
     <script src="js/chat-ia.js"></script>
     <script src="js/auxiliar-eventos.js"></script>
