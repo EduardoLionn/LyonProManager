@@ -364,7 +364,10 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
         // Monta o resumo textual do elenco ativo (lesão/fadiga/tag de reserva) pra qualquer prompt
         // de IA que precise escalar o time. Sem efeito colateral.
         function montarResumoPlantelIA() {
-            let plantelAtivo = db[currentSave].plantel.filter(p => p.status === 'Ativo');
+            // Na seleção, só entram jogadores efetivamente convocados na última leitura da lista
+            // de convocação (ver js/convocacao.js) — o resto do elenco fica de fora da escalação,
+            // mesmo continuando no plantel com o histórico intacto.
+            let plantelAtivo = db[currentSave].plantel.filter(p => p.status === 'Ativo' && (currentSave !== 'selecao' || p.convocado !== false));
             let plantelStr = plantelAtivo.map(p => {
                 let indisponivelStr = "";
                 if (p.diasLesao && p.diasLesao > 0) indisponivelStr = " [INDISPONÍVEL: LESIONADO]";

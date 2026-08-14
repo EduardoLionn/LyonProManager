@@ -273,6 +273,12 @@ function toggleChatDiretoria() {
             if (currentSave === 'selecao' && (abaId === 'tab-plantel' || abaId === 'tab-mercado')) {
                 abaId = 'tab-dashboard';
             }
+            if (currentSave === 'selecao' && (abaId === 'tab-diretoria' || abaId === 'tab-medico')) {
+                abaId = 'tab-convocacao';
+            }
+            if (currentSave === 'clube' && abaId === 'tab-convocacao') {
+                abaId = 'tab-dashboard';
+            }
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(abaId).classList.add('active');
@@ -293,6 +299,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-perfil-treinador') { carregarPerfilTreinador(); carregarPreferenciasTaticas(); }
             if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarAuxiliarPartida(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
+            if(abaId === 'tab-convocacao') { renderizarConvocacaoUI(); }
         }
 
         function trocarSave() { currentSave = document.getElementById('select-save').value; ajustarInterfaceSave(); }
@@ -318,15 +325,22 @@ function toggleChatDiretoria() {
             let btnPlantel = document.getElementById('nav-btn-plantel');
             let btnMercado = document.getElementById('nav-btn-mercado');
             let optRaioxDash = document.getElementById('opt-raiox-dash');
+            let btnDiretoria = document.getElementById('nav-btn-diretoria');
+            let btnMedico = document.getElementById('nav-btn-medico');
+            let btnConvocacao = document.getElementById('nav-btn-convocacao');
 
             if (currentSave === 'selecao') {
                 btnPlantel.style.display = 'none'; btnMercado.style.display = 'none'; optRaioxDash.style.display = 'inline-block';
+                btnDiretoria.style.display = 'none'; btnMedico.style.display = 'none'; btnConvocacao.style.display = 'block';
                 let activeTab = document.querySelector('.tab-content.active');
-                if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado')) mudarAba('tab-dashboard');
+                if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado' || activeTab.id === 'tab-diretoria' || activeTab.id === 'tab-medico')) mudarAba('tab-dashboard');
             } else {
                 btnPlantel.style.display = 'block'; btnMercado.style.display = 'block'; optRaioxDash.style.display = 'none';
+                btnDiretoria.style.display = 'block'; btnMedico.style.display = 'block'; btnConvocacao.style.display = 'none';
                 let tabBarraAtiva = document.querySelector('#graf-tabs-barra .graf-tab.active');
                 if (tabBarraAtiva && tabBarraAtiva.dataset.view === 'view-raiox' && typeof mudarGrafico === 'function') mudarGrafico('view-notamedia', 'graf-tabs-barra', 'grupo-barra');
+                let activeTab = document.querySelector('.tab-content.active');
+                if (activeTab && activeTab.id === 'tab-convocacao') mudarAba('tab-dashboard');
             }
 
             if (!config.nome) {
