@@ -154,8 +154,7 @@ ${blocoAvaliacao}
                             delta += cumpriu ? 0.4 : -0.4;
                             resumoObjetivos.push(`${cumpriu ? '✅' : '❌'} ${nome}`);
                         });
-                        db[currentSave].notaDiretoria = Math.max(0, Math.min(10, (db[currentSave].notaDiretoria || 6.5) + delta));
-                        registrarComandoPrestigioSeMudou();
+                        atualizarNotaDiretoria(delta);
                     }
 
                     let txt = `⚽ Liga: ${resAI.objLiga1}<br>⚽ Liga (Secundário): ${resAI.objLiga2}<br>🏆 Copa Nacional: ${resAI.objCopa}`;
@@ -207,7 +206,7 @@ ${blocoAvaliacao}
 
             let msgFinal = "Temporada concluída!";
             if (resumoObjetivos.length > 0) {
-                msgFinal += `\n\n📋 Avaliação da Diretoria:\n${resumoObjetivos.join('\n')}\n\nNota atual: ${db[currentSave].notaDiretoria.toFixed(1)}/10`;
+                msgFinal += `\n\n📋 Avaliação da Diretoria:\n${resumoObjetivos.join('\n')}\n\nNota atual: ${Math.round(db[currentSave].notaDiretoria)}/100`;
             }
             msgFinal += "\n\n📥 Aproveite e baixe um backup do seu save (botão na barra lateral) — é rápido e evita perder seu progresso.";
 
@@ -219,7 +218,7 @@ ${blocoAvaliacao}
             let jogadoresRelevantes = plantelAtivo.map(p => `${p.nome} (${p.posicao}, OVR ${p.ovr})`).join(', ');
             let ultimasPartidas = db[currentSave].partidas.slice(-5).map(p => `${p.contexto || 'Jogo'}: ${p.golsPro}x${p.golsContra}`).join(' | ');
 
-            let promptEvento = `Você é o Gerador de Eventos Inesperados de bastidores do "${db[currentSave].nome}" (Nota Diretoria: ${(db[currentSave].notaDiretoria||6.5).toFixed(1)}/10, Orçamento: €${(db[currentSave].orcamento||0).toFixed(1)}M, Aprovação da Torcida: ${db[currentSave].aprovacaoTorcida||50}%).
+            let promptEvento = `Você é o Gerador de Eventos Inesperados de bastidores do "${db[currentSave].nome}" (Nota Diretoria: ${Math.round(db[currentSave].notaDiretoria||75)}/100, Orçamento: €${(db[currentSave].orcamento||0).toFixed(1)}M, Aprovação da Torcida: ${Math.round(db[currentSave].aprovacaoTorcida||75)}/100).
             Elenco atual (USE APENAS ESTES NOMES SE FOR CITAR ALGUÉM): ${jogadoresRelevantes || "Elenco pequeno ainda, evite citar nomes"}
             Últimos resultados: ${ultimasPartidas || "Início de temporada"}
 
@@ -259,7 +258,7 @@ ${blocoAvaliacao}
                         atualizarNotaDiretoria(Math.max(-0.3, Math.min(0.3, Number(ev.efeitoNotaDiretoria))));
                     }
                     if (ev.efeitoAprovacaoTorcida) {
-                        let atual = db[currentSave].aprovacaoTorcida || 50;
+                        let atual = db[currentSave].aprovacaoTorcida || 75;
                         db[currentSave].aprovacaoTorcida = Math.max(0, Math.min(100, atual + Math.max(-5, Math.min(5, Number(ev.efeitoAprovacaoTorcida)))));
                     }
                     if (ev.jogadorAfetado && Number(ev.diasLesaoJogador) > 0) {
@@ -387,8 +386,11 @@ ${blocoAvaliacao}
             
             if(tipoTransicao === 'Comprado') {
                 db.clube.orcamento -= custo; db.clube.gastoAtual += custo; atualizarNotaDiretoria(-0.1);
-                // ADICIONE AQUI: Torcida animada com reforço
-                atualizarTermometroTorcida(gerarNumeroAleatorio(2, 5));
+                // Torcida animada com reforço — contratações de destaque (OVR alto) empolgam bem
+                // mais que reforços medianos.
+                let ovrContratado = Number(document.getElementById('add-ovr').value) || 70;
+                let impactoTorcidaCompra = gerarNumeroAleatorio(2, 5) + (ovrContratado >= 82 ? gerarNumeroAleatorio(3, 6) : 0);
+                atualizarTermometroTorcida(impactoTorcidaCompra);
             }
             
             let jogadorExistente = db.clube.plantel.find(p => p.nome.toLowerCase() === nomeNovo.toLowerCase());
@@ -472,8 +474,10 @@ ${blocoAvaliacao}
                 atualizarNotaDiretoria(0.1);
                 db.clube.exigenciasDiretoria = db.clube.exigenciasDiretoria.filter(n => n !== nome);
                 
-                // ADICIONE AQUI: Torcida não gosta de perder jogador ativo
-                atualizarTermometroTorcida(-gerarNumeroAleatorio(2, 6));
+                // Torcida não gosta de perder jogador ativo — perder um titular importante (OVR
+                // alto) pesa bem mais que vender um reserva.
+                let impactoVenda = gerarNumeroAleatorio(2, 6) + (jogador.ovr >= 78 ? gerarNumeroAleatorio(4, 8) : 0);
+                atualizarTermometroTorcida(-impactoVenda);
                 
                 let noticia = gerarNoticiaTransferencia('Venda', nome, valor, 0);
                 adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
@@ -501,7 +505,7 @@ ${blocoAvaliacao}
             if(currentSave !== 'clube') return;
             let btn = document.getElementById('btn-confirmar-compra');
             if(!btn) return;
-            if(db.clube.notaDiretoria < 5.0 || db.clube.orcamento < -10.0) {
+            if(db.clube.notaDiretoria < 50 || db.clube.orcamento < -10.0) {
                 btn.disabled = true;
                 btn.innerText = "BLOQUEADO PELA DIRETORIA (Embargo)";
                 btn.style.background = "var(--text-muted)";

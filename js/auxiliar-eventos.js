@@ -225,16 +225,16 @@ Exemplo do formato exigido:
 
         function checarRiscoDemissao() {
             let nota = db[currentSave].notaDiretoria;
-            
-            if (nota === 0.0) {
+
+            if (nota === 0) {
                 game_over_demissao();
-            } else if (nota >= 1.0 && nota <= 2.9) {
+            } else if (nota >= 10 && nota <= 29) {
                 // Alerta Vermelho (Modal de Evento adaptado)
                 document.getElementById('evento-texto').innerText = "A diretoria está FURIOSA. Você tem, no máximo, 1 a 2 jogos para reagir ou será sumariamente demitido.";
                 document.querySelector('.evento-box h2').innerText = "⚠️ RISCO DE DEMISSÃO ALTÍSSIMO!";
                 document.querySelector('.evento-box').style.borderColor = "var(--danger)";
                 document.getElementById('modal-evento').style.display = 'flex';
-            } else if (nota >= 3.0 && nota <= 4.9) {
+            } else if (nota >= 30 && nota <= 49) {
                 // Alerta Amarelo
                 document.getElementById('evento-texto').innerText = "⚠️ ALERTA DA DIRETORIA: Resultados inaceitáveis. Reunião de emergência necessária! Seu cargo periga se a fase não mudar logo.";
                 document.querySelector('.evento-box h2').innerText = "⚠️ ALERTA DA DIRETORIA";
@@ -254,21 +254,21 @@ Exemplo do formato exigido:
 
         function atualizarTermometroTorcida(variacao) {
             let config = db[currentSave];
-            if(config.aprovacaoTorcida === undefined) config.aprovacaoTorcida = 50;
+            if(config.aprovacaoTorcida === undefined) config.aprovacaoTorcida = 75;
             config.aprovacaoTorcida = Math.max(0, Math.min(100, config.aprovacaoTorcida + variacao));
             salvarDados();
             renderizarTermometroUI();
         }
 
         function renderizarTermometroUI() {
-            let val = db[currentSave].aprovacaoTorcida || 50;
+            let val = Math.round(db[currentSave].aprovacaoTorcida || 75);
             let barra = document.getElementById('barra-torcida');
             let texto = document.getElementById('texto-torcida');
             if(!barra || !texto) return;
 
             barra.style.width = `${val}%`;
-            if(val >= 80) { barra.style.background = 'var(--primary)'; texto.innerText = `${val}% (Ídolo)`; }
-            else if(val >= 50) { barra.style.background = 'var(--warning)'; texto.innerText = `${val}% (Dividida)`; }
-            else { barra.style.background = 'var(--danger)'; texto.innerText = `${val}% (Fúria Total)`; }
+            if(val >= 80) { barra.style.background = 'var(--primary)'; texto.innerText = `${val} (Ídolo)`; }
+            else if(val >= 50) { barra.style.background = 'var(--warning)'; texto.innerText = `${val} (Dividida)`; }
+            else { barra.style.background = 'var(--danger)'; texto.innerText = `${val} (Fúria Total)`; }
         }
 

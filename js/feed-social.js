@@ -220,7 +220,7 @@
             let promptIA = `Você é o Algoritmo de Rede Social (Twitter/X) focada no time "${db[currentSave].nome}".
             Contexto Atual: 
             - Evento Recente: ${contextoExtra}
-            - Aprovação da Torcida: ${db[currentSave].aprovacaoTorcida}% 
+            - Aprovação da Torcida: ${db[currentSave].aprovacaoTorcida}/100
             - Últimos Resultados: ${resumoUltimos || "Início de temporada"}
             - Elenco Atual (USE APENAS ESTES NOMES SE FOR CITAR ALGUM JOGADOR): ${jogadoresRelevantes || "Nenhum jogador relevante cadastrado ainda"}
 
