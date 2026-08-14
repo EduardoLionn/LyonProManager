@@ -148,12 +148,21 @@
 
         // --- CENTRAL DE COMANDOS PRO JOGO ---
         // Toda vez que o Prestígio ou o Orçamento mudam no site, isso gera uma instrução
-        // pra você aplicar manualmente no seu save do EA FC.
-        function registrarComandoJogo(texto) {
+        // pra você aplicar manualmente no seu save do EA FC. `categoria` identifica o "tipo" do
+        // comando (ex: 'prestigio', 'orcamento') — se já existir um comando pendente da mesma
+        // categoria, ele é atualizado no lugar em vez de empilhar um novo a cada pontinho que
+        // muda; só o valor mais recente importa, já que é pra aplicar manualmente uma vez só.
+        function registrarComandoJogo(texto, categoria) {
             let data = db[currentSave];
             if (!data.comandosJogo) data.comandosJogo = [];
-            data.comandosJogo.unshift({ texto: texto, temporada: data.temporadaAtual, aplicado: false });
-            if (data.comandosJogo.length > 40) data.comandosJogo.length = 40;
+            let existente = categoria ? data.comandosJogo.find(c => c.categoria === categoria && !c.aplicado) : null;
+            if (existente) {
+                existente.texto = texto;
+                existente.temporada = data.temporadaAtual;
+            } else {
+                data.comandosJogo.unshift({ texto: texto, categoria: categoria || null, temporada: data.temporadaAtual, aplicado: false });
+                if (data.comandosJogo.length > 40) data.comandosJogo.length = 40;
+            }
             salvarDados();
             renderizarComandosJogo();
         }
@@ -163,11 +172,11 @@
             let prestigio = Math.round(data.notaDiretoria || 0);
             if (data.ultimoPrestigioRegistrado === prestigio) return; // já está registrado, evita comando repetido
             data.ultimoPrestigioRegistrado = prestigio;
-            registrarComandoJogo(`🎮 Ajuste o Prestígio do Clube no jogo para ${prestigio}/100`);
+            registrarComandoJogo(`🎮 Ajuste o Prestígio do Clube no jogo para ${prestigio}/100`, 'prestigio');
         }
 
         function registrarComandoOrcamento(valor, motivo) {
-            registrarComandoJogo(`💰 Ajuste o Orçamento de Transferências no jogo para €${Number(valor).toFixed(2)}M (${motivo})`);
+            registrarComandoJogo(`💰 Ajuste o Orçamento de Transferências no jogo para €${Number(valor).toFixed(2)}M (${motivo})`, 'orcamento');
             // Aproveita a mudança de orçamento pra também lembrar o prestígio atual, caso ele
             // tenha mudado e ainda não tenha virado um comando por conta própria.
             registrarComandoPrestigioSeMudou();
