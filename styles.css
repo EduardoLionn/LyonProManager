@@ -402,7 +402,7 @@
         .jc-sub-badge:hover { transform: scale(1.15); }
 
 /* --- NOVA ABA: FEED SOCIAL DA TORCIDA --- */
-.social-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.feed-cabecalho { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; background: var(--panel-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 .termometro-container { flex: 1; min-width: 180px; margin: 0 30px; text-align: center; }
 @media screen and (max-width: 900px) {
     .termometro-container { margin: 0; }
