@@ -38,9 +38,8 @@
 
             document.getElementById('dir-media-gasto').innerText = `€${(data.mediaGastoHistorico || 0).toFixed(1)}M`;
             document.getElementById('dir-media-arrecadado').innerText = `€${(data.mediaArrecadadoHistorico || 0).toFixed(1)}M`;
-            let notaFormatada = typeof data.notaDiretoria === 'number' ? data.notaDiretoria.toFixed(1) : "6.5";
-            document.getElementById('dir-nota-diretoria').innerText = `${notaFormatada} / 10`;
-            document.getElementById('dir-prestigio-jogo').innerText = Math.round((data.notaDiretoria || 6.5) * 10);
+            let notaFormatada = typeof data.notaDiretoria === 'number' ? Math.round(data.notaDiretoria) : 75;
+            document.getElementById('dir-nota-diretoria').innerText = `${notaFormatada} / 100`;
             document.getElementById('dash-dir-orcamento').innerText = "€" + (data.orcamento || 0).toFixed(2) + "M";
             document.getElementById('dash-dir-arrecadado-atual').innerText = "€" + (data.arrecadadoAtual || 0).toFixed(2) + "M";
             document.getElementById('dash-dir-gasto-atual').innerText = "€" + (data.gastoAtual || 0).toFixed(2) + "M";
@@ -63,7 +62,8 @@
             db[currentSave].mediaGastoHistorico = mediaGasto;
             db[currentSave].mediaArrecadadoHistorico = mediaArrecadacao;
             db[currentSave].competicaoContinental = continental;
-            db[currentSave].notaDiretoria = 6.5;
+            db[currentSave].notaDiretoria = 75;
+            db[currentSave].notaDiretoriaEscala100 = true;
 
             let promptIA = `Atue como ${nomeDiretorExibicao()}, o(a) Diretor(a) Executivo(a) do clube/seleção "${db[currentSave].nome}" (Liga/Tier atual: ${db[currentSave].liga}).
             Histórico (5 anos): Gasto Médio: €${mediaGasto}M, Arrecadação Média: €${mediaArrecadacao}M, Títulos: ${titulos}, Posição Média na Liga: ${posicaoMedia}º, Desempenho Médio na Copa Nacional: ${posicaoCopaMedia}. Competição Internacional atual: ${continental}.
@@ -133,11 +133,15 @@
             salvarDados(); atualizarDiretoriaUI();
         }
 
+        // `variacao` continua na mesma escala pequena de sempre (ex: -0.3 a +0.3) — todo o
+        // histórico de chamadas espalhado pelo código e nos prompts da IA usa essa escala, então
+        // a conversão pra 0-100 (a mesma do jogo) acontece aqui dentro, multiplicando por 10, em
+        // vez de mexer em cada chamada.
         function atualizarNotaDiretoria(variacao) {
             if (db[currentSave].notaDiretoria !== undefined && variacao !== 0) {
-                db[currentSave].notaDiretoria = Math.max(0.0, Math.min(10.0, db[currentSave].notaDiretoria + variacao));
+                db[currentSave].notaDiretoria = Math.max(0, Math.min(100, db[currentSave].notaDiretoria + variacao * 10));
                 let elNota = document.getElementById('dir-nota-diretoria');
-                if (elNota) elNota.innerText = db[currentSave].notaDiretoria.toFixed(1) + " / 10";
+                if (elNota) elNota.innerText = Math.round(db[currentSave].notaDiretoria) + " / 100";
                 registrarComandoPrestigioSeMudou();
             }
         }
@@ -156,16 +160,17 @@
 
         function registrarComandoPrestigioSeMudou() {
             let data = db[currentSave];
-            let prestigio = Math.round((data.notaDiretoria || 0) * 10);
+            let prestigio = Math.round(data.notaDiretoria || 0);
             if (data.ultimoPrestigioRegistrado === prestigio) return; // já está registrado, evita comando repetido
             data.ultimoPrestigioRegistrado = prestigio;
-            let elJogo = document.getElementById('dir-prestigio-jogo');
-            if (elJogo) elJogo.innerText = prestigio;
             registrarComandoJogo(`🎮 Ajuste o Prestígio do Clube no jogo para ${prestigio}/100`);
         }
 
         function registrarComandoOrcamento(valor, motivo) {
             registrarComandoJogo(`💰 Ajuste o Orçamento de Transferências no jogo para €${Number(valor).toFixed(2)}M (${motivo})`);
+            // Aproveita a mudança de orçamento pra também lembrar o prestígio atual, caso ele
+            // tenha mudado e ainda não tenha virado um comando por conta própria.
+            registrarComandoPrestigioSeMudou();
         }
 
         function marcarComandoAplicado(index) {

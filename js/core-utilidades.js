@@ -7,6 +7,14 @@ function normalizarValorOrcamento(valor) {
     return Math.max(0, n);
 }
 
+// Saves antigos guardavam o Prestígio da Diretoria numa escala de 0 a 10 — usada só pela migração
+// de uma vez só em ajustarInterfaceSave (gatilho: falta o campo notaDiretoriaEscala100 no save).
+function normalizarNotaDiretoria(valor) {
+    let n = Number(valor);
+    if (!Number.isFinite(n)) return 75;
+    return Math.max(0, Math.min(100, n * 10));
+}
+
 function lerTexto(texto) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -107,7 +115,7 @@ function lerTexto(texto) {
             // --- NOVO: Boletim do Departamento Médico (lesões, suspensões e fadiga do elenco) ---
             let boletimMedico = (typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "";
 
-            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${data.notaDiretoria.toFixed(1)}/10 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr} | Departamento Médico: ${boletimMedico || "Sem novidades."}]`;
+            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${Math.round(data.notaDiretoria)}/100 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr} | Departamento Médico: ${boletimMedico || "Sem novidades."}]`;
         }
 
         function toggleModoVideo() {
@@ -331,6 +339,16 @@ function toggleChatDiretoria() {
             if (typeof normalizarValorOrcamento === 'function') {
                 let orcamentoCorrigido = normalizarValorOrcamento(config.orcamento);
                 if (orcamentoCorrigido !== config.orcamento) { config.orcamento = orcamentoCorrigido; salvarDados(); }
+            }
+
+            // Migra saves antigos do Prestígio da Diretoria (escala 0-10) pra 0-100 — só roda uma
+            // vez por save, controlado pelo campo notaDiretoriaEscala100. Só se aplica a saves com
+            // diretoria já configurada: um save novo em branco já nasce direto na escala certa
+            // (dbPadrao), então não pode passar por essa conta de novo.
+            if (config.diretoriaConfigurada && !config.notaDiretoriaEscala100 && typeof config.notaDiretoria === 'number') {
+                config.notaDiretoria = normalizarNotaDiretoria(config.notaDiretoria);
+                config.notaDiretoriaEscala100 = true;
+                salvarDados();
             }
 
             document.getElementById('header-nome-time').innerText = config.nome;
