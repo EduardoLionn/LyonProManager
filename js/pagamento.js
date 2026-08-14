@@ -5,9 +5,7 @@
 // (api/webhook-stripe.js) escreve depois de um pagamento confirmado.
 // ============================================================
 
-// Preenchido com a URL real depois que o projeto for publicado na Vercel (ex:
-// 'https://lyonpromanager-api.vercel.app').
-const LYONPRO_API_BASE = 'https://SUBSTITUIR-PELA-URL-DA-VERCEL.vercel.app';
+const LYONPRO_API_BASE = 'https://lyon-pro-manager.vercel.app';
 
 async function _authAssinaturaEstaAtiva(uid) {
     if (typeof firebase === 'undefined' || !firebase.firestore) return false;
