@@ -38,6 +38,12 @@ module.exports = async function handler(req, res) {
         let userSnap = await userRef.get();
         let stripeCustomerId = userSnap.exists ? userSnap.data().stripeCustomerId : null;
 
+        // O ID salvo pode ter ficado orfão (ex: conta trocou de modo Teste pra Produção, que têm
+        // clientes completamente separados na Stripe) — confirma que ele ainda existe antes de
+        // reaproveitar, senão cria um novo em vez de quebrar o checkout.
+        if (stripeCustomerId) {
+            try { await stripe.customers.retrieve(stripeCustomerId); } catch (e) { stripeCustomerId = null; }
+        }
         if (!stripeCustomerId) {
             let customer = await stripe.customers.create({ email, metadata: { uid } });
             stripeCustomerId = customer.id;
