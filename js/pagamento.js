@@ -1,9 +1,13 @@
 // ============================================================
-// ASSINATURA (Stripe via Firebase Functions) — depois que o e-mail é confirmado, o app fica
-// travado na tela de pagamento (#auth-paywall, ver auth.js/_authDestravarApp) até
+// ASSINATURA (Stripe via API na Vercel) — depois que o e-mail é confirmado, o app fica travado
+// na tela de pagamento (#auth-paywall, ver auth.js/_authDestravarApp) até
 // usuarios/{uid}.assinaturaStatus virar "ativa" no Firestore, o que só o webhook da Stripe
-// (functions/index.js) escreve depois de um pagamento confirmado.
+// (api/webhook-stripe.js) escreve depois de um pagamento confirmado.
 // ============================================================
+
+// Preenchido com a URL real depois que o projeto for publicado na Vercel (ex:
+// 'https://lyonpromanager-api.vercel.app').
+const LYONPRO_API_BASE = 'https://SUBSTITUIR-PELA-URL-DA-VERCEL.vercel.app';
 
 async function _authAssinaturaEstaAtiva(uid) {
     if (typeof firebase === 'undefined' || !firebase.firestore) return false;
@@ -12,11 +16,9 @@ async function _authAssinaturaEstaAtiva(uid) {
 }
 
 // 'brl' -> Pix + cartão (mercado brasileiro), 'usd' -> cartão internacional.
-function abrirCheckout(tipo) {
-    if (typeof firebase === 'undefined' || !firebase.functions) {
-        document.getElementById('auth-paywall-msg').innerText = 'Sistema de pagamento indisponível no momento.';
-        return;
-    }
+async function abrirCheckout(tipo) {
+    let user = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+    if (!user) return;
     let btnBrl = document.getElementById('auth-btn-assinar-brl');
     let btnUsd = document.getElementById('auth-btn-assinar-usd');
     let msgEl = document.getElementById('auth-paywall-msg');
@@ -24,14 +26,22 @@ function abrirCheckout(tipo) {
     msgEl.innerText = '';
     btnBrl.disabled = true;
     btnUsd.disabled = true;
-    firebase.functions().httpsCallable('criarSessaoCheckout')({ tipo })
-        .then(resultado => { window.location.href = resultado.data.url; })
-        .catch(err => {
-            console.error('Erro ao abrir checkout:', err);
-            msgEl.innerText = 'Não foi possível iniciar o pagamento. Tente novamente em instantes.';
-            btnBrl.disabled = false;
-            btnUsd.disabled = false;
+    try {
+        let idToken = await user.getIdToken();
+        let resposta = await fetch(`${LYONPRO_API_BASE}/api/criar-sessao-checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+            body: JSON.stringify({ tipo })
         });
+        if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
+        let dados = await resposta.json();
+        window.location.href = dados.url;
+    } catch (err) {
+        console.error('Erro ao abrir checkout:', err);
+        msgEl.innerText = 'Não foi possível iniciar o pagamento. Tente novamente em instantes.';
+        btnBrl.disabled = false;
+        btnUsd.disabled = false;
+    }
 }
 
 // Depois que a Stripe redireciona de volta com ?checkout=sucesso, o webhook pode levar alguns

@@ -1,0 +1,8 @@
+{
+  "name": "lyonpromanager-api",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "stripe": "^16.12.0"
+  }
+}
