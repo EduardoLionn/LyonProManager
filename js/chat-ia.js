@@ -1077,7 +1077,11 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             if (!partida) return;
             partida.status = 'em_andamento';
             // Snapshot de quem entrou em campo — "como um todo" — separado de trocas feitas depois do apito inicial.
+            // formacaoInicial fica junto porque, se a formação mudar no meio do jogo, formacaoEscolhida
+            // passa a apontar pra formação final — sem isso, o campinho histórico tentaria desenhar a
+            // escalação do apito inicial usando as posições de uma formação diferente da que ela usa.
             partida.escalacaoInicial = JSON.parse(JSON.stringify(partida.titulares || {}));
+            partida.formacaoInicial = partida.formacaoEscolhida;
             partida.bancoInicial = JSON.parse(JSON.stringify(partida.banco || []));
             partida.substituicoes = [];
             partida.jogadoresForaDaPartida = [];
@@ -1143,6 +1147,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             db[currentSave].historicoPartidasAuxiliar.unshift({
                 id: partida.id, adversarioNome: nomeAdv, adversarioInfo: partida.adversarioInfo,
                 formacaoEscolhida: partida.formacaoEscolhida, titulares: partida.titulares, banco: partida.banco,
+                formacaoInicial: partida.formacaoInicial || partida.formacaoEscolhida,
                 escalacaoInicial: partida.escalacaoInicial || partida.titulares, bancoInicial: partida.bancoInicial || partida.banco,
                 substituicoes: partida.substituicoes || [],
                 analiseGeral: partida.analiseGeral, ajustesFeitos: partida.ajustesFeitos,
@@ -1207,7 +1212,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
         // Mini campinho tático (não interativo) mostrando a escalação inicial da partida arquivada
         function gerarHtmlCampinhoHistorico(p) {
             let escalacao = p.escalacaoInicial || p.titulares || {};
-            let positions = coordsFormacoes[p.formacaoEscolhida];
+            let positions = coordsFormacoes[p.formacaoInicial || p.formacaoEscolhida];
             if (!positions) return '<p class="wizard-elenco-vazio">Formação não disponível.</p>';
 
             let notas = p.jogadoresNotas || [];
