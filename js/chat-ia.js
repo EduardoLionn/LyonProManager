@@ -412,10 +412,11 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                - Se mencionar "jovens", "reservas", "dar oportunidade" ou "rodar o elenco": você DEVE escalar preferencialmente jogadores marcados como [RESERVA/JOVEM] acima, nas posições onde eles existirem, mesmo que o OVR seja menor.
                - Se mencionar "explorar laterais", "explorar as pontas" ou "jogar pelos lados": as instruções dos jogadores em LAD/LAE/PD/PE/ALD/ALE DEVEM pedir explicitamente para avançar constantemente, cruzar com frequência e buscar a linha de fundo.
                - Se mencionar qualquer outro pedido específico (ex: "marcação alta", "jogo mais defensivo", "time mais ofensivo"), reflita isso nas instruções individuais de forma clara e verificável, não apenas no estilo geral.
-            6. FLEXIBILIDADE POSICIONAL (REGRA CRÍTICA — TIMES REAIS NÃO SÃO ENGESSADOS): você NÃO é obrigado a escalar só quem tem a posição EXATA cadastrada igual à sigla da vaga. Times de verdade improvisam peças o tempo todo.
+            6. FLEXIBILIDADE POSICIONAL (REGRA CRÍTICA — SIGA EXATAMENTE ESTA TABELA, NÃO INVENTE OUTRAS IMPROVISAÇÕES): você NÃO é obrigado a escalar só quem tem a posição EXATA cadastrada igual à sigla da vaga. Cada função do campinho abaixo aceita as posições de carteirinha listadas — e SOMENTE essas, nenhuma outra combinação é válida:
+${textoRegrasCompatibilidadePosicional()}
                - Prefira o jogador da posição exata SE o OVR dele estiver competitivo com o resto do time titular (até uns 6-8 pontos de diferença da média do time que você está montando).
-               - Se o(s) único(s) jogador(es) com a posição exata tiver(em) um OVR MUITO abaixo do nível do resto do time (uma quebra gritante), é MELHOR improvisar alguém de posição parecida (ex: um lateral/ala do mesmo lado, uma ponta do lado espelhado, um meio-campista versátil) com OVR mais alto do que forçar o "encaixe perfeito" só na etiqueta. Deixe isso explícito na instrução dele (ex: "Improvisado nesta função — priorize a segurança e a posição, evite arriscar demais").
-               - Regra de ouro: NUNCA escale alguém com OVR muito inferior à média do time titular só para "bater a posição exata" quando existir uma alternativa razoável (mesmo que fora de posição) com OVR bem melhor.
+               - Se o(s) único(s) jogador(es) com a posição exata tiver(em) um OVR MUITO abaixo do nível do resto do time (uma quebra gritante), é MELHOR escalar alguém de posição compatível (segundo a tabela acima) com OVR mais alto do que forçar o "encaixe perfeito" só na etiqueta. Deixe isso explícito na instrução dele (ex: "Improvisado nesta função — priorize a segurança e a posição, evite arriscar demais").
+               - Regra de ouro: NUNCA escale alguém com OVR muito inferior à média do time titular só para "bater a posição exata" quando existir uma alternativa compatível (pela tabela acima) com OVR bem melhor.
             7. DESEMPENHO EM CAMPO PESA MAIS QUE O OVR (REGRA CRÍTICA — NÃO IGNORE): cada jogador do elenco acima traz a "Nota Média" dele nas partidas que já disputou ("Sem nota" = ainda não tem amostra suficiente, baseie-se só no OVR nesse caso). OVR é só potencial no papel — quem decide jogos é quem está rendendo bem em campo. Quando dois jogadores concorrerem à mesma posição, NÃO escale automaticamente o de OVR mais alto: compare também a Nota Média deles. Se o jogador de OVR menor tiver uma Nota Média visivelmente melhor (e baseada em pelo menos 3 jogos), ELE deve ser o titular, mesmo tendo alguns pontos de OVR a menos — desempenho recente e consistente em campo vale mais que o número de OVR. Só desconsidere a nota se a amostra for muito pequena (1-2 jogos) ou muito antiga/desatualizada.
             8. ESCOLHA DE JOGADORES CONSIDERANDO O ADVERSÁRIO (não é só a instrução — é QUEM joga): além das instruções táticas, a própria ESCOLHA de quem entra em campo deve mudar de acordo com o adversário (${adv}). Ex: contra um time que ataca muito pelas pontas/aposta em velocidade, priorize laterais e zagueiros mais rápidos e seguros defensivamente nesse lado, mesmo abrindo mão de um pouco de OVR. Contra um time forte fisicamente ou que usa muito jogo aéreo, priorize zagueiros/volantes fortes no desarme e no jogo aéreo. Contra um time que se fecha atrás e joga recuado, priorize criatividade, drible e habilidade em espaços curtos no ataque/meio. Baseie-se no que você souber sobre o estilo do adversário (da análise/imagens) para embasar essas escolhas, não só as instruções.
             9. APRENDA COM O HISTÓRICO (se houver um bloco de histórico de partidas anteriores no prompt): leve em conta o que já funcionou e o que não funcionou nos jogos passados do treinador com este time. Se uma formação ou abordagem já falhou repetidamente contra adversários parecidos, evite repeti-la sem motivo; se algo deu certo, é um bom sinal para manter ou repetir em contextos parecidos. Isso é conhecimento acumulado do treinador, não regra fixa — use como orientação, não como obrigação cega.`;
@@ -719,17 +720,64 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
         // --- TROCAR JOGADOR NA ESCALAÇÃO (clique no campinho) ---
 
-        // Categoria "larga" (o que vem antes da barra em posicao) de cada sigla de posição no campinho —
-        // usada pra filtrar candidatos relevantes no seletor de troca.
-        const CATEGORIA_POR_ROLE = {
-            GOL: 'Goleiro',
-            ZAD: 'Zagueiro', ZAE: 'Zagueiro', ZAC: 'Zagueiro',
-            LAD: 'Lateral', LAE: 'Lateral', ALD: 'Lateral', ALE: 'Lateral',
-            VOL: 'Volante', VOLD: 'Volante', VOLE: 'Volante',
-            MCD: 'MeioCampo', MCE: 'MeioCampo', MC: 'MeioCampo', MD: 'MeioCampo', ME: 'MeioCampo', MEI: 'MeioCampo',
-            PD: 'Ponta', PE: 'Ponta',
-            ATA: 'Atacante', ATD: 'Atacante', ATE: 'Atacante'
+        // Quem pode jogar em cada função do campinho, além da posição "de carteirinha" — reflete como
+        // times de verdade improvisam peças parecidas. Usada pro seletor de troca (clique no jogador),
+        // pra rotação automática por fadiga e pro próprio prompt de escalação da IA (regrasEstrategistaTexto),
+        // então as três coisas seguem exatamente a mesma régua de compatibilidade posicional.
+        const POS_ZAGUEIRO_TODOS = ['Zagueiro/Construtor', 'Zagueiro/Lateral', 'Zagueiro/Versatil', 'Zagueiro/Defesa'];
+        const POS_VOLANTE_TODOS = ['Volante/Zaga', 'Volante/Contenção', 'Volante/Armação'];
+        const POS_MEIOCAMPO_TODOS = ['MeioCampo/Equilibrado', 'MeioCampo/Armador', 'MeioCampo/Abertura', 'MeioCampo/Ataque', 'MeioCampo/Versátil'];
+        const POS_PONTA_TODOS = ['Ponta/Ala Direita', 'Ponta/Ala Esquerda', 'Ponta/Invertido', 'Ponta/Armador', 'Ponta/Versátil'];
+        const POS_ATACANTE_TODOS = ['Atacante/Aberto', 'Atacante/Fisico', 'Atacante/Armador', 'Atacante/Velocidade', 'Atacante/Versátil'];
+        const POS_LATERAL_VERSATIL = ['Lateral/Defesa Versatil', 'Lateral/Ala Versatil', 'Lateral/Construtor Versatil'];
+        const POS_LATERAL_DIREITO = ['Lateral/Defesa Direito', 'Lateral/Ala Direito', 'Lateral/Construtor Direito'];
+        const POS_LATERAL_ESQUERDO = ['Lateral/Defesa Esquerdo', 'Lateral/Ala Esquerdo', 'Lateral/Construtor Esquerdo'];
+        const POS_LATERAL_CONSTRUTOR = ['Lateral/Construtor Direito', 'Lateral/Construtor Esquerdo', 'Lateral/Construtor Versatil'];
+        const POS_LATERAL_DEFESA = ['Lateral/Defesa Direito', 'Lateral/Defesa Esquerdo', 'Lateral/Defesa Versatil'];
+        const POS_LATERAL_ALA = ['Lateral/Ala Direito', 'Lateral/Ala Esquerdo', 'Lateral/Ala Versatil'];
+
+        const ZAGUEIRO_COMPATIVEL = [...POS_ZAGUEIRO_TODOS, ...POS_LATERAL_DEFESA, 'Volante/Zaga'];
+        const LATERAL_DIREITO_COMPATIVEL = [...POS_LATERAL_DIREITO, ...POS_LATERAL_VERSATIL, 'Ponta/Ala Direita'];
+        const LATERAL_ESQUERDO_COMPATIVEL = [...POS_LATERAL_ESQUERDO, ...POS_LATERAL_VERSATIL, 'Ponta/Ala Esquerda'];
+        const VOLANTE_COMPATIVEL = [...POS_VOLANTE_TODOS, 'MeioCampo/Armador', 'MeioCampo/Equilibrado', 'MeioCampo/Versátil', ...POS_LATERAL_CONSTRUTOR, 'Zagueiro/Construtor', 'Zagueiro/Versatil'];
+        const MEIOCAMPO_COMPATIVEL = [...POS_MEIOCAMPO_TODOS, ...POS_VOLANTE_TODOS, ...POS_LATERAL_CONSTRUTOR];
+        const MEIA_ARMADOR_COMPATIVEL = [...POS_MEIOCAMPO_TODOS, 'Ponta/Armador', 'Ponta/Invertido', 'Atacante/Armador', 'Atacante/Versátil', 'Ponta/Versátil'];
+        const PONTA_COMPATIVEL = [...POS_PONTA_TODOS, 'MeioCampo/Abertura', 'MeioCampo/Versátil', ...POS_LATERAL_ALA];
+        const ATACANTE_COMPATIVEL = [...POS_ATACANTE_TODOS, 'Ponta/Invertido', 'Ponta/Versátil', 'MeioCampo/Ataque', 'MeioCampo/Versátil'];
+
+        // Sigla de cada função no campinho -> lista de posições de carteirinha aceitas nela.
+        const POSICOES_COMPATIVEIS_POR_ROLE = {
+            GOL: ['Goleiro'],
+            ZAD: ZAGUEIRO_COMPATIVEL, ZAE: ZAGUEIRO_COMPATIVEL, ZAC: ZAGUEIRO_COMPATIVEL,
+            LAD: LATERAL_DIREITO_COMPATIVEL, ALD: LATERAL_DIREITO_COMPATIVEL,
+            LAE: LATERAL_ESQUERDO_COMPATIVEL, ALE: LATERAL_ESQUERDO_COMPATIVEL,
+            VOL: VOLANTE_COMPATIVEL, VOLD: VOLANTE_COMPATIVEL, VOLE: VOLANTE_COMPATIVEL,
+            MCD: MEIOCAMPO_COMPATIVEL, MCE: MEIOCAMPO_COMPATIVEL, MC: MEIOCAMPO_COMPATIVEL, MD: MEIOCAMPO_COMPATIVEL, ME: MEIOCAMPO_COMPATIVEL,
+            MEI: MEIA_ARMADOR_COMPATIVEL,
+            PD: PONTA_COMPATIVEL, PE: PONTA_COMPATIVEL,
+            ATA: ATACANTE_COMPATIVEL, ATD: ATACANTE_COMPATIVEL, ATE: ATACANTE_COMPATIVEL
         };
+
+        // true se a posição de carteirinha do jogador é aceita na função do campinho (sigla) informada.
+        function posicaoCompativelComRole(role, posicaoJogador) {
+            if (!posicaoJogador) return false;
+            let lista = POSICOES_COMPATIVEIS_POR_ROLE[role];
+            return Array.isArray(lista) && lista.includes(posicaoJogador);
+        }
+
+        // Texto pronto pra alimentar o prompt de escalação da IA — a mesma régua de compatibilidade
+        // usada no seletor de troca, mas em formato de regra pra IA seguir exatamente, sem "inventar" improvisos.
+        function textoRegrasCompatibilidadePosicional() {
+            return `- Zagueiro (ZAD/ZAE/ZAC): aceita zagueiro de qualquer variação, lateral/defesa (direito, esquerdo ou versátil) e volante/zaga.
+            - Lateral Direito (LAD/ALD): aceita lateral direito de qualquer variação (defesa, ala, construtor) e lateral versátil de qualquer variação, além de ponta/ala direita.
+            - Lateral Esquerdo (LAE/ALE): aceita lateral esquerdo de qualquer variação (defesa, ala, construtor) e lateral versátil de qualquer variação, além de ponta/ala esquerda.
+            - Volante (VOL/VOLD/VOLE): aceita volante de qualquer variação, meio-campo/armador, meio-campo/equilibrado, meio-campo/versátil, lateral/construtor (direito, esquerdo ou versátil), zagueiro/construtor e zagueiro/versátil.
+            - Meio-Campo genérico (MCD/MCE/MC/MD/ME): aceita meio-campo de qualquer variação, volante de qualquer variação e lateral/construtor (direito, esquerdo ou versátil).
+            - Meia Armador (MEI): aceita meio-campo de qualquer variação, ponta/armador, ponta/invertido, atacante/armador, atacante/versátil e ponta/versátil.
+            - Ponta (PD/PE): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil e lateral/ala (direito, esquerdo ou versátil).
+            - Atacante (ATA/ATD/ATE): aceita atacante de qualquer variação, ponta/invertido, ponta/versátil, meio-campo/ataque e meio-campo/versátil.
+            - Goleiro (GOL): só aceita goleiro.`;
+        }
 
         // Rede de segurança pra rotação obrigatória: o prompt já instrui a IA a poupar quem está em
         // fadiga crítica/risco de lesão, mas isso é texto — aqui a gente FORÇA a troca em código sempre
@@ -750,13 +798,12 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let condicao = (typeof condicaoJogador === 'function') ? condicaoJogador(jogador) : { nivel: 'ok' };
                 if (condicao.nivel !== 'critico' && condicao.nivel !== 'risco') return;
 
-                let categoria = CATEGORIA_POR_ROLE[role];
                 let candidatos = db[currentSave].plantel.filter(p => {
                     if (p.nome === jogador.nome || usadosTitulares.has(p.nome)) return false;
                     if (p.status !== 'Ativo') return false;
                     if (currentSave === 'selecao' && p.convocado === false) return false;
                     if (p.diasLesao > 0 || p.suspensoVermelho) return false;
-                    if (!p.posicao || p.posicao.split('/')[0] !== categoria) return false;
+                    if (!posicaoCompativelComRole(role, p.posicao)) return false;
                     let c = (typeof condicaoJogador === 'function') ? condicaoJogador(p) : { nivel: 'ok' };
                     return c.nivel === 'ok' || c.nivel === 'alerta';
                 });
@@ -852,7 +899,6 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let atual = partida.titulares[role];
             let nomeAtual = atual ? atual.nome : null;
             let aoVivo = partida.status === 'em_andamento';
-            let categoria = CATEGORIA_POR_ROLE[role];
 
             // Grupo 1: trocar de posição com outro titular — sempre disponível (pré-jogo ou ao vivo), não gasta substituição.
             let opcoesPosicao = Object.entries(partida.titulares)
@@ -861,8 +907,8 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
                     return { nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : r, tag: 'Trocar de posição (' + r + ')', onSelect: () => trocarPosicaoTitulares(role, r) };
                 });
-            let posRelevantes = opcoesPosicao.filter(o => o.posicao && o.posicao.split('/')[0] === categoria);
-            let posOutros = opcoesPosicao.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoria));
+            let posRelevantes = opcoesPosicao.filter(o => posicaoCompativelComRole(role, o.posicao));
+            let posOutros = opcoesPosicao.filter(o => !posicaoCompativelComRole(role, o.posicao));
 
             let opcoesFinal, opcoesExtras, subtitulo, botaoExtra = null;
 
@@ -872,8 +918,8 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let bancoNomes = (partida.banco || []).map(b => b.nome);
                 let candidatosBanco = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome));
                 let opcoesBanco = candidatosBanco.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: bancoNomes.includes(p.nome) ? 'Banco' : 'Fora da escalação', onSelect: () => trocarJogadorNoCampo(role, p.nome) }));
-                let bancoRelevantes = opcoesBanco.filter(o => o.posicao && o.posicao.split('/')[0] === categoria);
-                let bancoOutros = opcoesBanco.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoria));
+                let bancoRelevantes = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
+                let bancoOutros = opcoesBanco.filter(o => !posicaoCompativelComRole(role, o.posicao));
                 bancoRelevantes.sort((a, b) => b.ovr - a.ovr);
                 bancoOutros.sort((a, b) => b.ovr - a.ovr);
 
@@ -939,7 +985,6 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
             let jogBDAtual = db[currentSave].plantel.find(p => p.nome === atual.nome);
             let posicaoAtual = (jogBDAtual && jogBDAtual.posicao) ? jogBDAtual.posicao : (atual.posicao || '');
-            let categoriaJogador = posicaoAtual ? posicaoAtual.split('/')[0] : null;
 
             let opcoesSlots = Object.entries(partida.titulares || {})
                 .filter(([r, j]) => j.nome && j.nome !== '???')
@@ -948,13 +993,13 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     let posTxt = jogBD ? jogBD.posicao : r;
                     return {
                         nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: `${posTxt} (${r})`, tag: '',
-                        _categoria: CATEGORIA_POR_ROLE[r],
+                        _role: r,
                         onSelect: () => aoVivo ? iniciarDeclaracaoSubstituicao(r, atual.nome) : trocarJogadorNoCampo(r, atual.nome)
                     };
                 });
 
-            let relevantes = opcoesSlots.filter(o => o._categoria === categoriaJogador);
-            let outros = opcoesSlots.filter(o => o._categoria !== categoriaJogador);
+            let relevantes = opcoesSlots.filter(o => posicaoCompativelComRole(o._role, posicaoAtual));
+            let outros = opcoesSlots.filter(o => !posicaoCompativelComRole(o._role, posicaoAtual));
             relevantes.sort((a, b) => b.ovr - a.ovr);
             outros.sort((a, b) => b.ovr - a.ovr);
 
@@ -1051,14 +1096,13 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             if (!partida || partida.status !== 'em_andamento') return;
             if ((partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
 
-            let categoria = CATEGORIA_POR_ROLE[role];
             let fora = partida.jogadoresForaDaPartida || [];
             let opcoesBanco = (partida.banco || []).filter(b => !fora.includes(b.nome)).map(b => {
                 let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
                 return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: 'Banco', onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome) };
             });
-            let relevantes = opcoesBanco.filter(o => o.posicao && o.posicao.split('/')[0] === categoria);
-            let outros = opcoesBanco.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoria));
+            let relevantes = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
+            let outros = opcoesBanco.filter(o => !posicaoCompativelComRole(role, o.posicao));
             relevantes.sort((a, b) => b.ovr - a.ovr);
             outros.sort((a, b) => b.ovr - a.ovr);
 
