@@ -862,6 +862,10 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let jogBD = db[currentSave].plantel.find(p => p.nome === saindo.nome);
                 partida.banco.unshift({ nome: saindo.nome, posicao: jogBD ? jogBD.posicao : '', papel: 'Saiu da titular — opção no banco' });
             }
+            // O jogador que entra pode vir de fora do banco original (do elenco geral), o que
+            // faria o banco crescer sem limite a cada troca — mantém o teto de 9 reservas,
+            // descartando as opções menos relevantes (as mais antigas, no fim da lista).
+            if (partida.banco.length > 9) partida.banco.length = 9;
 
             salvarDados();
             renderizarCampinhoLimpo();
@@ -900,9 +904,46 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
             let subtitulo = aoVivo
                 ? `Escolha quem ${atual.nome} substitui — isso vai gastar uma das 5 substituições e o outro jogador não volta mais pro jogo.`
-                : `Escolha em qual posição ${atual.nome} entra no time titular.`;
+                : `Escolha em qual posição ${atual.nome} entra no time titular, ou troque-o por outro jogador do elenco sem tirar ninguém de campo.`;
 
-            abrirModalTroca(relevantes, outros, `Colocar ${atual.nome || 'reserva'} em campo`, subtitulo);
+            // Pré-jogo, também dá pra trocar quem ocupa essa vaga do banco por outro nome do
+            // elenco, sem mandar ninguém pro campo — só ajusta as opções disponíveis no banco.
+            let botaoExtra = !aoVivo ? { label: '🔄 Trocar por outro do elenco (sem entrar em campo)', onclick: `abrirTrocaBancoPorElenco(${idx})` } : null;
+
+            abrirModalTroca(relevantes, outros, `Colocar ${atual.nome || 'reserva'} em campo`, subtitulo, botaoExtra);
+        }
+
+        // Substitui quem ocupa esse slot do banco por outro jogador do elenco ativo — só faz
+        // sentido pré-jogo (ao vivo, tirar/pôr gente do banco fora de uma substituição de verdade
+        // não reflete o que aconteceria numa partida real).
+        function abrirTrocaBancoPorElenco(idx) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !Array.isArray(partida.banco) || !partida.banco[idx]) return;
+            let atual = partida.banco[idx];
+            let titularesNomes = Object.values(partida.titulares || {}).map(j => j.nome);
+            let bancoNomes = partida.banco.map(b => b.nome);
+            let jogBDAtual = db[currentSave].plantel.find(p => p.nome === atual.nome);
+            let categoriaJogador = (jogBDAtual && jogBDAtual.posicao) ? jogBDAtual.posicao.split('/')[0] : null;
+
+            let candidatos = db[currentSave].plantel
+                .filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome) && !bancoNomes.includes(p.nome))
+                .map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: 'Elenco', onSelect: () => trocarJogadorNoBanco(idx, p.nome) }));
+
+            let relevantes = candidatos.filter(o => o.posicao && o.posicao.split('/')[0] === categoriaJogador);
+            let outros = candidatos.filter(o => !(o.posicao && o.posicao.split('/')[0] === categoriaJogador));
+            relevantes.sort((a, b) => b.ovr - a.ovr);
+            outros.sort((a, b) => b.ovr - a.ovr);
+
+            abrirModalTroca(relevantes, outros, `Trocar ${atual.nome} no banco`, `Escolha quem do elenco assume o lugar de ${atual.nome} no banco — ele não entra em campo.`);
+        }
+
+        function trocarJogadorNoBanco(idx, novoNome) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || !Array.isArray(partida.banco) || !partida.banco[idx]) return;
+            let jogBD = db[currentSave].plantel.find(p => p.nome === novoNome);
+            partida.banco[idx] = { nome: novoNome, posicao: jogBD ? jogBD.posicao : '', papel: 'Adicionado manualmente pelo treinador.' };
+            salvarDados();
+            renderizarCampinhoLimpo();
         }
 
         // --- DECLARAR SUBSTITUIÇÃO (a única forma de tirar alguém do banco depois do apito inicial) ---
