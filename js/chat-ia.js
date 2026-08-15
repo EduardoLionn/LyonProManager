@@ -742,7 +742,10 @@ ${textoRegrasCompatibilidadePosicional()}
         const VOLANTE_COMPATIVEL = [...POS_VOLANTE_TODOS, 'MeioCampo/Armador', 'MeioCampo/Equilibrado', 'MeioCampo/Versátil', ...POS_LATERAL_CONSTRUTOR, 'Zagueiro/Construtor', 'Zagueiro/Versatil'];
         const MEIOCAMPO_COMPATIVEL = [...POS_MEIOCAMPO_TODOS, ...POS_VOLANTE_TODOS, ...POS_LATERAL_CONSTRUTOR];
         const MEIA_ARMADOR_COMPATIVEL = [...POS_MEIOCAMPO_TODOS, 'Ponta/Armador', 'Ponta/Invertido', 'Atacante/Armador', 'Atacante/Versátil', 'Ponta/Versátil'];
-        const PONTA_COMPATIVEL = [...POS_PONTA_TODOS, 'MeioCampo/Abertura', 'MeioCampo/Versátil', ...POS_LATERAL_ALA];
+        // PD/MD e PE/ME são todos "pontas" (ala ofensiva) — a única diferença entre eles é o lado do
+        // lateral/ala aceito, já que um lateral/ala destro não cobre a ala esquerda e vice-versa.
+        const PONTA_DIREITA_COMPATIVEL = [...POS_PONTA_TODOS, 'MeioCampo/Abertura', 'MeioCampo/Versátil', 'Lateral/Ala Direito', 'Lateral/Ala Versatil', 'Atacante/Aberto', 'Atacante/Versátil'];
+        const PONTA_ESQUERDA_COMPATIVEL = [...POS_PONTA_TODOS, 'MeioCampo/Abertura', 'MeioCampo/Versátil', 'Lateral/Ala Esquerdo', 'Lateral/Ala Versatil', 'Atacante/Aberto', 'Atacante/Versátil'];
         const ATACANTE_COMPATIVEL = [...POS_ATACANTE_TODOS, 'Ponta/Invertido', 'Ponta/Versátil', 'MeioCampo/Ataque', 'MeioCampo/Versátil'];
 
         // Sigla de cada função no campinho -> lista de posições de carteirinha aceitas nela.
@@ -752,9 +755,10 @@ ${textoRegrasCompatibilidadePosicional()}
             LAD: LATERAL_DIREITO_COMPATIVEL, ALD: LATERAL_DIREITO_COMPATIVEL,
             LAE: LATERAL_ESQUERDO_COMPATIVEL, ALE: LATERAL_ESQUERDO_COMPATIVEL,
             VOL: VOLANTE_COMPATIVEL, VOLD: VOLANTE_COMPATIVEL, VOLE: VOLANTE_COMPATIVEL,
-            MCD: MEIOCAMPO_COMPATIVEL, MCE: MEIOCAMPO_COMPATIVEL, MC: MEIOCAMPO_COMPATIVEL, MD: MEIOCAMPO_COMPATIVEL, ME: MEIOCAMPO_COMPATIVEL,
+            MCD: MEIOCAMPO_COMPATIVEL, MCE: MEIOCAMPO_COMPATIVEL, MC: MEIOCAMPO_COMPATIVEL,
             MEI: MEIA_ARMADOR_COMPATIVEL,
-            PD: PONTA_COMPATIVEL, PE: PONTA_COMPATIVEL,
+            PD: PONTA_DIREITA_COMPATIVEL, MD: PONTA_DIREITA_COMPATIVEL,
+            PE: PONTA_ESQUERDA_COMPATIVEL, ME: PONTA_ESQUERDA_COMPATIVEL,
             ATA: ATACANTE_COMPATIVEL, ATD: ATACANTE_COMPATIVEL, ATE: ATACANTE_COMPATIVEL
         };
 
@@ -772,9 +776,10 @@ ${textoRegrasCompatibilidadePosicional()}
             - Lateral Direito (LAD/ALD): aceita lateral direito de qualquer variação (defesa, ala, construtor) e lateral versátil de qualquer variação, além de ponta/ala direita.
             - Lateral Esquerdo (LAE/ALE): aceita lateral esquerdo de qualquer variação (defesa, ala, construtor) e lateral versátil de qualquer variação, além de ponta/ala esquerda.
             - Volante (VOL/VOLD/VOLE): aceita volante de qualquer variação, meio-campo/armador, meio-campo/equilibrado, meio-campo/versátil, lateral/construtor (direito, esquerdo ou versátil), zagueiro/construtor e zagueiro/versátil.
-            - Meio-Campo genérico (MCD/MCE/MC/MD/ME): aceita meio-campo de qualquer variação, volante de qualquer variação e lateral/construtor (direito, esquerdo ou versátil).
+            - Meio-Campo genérico (MCD/MCE/MC): aceita meio-campo de qualquer variação, volante de qualquer variação e lateral/construtor (direito, esquerdo ou versátil).
             - Meia Armador (MEI): aceita meio-campo de qualquer variação, ponta/armador, ponta/invertido, atacante/armador, atacante/versátil e ponta/versátil.
-            - Ponta (PD/PE): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil e lateral/ala (direito, esquerdo ou versátil).
+            - Ponta Direita (PD/MD): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil, lateral/ala direito, lateral/ala versátil, atacante/aberto e atacante/versátil.
+            - Ponta Esquerda (PE/ME): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil, lateral/ala esquerdo, lateral/ala versátil, atacante/aberto e atacante/versátil.
             - Atacante (ATA/ATD/ATE): aceita atacante de qualquer variação, ponta/invertido, ponta/versátil, meio-campo/ataque e meio-campo/versátil.
             - Goleiro (GOL): só aceita goleiro.`;
         }
