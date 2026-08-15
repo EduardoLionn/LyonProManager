@@ -506,11 +506,12 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
             let boxAnalise = document.getElementById('auxiliar-analise-ia');
             if (boxAnalise) {
-                if (partida && (partida.analiseGeral || partida.adversarioInfo || partida.alertaRotacao)) {
+                if (partida && (partida.analiseGeral || partida.adversarioInfo || partida.alertaRotacao || (partida.rotacoesAutomaticas && partida.rotacoesAutomaticas.length > 0))) {
                     boxAnalise.style.display = 'block';
                     boxAnalise.innerHTML = `
                         ${partida.adversarioInfo ? `<p style="margin:0 0 8px 0;"><strong>🔎 Sobre o ${partida.adversarioNome}:</strong> ${partida.adversarioInfo}</p>` : ''}
                         ${partida.analiseGeral ? `<p style="margin:0 0 8px 0;"><strong>🧠 Análise do Auxiliar:</strong> ${partida.analiseGeral}</p>` : ''}
+                        ${(partida.rotacoesAutomaticas && partida.rotacoesAutomaticas.length > 0) ? `<p style="margin:0 0 8px 0; color: var(--primary); font-weight:bold;">🏥 Rotação automática do Departamento Médico: ${partida.rotacoesAutomaticas.join('; ')}.</p>` : ''}
                         ${partida.alertaRotacao ? `<p style="margin:0; color: var(--danger); font-weight:bold;">${partida.alertaRotacao}</p>` : ''}
                     `;
                 } else {
@@ -684,6 +685,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
                 if (match) {
                     let res = JSON.parse(match[0]);
+                    let rotacoesAutomaticas = aplicarRotacaoObrigatoriaEscalacao(res);
                     let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
 
                     db[currentSave].partidaAuxiliar = {
@@ -696,6 +698,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                         banco: Array.isArray(res.reservas) ? res.reservas : [],
                         analiseGeral: res.analiseGeral || '',
                         alertaRotacao: alertaRotacao,
+                        rotacoesAutomaticas: rotacoesAutomaticas,
                         diretriz: diretriz,
                         ajustesFeitos: [],
                         criadaEm: Date.now()
@@ -727,6 +730,59 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             PD: 'Ponta', PE: 'Ponta',
             ATA: 'Atacante', ATD: 'Atacante', ATE: 'Atacante'
         };
+
+        // Rede de segurança pra rotação obrigatória: o prompt já instrui a IA a poupar quem está em
+        // fadiga crítica/risco de lesão, mas isso é texto — aqui a gente FORÇA a troca em código sempre
+        // que existir um jogador saudável disponível na mesma categoria de posição, em vez de confiar
+        // 100% na IA seguir a regra. Se não houver alternativa saudável, mantém a escolha da IA
+        // (mesma exceção que já existe no prompt). Retorna a lista de trocas feitas, em texto.
+        function aplicarRotacaoObrigatoriaEscalacao(res) {
+            if (!res || !res.escalacao || !db[currentSave]) return [];
+            let trocas = [];
+            // Só quem já está escalado noutra posição é intocável (não pode jogar em dois lugares ao
+            // mesmo tempo) — quem está no banco (reservas) É candidato válido a ser promovido pra titular.
+            let usadosTitulares = new Set(Object.values(res.escalacao).map(j => j && j.nome).filter(Boolean));
+
+            Object.entries(res.escalacao).forEach(([role, info]) => {
+                if (!info || !info.nome) return;
+                let jogador = db[currentSave].plantel.find(x => x.nome.toLowerCase() === String(info.nome).toLowerCase().trim());
+                if (!jogador) return;
+                let condicao = (typeof condicaoJogador === 'function') ? condicaoJogador(jogador) : { nivel: 'ok' };
+                if (condicao.nivel !== 'critico' && condicao.nivel !== 'risco') return;
+
+                let categoria = CATEGORIA_POR_ROLE[role];
+                let candidatos = db[currentSave].plantel.filter(p => {
+                    if (p.nome === jogador.nome || usadosTitulares.has(p.nome)) return false;
+                    if (p.status !== 'Ativo') return false;
+                    if (currentSave === 'selecao' && p.convocado === false) return false;
+                    if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                    if (!p.posicao || p.posicao.split('/')[0] !== categoria) return false;
+                    let c = (typeof condicaoJogador === 'function') ? condicaoJogador(p) : { nivel: 'ok' };
+                    return c.nivel === 'ok' || c.nivel === 'alerta';
+                });
+                if (candidatos.length === 0) return; // sem alternativa saudável na posição — mantém a escolha da IA
+
+                candidatos.sort((a, b) => b.ovr - a.ovr);
+                let substituto = candidatos[0];
+                usadosTitulares.delete(jogador.nome);
+                usadosTitulares.add(substituto.nome);
+
+                let motivo = condicao.nivel === 'critico' ? 'fadiga crítica' : 'risco de lesão';
+                res.escalacao[role] = { nome: substituto.nome, instrucao: `${info.instrucao || ''} (Rotação automática do Departamento Médico — ${jogador.nome} preservado por ${motivo}.)`.trim() };
+
+                if (!Array.isArray(res.reservas)) res.reservas = [];
+                // Se o substituto veio do banco, ele sai de lá (agora é titular) e quem foi poupado assume a vaga dele.
+                let idxNoBanco = res.reservas.findIndex(r => r && r.nome === substituto.nome);
+                if (idxNoBanco >= 0) res.reservas.splice(idxNoBanco, 1);
+                if (!res.reservas.some(r => r && r.nome === jogador.nome)) {
+                    res.reservas.unshift({ nome: jogador.nome, posicao: jogador.posicao, papel: `Poupado pelo Departamento Médico (${motivo}).` });
+                }
+
+                trocas.push(`${substituto.nome} entrou no lugar de ${jogador.nome} (${motivo})`);
+            });
+
+            return trocas;
+        }
 
         let _trocaOpcoesAtuais = []; // [{nome, ovr, posicao, tag, onSelect}]
         let _trocaOpcoesExtras = [];

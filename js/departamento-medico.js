@@ -21,8 +21,28 @@ const CONDICAO_FISICA_CFG = {
     JOGOS_SEGUIDOS_RISCO: 10,          // "mais de 10 partidas seguidas" -> risco real
     JOGOS_SEGUIDOS_CRITICO: 14,
     CHANCE_LESAO_RISCO: 16,            // % de chance de lesão por partida jogada em risco
-    CHANCE_LESAO_CRITICO: 32           // % de chance por partida jogada em risco crítico
+    CHANCE_LESAO_CRITICO: 32,          // % de chance por partida jogada em risco crítico
+    // Multiplicador de desgaste por função em campo — corre mais quem cobre mais linha (lateral/ponta),
+    // goleiro praticamente não desgasta fisicamente, o resto (zaga/volante/meio/ataque) fica no padrão.
+    MULT_DESGASTE_GOLEIRO: 0.35,
+    MULT_DESGASTE_LATERAL_PONTA: 1.3
 };
+
+// "Zagueiro" -> "Zagueiro", "Lateral/Defesa Direito" -> "Lateral" etc. (mesmo critério usado
+// pelo seletor de troca em chat-ia.js pra filtrar posições relevantes)
+function categoriaAmplaPosicao(p) {
+    if (!p || !p.posicao) return '';
+    return String(p.posicao).split('/')[0];
+}
+
+// Jogadores de linha lateral (laterais e pontas) correm muito mais que zagueiros/volantes/meias centrais
+// e o goleiro praticamente não desgasta — reflete isso no custo de condição física por partida.
+function multiplicadorDesgastePorPosicao(p) {
+    let categoria = categoriaAmplaPosicao(p);
+    if (categoria === 'Goleiro') return CONDICAO_FISICA_CFG.MULT_DESGASTE_GOLEIRO;
+    if (categoria === 'Lateral' || categoria === 'Ponta') return CONDICAO_FISICA_CFG.MULT_DESGASTE_LATERAL_PONTA;
+    return 1;
+}
 
 // Garante que jogadores antigos (criados antes desta atualização) ganhem os campos novos
 function garantirCondicaoFisica(p) {
@@ -99,6 +119,7 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
             let custo = cfg.STAMINA_CUSTO_BASE;
             if (diasDescanso <= 2) custo = cfg.STAMINA_CUSTO_POUCO_DESCANSO;
             else if (diasDescanso <= 4) custo = cfg.STAMINA_CUSTO_DESCANSO_MEDIO;
+            custo *= multiplicadorDesgastePorPosicao(p);
             p.stamina = Math.max(0, p.stamina - custo);
             p.jogosSeguidos = (p.jogosSeguidos || 0) + 1;
         } else if (p.diasLesao <= 0 && !p.suspensoVermelho) {
@@ -239,6 +260,15 @@ function rotuloPorNivel(nivel) {
     return '🟢 CONDIÇÃO IDEAL';
 }
 
+// Rótulo curto explicando por que a posição do jogador desgasta mais/menos que a média —
+// mesma lógica de multiplicadorDesgastePorPosicao, só que em texto pra UI.
+function rotuloDesgastePosicao(p) {
+    let categoria = categoriaAmplaPosicao(p);
+    if (categoria === 'Goleiro') return '🧤 Baixo desgaste físico (goleiro)';
+    if (categoria === 'Lateral' || categoria === 'Ponta') return '⚡ Desgaste alto — cobre muita linha (lateral/ponta)';
+    return '';
+}
+
 function atualizarDepartamentoMedicoUI() {
     if (!db[currentSave] || !db[currentSave].nome) return;
     garantirCondicaoFisicaTodos();
@@ -288,6 +318,7 @@ function atualizarDepartamentoMedicoUI() {
                 <div style="min-width: 160px;">
                     <strong>${p.nome}</strong><br>
                     <span style="font-size: 12px; color: var(--text-muted);">${p.posicao} • OVR ${p.ovr}</span>
+                    ${rotuloDesgastePosicao(p) ? `<br><span style="font-size: 11px; color: var(--text-muted);">${rotuloDesgastePosicao(p)}</span>` : ''}
                 </div>
                 <div style="flex: 1; min-width: 180px;">
                     <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom: 3px;">
