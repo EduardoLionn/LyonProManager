@@ -52,6 +52,42 @@ function estatisticasJogadorTemporada(nome) {
     };
 }
 
+// Quando você promete minutos a um jogador, a promessa fica registrada com o número de
+// partidas que o clube tinha na época. Aqui a gente confere se ela foi cumprida: o atleta
+// precisava entrar em campo na maioria das partidas seguintes.
+function avaliarPromessaMinutos(p) {
+    let promessa = p && p.promessaMinutos;
+    if (!promessa) return { tem: false };
+
+    let d = db[currentSave];
+    let desde = numeroSeguro(promessa.desde, 0);
+    let prometidos = Math.max(1, numeroSeguro(promessa.jogosPrometidos, 3));
+    let posteriores = (d.partidas || []).slice(desde);
+    let jogou = posteriores.filter(m => (m.jogadores || []).some(j => j.nome === p.nome)).length;
+
+    return {
+        tem: true,
+        prometidos,
+        disputadas: posteriores.length,
+        jogou,
+        // Só dá pra julgar depois que o clube teve partidas suficientes pra cumprir
+        vencida: posteriores.length >= prometidos,
+        cumprida: jogou >= prometidos
+    };
+}
+
+// Promessa cumprida encerra o assunto (e o jogador reconhece). Roda a cada partida salva,
+// senão a promessa ficaria pendurada no save pra sempre depois de já ter sido honrada.
+function revisarPromessasMinutos() {
+    elencoAtivo().forEach(p => {
+        let promessa = avaliarPromessaMinutos(p);
+        if (promessa.tem && promessa.vencida && promessa.cumprida) {
+            p.promessaMinutos = null;
+            ajustarMoral(p, 6);
+        }
+    });
+}
+
 // Clima do vestiário: moral média e um índice de tensão que aumenta a chance de mensagens.
 function calcularClimaVestiario() {
     let ativos = elencoAtivo();
@@ -381,7 +417,29 @@ function _msgCobrancaMinutos(p, s, ctx) {
     if (s.totalTime < 4) return null;
     if (s.percentual >= 40) return null;
     if (p.ovr < ctx.mediaOvr - 2) return null;
-    if (p.moral >= 82) return null;
+
+    // Promessa quebrada é caso à parte: passa por cima do filtro de moral alta e cobra
+    // muito mais forte, porque o jogador está cobrando a sua palavra, não a escalação.
+    let promessa = avaliarPromessaMinutos(p);
+    let quebrou = promessa.tem && promessa.vencida && !promessa.cumprida;
+
+    if (!quebrou && p.moral >= 82) return null;
+
+    if (quebrou) {
+        return {
+            peso: 30,
+            assunto: `💢 ${p.nome} cobra a promessa que você fez`,
+            corpo: `<p>"Mister, o senhor me olhou no olho e prometeu oportunidades. De lá pra cá foram <strong>${promessa.disputadas} partidas</strong> e eu entrei em <strong>${promessa.jogou}</strong>. Combinamos ${promessa.prometidos}."</p>
+            <p style="color:var(--text-muted);">${p.posicao} • OVR ${p.ovr} (média do elenco: ${Math.round(ctx.mediaOvr)}) • ${s.percentual}% dos jogos na temporada • moral ${rotuloMoral(p.moral)}</p>
+            <p style="color:var(--danger);">Palavra não cumprida pesa no vestiário inteiro, não só nele.</p>`,
+            opcoes: [
+                { id: 'admitir', rotulo: '🙇 Admitir a falha e escalá-lo', detalhe: 'Recupera a confiança dele e do grupo' },
+                { id: 'ignorar_promessa', rotulo: '🧊 Dizer que o time vem primeiro', detalhe: 'Moral dele despenca e o grupo sente' }
+            ],
+            contexto: { evento: 'promessa_quebrada', jogador: p.nome, prometidos: promessa.prometidos, jogou: promessa.jogou }
+        };
+    }
+
     return {
         peso: 24,
         assunto: `⏱️ ${p.nome} quer mais minutos em campo`,
@@ -396,6 +454,8 @@ function _msgCobrancaMinutos(p, s, ctx) {
 }
 
 function _msgPedidoTransferencia(p, s, ctx) {
+    // Emprestado ao nosso clube não é nosso pra negociar — ele nem levanta o assunto.
+    if (jogadorPertenceAOutroClube(p)) return null;
     let idade = p.idade || 26;
     let destaque = p.ovr >= ctx.mediaOvr + 4;
     if (!destaque) return null;
@@ -419,6 +479,8 @@ function _msgPedidoTransferencia(p, s, ctx) {
 }
 
 function _msgPedidoEmprestimo(p, s, ctx) {
+    // Não dá pra emprestar a terceiros quem já está aqui emprestado por outro clube.
+    if (jogadorPertenceAOutroClube(p)) return null;
     let idade = p.idade || 26;
     if (idade > 21) return null;
     if (p.ovr > ctx.mediaOvr - 3) return null;
@@ -607,6 +669,13 @@ function resolverMensagemJogador(msg, opcao) {
     if (!p) return 'O atleta não faz mais parte do elenco — a conversa foi arquivada.';
     garantirCamposElenco(p);
 
+    // A situação pode ter mudado entre a mensagem chegar e você responder (o atleta pode ter
+    // virado um empréstimo de outro clube nesse meio-tempo). Negociar quem não é nosso fica
+    // barrado aqui também, e não só na hora de gerar a mensagem.
+    if (jogadorPertenceAOutroClube(p) && (c.evento === 'transferencia' || c.evento === 'emprestimo')) {
+        return `${p.nome} está no clube por empréstimo e pertence a outro time — não há como negociá-lo. O departamento jurídico arquivou o pedido.`;
+    }
+
     switch (c.evento) {
         case 'elogio': {
             if (opcao === 'devolver') { ajustarMoralElenco(4); ajustarMoral(p, 6); return `Você devolveu o elogio ao grupo: a moral de todo o elenco subiu.`; }
@@ -618,13 +687,28 @@ function resolverMensagemJogador(msg, opcao) {
             if (opcao === 'prometer') {
                 ajustarMoral(p, 14);
                 p.promessaMinutos = { desde: (d.partidas || []).length, jogosPrometidos: 4 };
-                return `${p.nome} saiu satisfeito da conversa. A promessa fica registrada: se ele não jogar nas próximas partidas, a cobrança volta mais dura.`;
+                return `${p.nome} saiu satisfeito da conversa. A promessa fica registrada: se ele não entrar em campo em 4 das próximas partidas, a cobrança volta bem mais dura.`;
             }
+            p.promessaMinutos = null; // não prometeu nada: nada a cobrar depois
             let aceitou = gerarNumeroAleatorio(1, 100) <= 45;
             ajustarMoral(p, aceitou ? 3 : -12);
             return aceitou
                 ? `${p.nome} aceitou o desafio e prometeu se impor nos treinos.`
                 : `${p.nome} não gostou da resposta e saiu contrariado da sala (moral em queda).`;
+        }
+
+        case 'promessa_quebrada': {
+            if (opcao === 'admitir') {
+                ajustarMoral(p, 16);
+                ajustarMoralElenco(2);
+                // Renova o compromisso: a contagem recomeça a partir de agora
+                p.promessaMinutos = { desde: (d.partidas || []).length, jogosPrometidos: 3 };
+                return `Você assumiu a falha na frente dele. ${p.nome} recuperou a confiança e o grupo registrou a atitude — mas agora são 3 partidas para cumprir de verdade.`;
+            }
+            p.promessaMinutos = null;
+            ajustarMoral(p, -22);
+            ajustarMoralElenco(-5);
+            return `${p.nome} saiu com a sensação de ter sido enganado (moral despencou) e o vestiário inteiro sentiu o peso da palavra não cumprida.`;
         }
 
         case 'transferencia': {
@@ -652,6 +736,7 @@ function resolverMensagemJogador(msg, opcao) {
             if (opcao === 'emprestar') {
                 p.status = 'Emprestado';
                 p.temporadasEmprestimo = 1;
+                liberarBracadeiraSeNecessario(p.nome);
                 adicionarNoticiaAutomatica(`📤 RODAGEM: ${p.nome} sai por empréstimo.`, `O clube liberou o jovem para ganhar minutos em outra equipe e voltar mais preparado.`);
                 if (typeof preencherDatalistJogadores === 'function') preencherDatalistJogadores();
                 if (typeof filtrarMercado === 'function') filtrarMercado(statusFiltroMercado);

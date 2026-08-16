@@ -1432,7 +1432,9 @@ ${textoRegrasCompatibilidadePosicional()}
                     atualizarTemperaturaUI(res.temperatura || "Neutro");
                     history.push({ role: 'ai', text: res.mensagem });
                     
-                    if (res.variacao_prestigio) atualizarNotaDiretoria(Number(res.variacao_prestigio));
+                    // Mesma trava de segurança do chat da diretoria: uma coletiva de imprensa
+                    // não pode virar do avesso o prestígio do clube de uma vez só.
+                    if (res.variacao_prestigio) atualizarNotaDiretoria(numeroNaFaixa(res.variacao_prestigio, -0.3, 0.3, 0));
 
                     if (res.gerarNoticia === true && res.tituloNoticia && window.noticiasGeradasColetiva < 2) {
                         window.noticiasGeradasColetiva++;

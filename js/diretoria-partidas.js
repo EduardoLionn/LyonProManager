@@ -138,12 +138,19 @@
         // a conversão pra 0-100 (a mesma do jogo) acontece aqui dentro, multiplicando por 10, em
         // vez de mexer em cada chamada.
         function atualizarNotaDiretoria(variacao) {
-            if (db[currentSave].notaDiretoria !== undefined && variacao !== 0) {
-                db[currentSave].notaDiretoria = Math.max(0, Math.min(100, db[currentSave].notaDiretoria + variacao * 10));
-                let elNota = document.getElementById('dir-nota-diretoria');
-                if (elNota) elNota.innerText = Math.round(db[currentSave].notaDiretoria) + " / 100";
-                registrarComandoPrestigioSeMudou();
-            }
+            let data = db[currentSave];
+            if (!data) return;
+            // A variação pode chegar da IA como string, null ou campo faltando. Sem saneamento
+            // aqui, "undefined * 10" grava NaN no prestígio e trava o indicador pra sempre.
+            // O teto de ±3 cobre o pior caso legítimo (avaliação de fim de temporada, ±0,4 por
+            // objetivo) e barra qualquer valor absurdo.
+            let delta = numeroNaFaixa(variacao, -3, 3, 0);
+            if (delta === 0) return;
+            let atual = numeroNaFaixa(data.notaDiretoria, 0, 100, 75);
+            data.notaDiretoria = Math.max(0, Math.min(100, atual + delta * 10));
+            let elNota = document.getElementById('dir-nota-diretoria');
+            if (elNota) elNota.innerText = Math.round(data.notaDiretoria) + " / 100";
+            registrarComandoPrestigioSeMudou();
         }
 
         // --- CENTRAL DE COMANDOS PRO JOGO ---

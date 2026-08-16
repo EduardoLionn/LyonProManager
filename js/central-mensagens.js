@@ -58,10 +58,20 @@ function garantirCentralMensagens() {
 function garantirCamposElenco(p) {
     if (!p) return p;
     if (typeof p.moral !== 'number' || isNaN(p.moral)) p.moral = 75;
-    if (typeof p.ovrInicial !== 'number' || isNaN(p.ovrInicial)) p.ovrInicial = p.ovr;
+    if (typeof p.ovrInicial !== 'number' || isNaN(p.ovrInicial)) p.ovrInicial = numeroSeguro(p.ovr, 60);
     if (typeof p.temporadasNoClube !== 'number' || isNaN(p.temporadasNoClube)) p.temporadasNoClube = 0;
     if (typeof p.poupadoRestante !== 'number' || isNaN(p.poupadoRestante)) p.poupadoRestante = 0;
     return p;
+}
+
+// Quem deixa de estar disponível (vendido, emprestado, aposentado) não pode continuar
+// como capitão. Os eventos da Central mexem no status direto, então precisam chamar isso.
+function liberarBracadeiraSeNecessario(nome) {
+    let d = db[currentSave];
+    if (!d) return;
+    if (d.capitao === nome) d.capitao = '';
+    if (d.viceCapitao === nome) d.viceCapitao = '';
+    if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
 }
 
 function garantirCamposElencoTodos() {
@@ -440,6 +450,9 @@ function processarCiclosPosPartida() {
     let d = garantirCentralMensagens();
     if (!d || !d.nome) return;
     if (currentSave !== 'clube') return; // slot Seleção não tem departamento médico nem elenco fixo
+
+    // Promessas de minutos são conferidas a cada partida, não só quando o ciclo de mensagens vence
+    if (typeof revisarPromessasMinutos === 'function') revisarPromessasMinutos();
 
     d.contadorPartidasMedico++;
     if (d.contadorPartidasMedico >= d.limitePartidasMedico) {

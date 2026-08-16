@@ -277,6 +277,12 @@
                         // Lógica da Caça às Bruxas
                         if(p.pede_venda_jogador && p.pede_venda_jogador.trim() !== "") {
                             let alvo = p.pede_venda_jogador.trim();
+                            // A IA às vezes inventa um nome ou aponta alguém que não é nosso:
+                            // só vira exigência quem realmente está ativo no elenco e pode ser
+                            // negociado (quem chegou emprestado pertence a outro clube).
+                            let alvoReal = db[currentSave].plantel.find(j => j.status === 'Ativo' && j.nome.toLowerCase() === alvo.toLowerCase());
+                            if (!alvoReal || jogadorPertenceAOutroClube(alvoReal)) return;
+                            alvo = alvoReal.nome;
                             db[currentSave].alvosTorcida[alvo] = (db[currentSave].alvosTorcida[alvo] || 0) + 1;
                             
                             // Se bater 3 exigências seguidas da torcida, a diretoria interfere

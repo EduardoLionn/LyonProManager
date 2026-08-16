@@ -1,4 +1,56 @@
-        // A IA às vezes devolve o orçamento em euros crus (ex: 15000000) em vez de milhões (15).
+// Converte qualquer coisa num número finito. É a porta de entrada obrigatória pra todo
+// valor que vem da IA (que pode devolver string, null, campo faltando) antes de virar
+// estado do save. Sem isso, um único retorno estranho grava NaN no save — e NaN vira null
+// no JSON.stringify, o que congela indicadores na tela e depois os faz saltar do nada.
+function numeroSeguro(valor, padrao) {
+    // null/undefined/"" contam como "campo ausente", não como zero. Isso importa porque o
+    // JSON.stringify grava NaN como null: sem esse tratamento, um indicador corrompido
+    // "curaria" para 0 em vez de voltar ao padrão.
+    if (valor === null || valor === undefined || valor === '') return Number.isFinite(padrao) ? padrao : 0;
+    let n = Number(valor);
+    if (Number.isFinite(n)) return n;
+    return Number.isFinite(padrao) ? padrao : 0;
+}
+
+// Igual ao numeroSeguro, já preso a uma faixa válida.
+function numeroNaFaixa(valor, min, max, padrao) {
+    return Math.max(min, Math.min(max, numeroSeguro(valor, padrao)));
+}
+
+// Um atleta que está no clube por empréstimo pertence a outro time: não pode ser vendido,
+// emprestado de novo nem dispensado. A única saída válida é devolvê-lo (EncerrarEmprestimo).
+function jogadorPertenceAOutroClube(jogador) {
+    return !!(jogador && jogador.origem === 'EmprestadoIn');
+}
+
+// Conserta indicadores numéricos que já foram corrompidos em partidas anteriores (o bug
+// clássico: a IA devolvia um valor estranho, o campo virava NaN, o JSON gravava null e o
+// número na tela ficava travado até dar um salto do nada). Roda uma vez por save carregado.
+function sanearNumerosDoSave() {
+    let d = db[currentSave];
+    if (!d) return;
+
+    d.aprovacaoTorcida = numeroNaFaixa(d.aprovacaoTorcida, 0, 100, 75);
+    d.notaDiretoria = numeroNaFaixa(d.notaDiretoria, 0, 100, 75);
+    d.orcamento = numeroSeguro(d.orcamento, 0);
+    d.gastoAtual = Math.max(0, numeroSeguro(d.gastoAtual, 0));
+    d.arrecadadoAtual = Math.max(0, numeroSeguro(d.arrecadadoAtual, 0));
+    d.mediaGastoHistorico = Math.max(0, numeroSeguro(d.mediaGastoHistorico, 0));
+    d.mediaArrecadadoHistorico = Math.max(0, numeroSeguro(d.mediaArrecadadoHistorico, 0));
+    d.verbaAntecipada = Math.max(0, numeroSeguro(d.verbaAntecipada, 0));
+
+    (d.plantel || []).forEach(p => {
+        p.ovr = Math.max(1, Math.round(numeroSeguro(p.ovr, 60)));
+        if (p.idade !== undefined && p.idade !== null) p.idade = Math.round(numeroSeguro(p.idade, 24));
+        p.stamina = numeroNaFaixa(p.stamina, 0, 100, 100);
+        p.moral = numeroNaFaixa(p.moral, 0, 100, 75);
+        p.diasLesao = Math.max(0, Math.round(numeroSeguro(p.diasLesao, 0)));
+        p.jogosSeguidos = Math.max(0, Math.round(numeroSeguro(p.jogosSeguidos, 0)));
+        p.poupadoRestante = Math.max(0, Math.round(numeroSeguro(p.poupadoRestante, 0)));
+    });
+}
+
+// A IA às vezes devolve o orçamento em euros crus (ex: 15000000) em vez de milhões (15).
 // Nenhum clube deveria ter um orçamento de transferências >= 1000 (bilhão de euros), então
 // qualquer valor absurdamente alto é reinterpretado como estando na escala errada.
 function normalizarValorOrcamento(valor) {
@@ -387,6 +439,10 @@ function toggleChatDiretoria() {
             if (typeof garantirCondicaoFisicaTodos === 'function') garantirCondicaoFisicaTodos();
             if (typeof garantirCentralMensagens === 'function') garantirCentralMensagens();
             if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
+            sanearNumerosDoSave();
+            // O termômetro fica no HTML com um valor fixo de exemplo até alguém desenhá-lo:
+            // sem esta chamada ele só era atualizado ao abrir o Feed Social.
+            if (typeof renderizarTermometroUI === 'function') renderizarTermometroUI();
             if (typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
             if (typeof renderizarLiderancaUI === 'function' && currentSave === 'clube') renderizarLiderancaUI();
             preencherDatalistJogadores(); document.getElementById('jog-nome-input').value = '';

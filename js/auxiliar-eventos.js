@@ -256,14 +256,22 @@ Exemplo do formato exigido:
 
         function atualizarTermometroTorcida(variacao) {
             let config = db[currentSave];
-            if(config.aprovacaoTorcida === undefined) config.aprovacaoTorcida = 75;
-            config.aprovacaoTorcida = Math.max(0, Math.min(100, config.aprovacaoTorcida + variacao));
+            if (!config) return;
+            // O valor guardado pode estar corrompido (NaN/null) por um retorno estranho da IA
+            // em versões anteriores: sanear aqui conserta o save em vez de propagar o lixo.
+            let atual = numeroNaFaixa(config.aprovacaoTorcida, 0, 100, 75);
+            // Nenhum evento isolado move a torcida mais que 15 pontos — a IA do Feed Social
+            // já devolveu variações absurdas e elas zeravam o termômetro de uma vez.
+            let delta = numeroNaFaixa(variacao, -15, 15, 0);
+            config.aprovacaoTorcida = Math.max(0, Math.min(100, atual + delta));
             salvarDados();
             renderizarTermometroUI();
         }
 
         function renderizarTermometroUI() {
-            let val = Math.round(db[currentSave].aprovacaoTorcida || 75);
+            // Atenção ao "|| 75": com aprovação em 0 (ou corrompida) ele mostrava 75 e dava a
+            // impressão de que o termômetro tinha travado. Sanear é o certo aqui.
+            let val = Math.round(numeroNaFaixa(db[currentSave] && db[currentSave].aprovacaoTorcida, 0, 100, 75));
             let barra = document.getElementById('barra-torcida');
             let texto = document.getElementById('texto-torcida');
             if(!barra || !texto) return;
