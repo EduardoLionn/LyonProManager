@@ -6,6 +6,7 @@
 
         function atualizarPlantelUI() {
             if(currentSave !== 'clube') return;
+            if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
             atualizarOrcamentoMercado();
             let tbody = document.querySelector('#tabela-plantel tbody'); tbody.innerHTML = '';
             
@@ -20,7 +21,21 @@
 
             plantelSort.filter(p => p.status === 'Ativo').forEach((p, idx) => {
                 let isListado = db.clube.exigenciasDiretoria.includes(p.nome) ? `<span class="badge bg-vendido" style="margin-left:10px;">⚠️ Listado Pela Diretoria</span>` : '';
-                
+
+                // Braçadeira e moral vêm da Central de Mensagens (capitão/vice e eventos do elenco)
+                let badgeLideranca = '';
+                if (db.clube.capitao === p.nome) badgeLideranca = ` <span class="badge" style="background: rgba(255,215,0,0.18); color: var(--gold);">🎖️ Capitão</span>`;
+                else if (db.clube.viceCapitao === p.nome) badgeLideranca = ` <span class="badge" style="background: rgba(232,184,75,0.14); color: var(--primary);">🅥 Vice-capitão</span>`;
+
+                let badgeMoral = '';
+                if (typeof p.moral === 'number') {
+                    if (p.moral < 40) badgeMoral = ` <span class="badge" style="background: rgba(226,75,75,0.15); color: var(--danger);">😠 Moral ${Math.round(p.moral)}</span>`;
+                    else if (p.moral < 55) badgeMoral = ` <span class="badge" style="background: rgba(217,130,43,0.15); color: var(--warning);">😕 Moral ${Math.round(p.moral)}</span>`;
+                    else if (p.moral >= 85) badgeMoral = ` <span class="badge" style="background: rgba(75,159,226,0.15); color: var(--accent);">😄 Moral ${Math.round(p.moral)}</span>`;
+                }
+                if (p.poupadoRestante > 0) badgeMoral += ` <span class="badge" style="background: rgba(75,159,226,0.18); color: var(--accent);">💤 Poupado (${p.poupadoRestante})</span>`;
+                if (p.pediuSaida) badgeMoral += ` <span class="badge" style="background: rgba(226,75,75,0.15); color: var(--danger);">🚪 Pediu para sair</span>`;
+
                 // --- NOVAS BADGES DE LESÃO E CARTÃO VERMELHO ---
                 let badgeCondicao = '';
                 if (p.diasLesao && p.diasLesao > 0) {
@@ -51,7 +66,7 @@
 
                 tbody.innerHTML += `
                 <tr id="linha-jogador-${idx}">
-                    <td>${p.posicao}</td><td><strong>${p.nome}</strong> ${isListado} ${badgeCondicao}</td>
+                    <td>${p.posicao}</td><td><strong>${p.nome}</strong>${badgeLideranca} ${isListado} ${badgeCondicao}${badgeMoral}</td>
                     <td style="${getOvrClass(p.ovr)} font-weight:bold; font-size:16px;">${p.ovr}</td>
                     <td>${p.idade || '-'}</td>
                     <td style="display:flex; gap: 10px; align-items: center;">
@@ -72,6 +87,7 @@
                 </tr>`;
             });
             atualizarSelectCondicaoAuxiliar();
+            if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
         }
 
         function toggleRaioXPlantel(nome, idx) {
@@ -253,7 +269,10 @@
             let j = db[currentSave].plantel.find(p => p.nome === nome);
             if(j) {
                 j.ovr += val; j.jogosAvaliacao = (j.jogosAvaliacao || 0) + 5;
+                if (typeof garantirCamposElenco === 'function') garantirCamposElenco(j);
+                if (typeof ajustarMoral === 'function' && val > 0) ajustarMoral(j, 5); // evoluir anima o atleta
                 salvarDados(); atualizarUpgradesUI(); atualizarPlantelUI();
+                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Upgrade de OVR: ${nome} (${val > 0 ? '+' : ''}${val})`);
             }
         }
 

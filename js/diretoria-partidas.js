@@ -535,8 +535,20 @@
                 esconderCarregandoIA();
             }
 
+            // A moral do elenco acompanha o resultado: vencer levanta o vestiário, perder derruba.
+            if (typeof ajustarMoralElenco === 'function') {
+                if (golsP > golsC || penaltis) ajustarMoralElenco(gerarNumeroAleatorio(2, 5));
+                else if (golsC > golsP) ajustarMoralElenco(-gerarNumeroAleatorio(3, 6));
+            }
+
             salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
-            contadorPartidasEvento++; if(contadorPartidasEvento >= limitePartidasEvento) { gerarEventoAleatorio(); contadorPartidasEvento = 0; limitePartidasEvento = gerarNumeroAleatorio(8, 14); } else { alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!"); }
+            alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!");
+
+            // Ciclos da Central de Mensagens: partida conta como ação (diretoria) e alimenta
+            // os contadores do Departamento Médico e das mensagens do elenco.
+            if (typeof processarCiclosPosPartida === 'function') processarCiclosPosPartida();
+            if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Partida salva vs ${adv}`);
+
             atualizarFiltroTemporadas(); desenharGraficos(); preencherDatalistJogadores();
         }
 

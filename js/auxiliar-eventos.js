@@ -197,6 +197,7 @@ Exemplo do formato exigido:
                 salvarDados();
                 if(currentSave === 'clube') atualizarPlantelUI();
                 atualizarDepartamentoMedicoUI();
+                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Lesão declarada: ${nome} (${dias}d)`);
                 alert(`🏥 ${nome} declarado como lesionado por ${dias} dias.`);
                 document.getElementById('input-dias-lesao').value = '0';
             }
@@ -213,6 +214,7 @@ Exemplo do formato exigido:
                 salvarDados();
                 if(currentSave === 'clube') atualizarPlantelUI();
                 atualizarDepartamentoMedicoUI();
+                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Cartão vermelho: ${nome}`);
                 alert(`🟥 ${nome} está suspenso pelo próximo jogo devido a um Cartão Vermelho.`);
             }
         }

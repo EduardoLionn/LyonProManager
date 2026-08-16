@@ -1265,6 +1265,11 @@ ${textoRegrasCompatibilidadePosicional()}
             db[currentSave].partidaAuxiliar = null;
             renderizarChat('auxiliar');
             if (typeof renderizarAuxiliarPartida === 'function') renderizarAuxiliarPartida();
+
+            // A avaliação pós-jogo também chega na Central de Mensagens, com notificação
+            if (typeof notificarAuxiliar === 'function') {
+                notificarAuxiliar(`📋 Avaliação pós-jogo vs ${nomeAdv} (${golsPro}x${golsContra})`, `<p>${textoResumo}</p><p style="color:var(--text-muted);">Resultado: <strong>${resultado}</strong>. O relatório completo, com campinho tático e substituições, está na aba do Auxiliar Técnico.</p>`);
+            }
         }
 
         // --- HISTÓRICO DE PARTIDAS ---

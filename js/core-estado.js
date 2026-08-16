@@ -7,9 +7,7 @@
         let statusFiltroMercado = 'Vendido';
         let idTempCounter = 0;
         let jogadoresPartidaTemp = [];
-        let contadorPartidasEvento = 0;
-        let limitePartidasEvento = Math.floor(Math.random() * 7) + 8; // 8 a 14 (mesmo cálculo de gerarNumeroAleatorio, sem depender de outro arquivo)
-        let charts = {}; 
+        let charts = {};
         let postsVisiveisSocial = 10; // <-- ADICIONE ESTA LINHA 
         
         let ordemAtualPlantel = { coluna: 'ovr', ascendente: false };
@@ -27,8 +25,8 @@
         // criar novos saves e resetar slots — mantém uma única fonte de verdade pro "formato" do save.
         function dbPadrao() {
             return {
-                clube: { nome: '', saveName: '', nomeTecnico: '', nomeDiretor: '', nomeAuxiliar: '', partidaAuxiliar: null, historicoPartidasAuxiliar: [], comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 75, alvosTorcida: {}, liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 75, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } },
-                selecao: { nome: '', saveName: '', nomeTecnico: '', nomeDiretor: '', nomeAuxiliar: '', partidaAuxiliar: null, historicoPartidasAuxiliar: [], comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 75, alvosTorcida: {}, liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 75, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] } }
+                clube: { nome: '', saveName: '', nomeTecnico: '', nomeDiretor: '', nomeAuxiliar: '', partidaAuxiliar: null, historicoPartidasAuxiliar: [], comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 75, alvosTorcida: {}, liga: '', temporadaAtual: '25/26', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 75, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] }, caixaMensagens: [], contadorAcoesDiretoria: 0, limiteAcoesDiretoria: Math.floor(Math.random() * 11) + 15, contadorPartidasMedico: 0, limitePartidasMedico: Math.floor(Math.random() * 11) + 10, contadorPartidasElenco: 0, limitePartidasElenco: Math.floor(Math.random() * 5) + 8, capitao: '', viceCapitao: '' },
+                selecao: { nome: '', saveName: '', nomeTecnico: '', nomeDiretor: '', nomeAuxiliar: '', partidaAuxiliar: null, historicoPartidasAuxiliar: [], comandosJogo: [], ultimoPrestigioRegistrado: null, aprovacaoTorcida: 75, alvosTorcida: {}, liga: 'Seleção Tier 2 (OVR 74)', temporadaAtual: 'Ciclo 2030', orcamento: 0, gastoAtual: 0, arrecadadoAtual: 0, mediaGastoHistorico: 0, mediaArrecadadoHistorico: 0, competicaoContinental: 'Nenhuma', notaDiretoria: 75, objetivosTemporada: '', diretoriaConfigurada: false, exigenciasDiretoria: [], partidas: [], plantel: [], historicoTemporadas: [], socialFeed: [], chatHistory: { diretoria: [], auxiliar: [] }, caixaMensagens: [], contadorAcoesDiretoria: 0, limiteAcoesDiretoria: Math.floor(Math.random() * 11) + 15, contadorPartidasMedico: 0, limitePartidasMedico: Math.floor(Math.random() * 11) + 10, contadorPartidasElenco: 0, limitePartidasElenco: Math.floor(Math.random() * 5) + 8, capitao: '', viceCapitao: '' }
             };
         }
         let db = dbPadrao();
