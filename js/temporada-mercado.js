@@ -79,9 +79,17 @@
                 detalhesComp.push({ competicao: c, fase_final: status });
             }
 
-            db[currentSave].historicoTemporadas.push({ temporada: db[currentSave].temporadaAtual, posicaoTabela: posTabelaInput, detalhes: detalhesComp, trofeus: trofeusGanhos });
-
             let gastoTotalTemp = db[currentSave].gastoAtual || 0; let arrecadadoTotalTemp = db[currentSave].arrecadadoAtual || 0;
+
+            // O gasto e a arrecadação ficam gravados por temporada: é essa série que a diretoria
+            // usa para calcular a verba extraordinária ("X% do total gasto nas últimas 5 temporadas").
+            db[currentSave].historicoTemporadas.push({ temporada: db[currentSave].temporadaAtual, posicaoTabela: posTabelaInput, detalhes: detalhesComp, trofeus: trofeusGanhos, gastoTemporada: gastoTotalTemp, arrecadadoTemporada: arrecadadoTotalTemp });
+
+            // Mais uma temporada de casa para quem está no elenco — critério usado pelos eventos
+            // da diretoria para identificar as joias formadas no clube.
+            if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
+            db[currentSave].plantel.filter(p => p.status === 'Ativo').forEach(p => { p.temporadasNoClube = (p.temporadasNoClube || 0) + 1; });
+
             let balancoFinanceiro = arrecadadoTotalTemp - gastoTotalTemp;
 
             // NOVA LÓGICA DE MÉDIA (Média Antiga + Atual) / 2
@@ -173,6 +181,15 @@ ${blocoAvaliacao}
             } catch(e) { db[currentSave].orcamento = 25; registrarComandoOrcamento(25, "Orçamento da Nova Temporada"); }
             esconderCarregandoIA();
 
+            // Verba que a diretoria adiantou no meio da temporada passada é descontada agora
+            if (db[currentSave].verbaAntecipada > 0) {
+                let descontada = db[currentSave].verbaAntecipada;
+                db[currentSave].orcamento = Math.max(0, db[currentSave].orcamento - descontada);
+                db[currentSave].verbaAntecipada = 0;
+                registrarComandoOrcamento(db[currentSave].orcamento, `Desconto da verba antecipada (€${descontada.toFixed(2)}M)`);
+                resumoObjetivos.push(`💳 Verba antecipada descontada: -€${descontada.toFixed(2)}M`);
+            }
+
             db[currentSave].gastoAtual = 0; db[currentSave].arrecadadoAtual = 0;
             db[currentSave].negociacoesDiretoria = 0; // Reseta o limite de negociações da diretoria
 
@@ -213,81 +230,17 @@ ${blocoAvaliacao}
             salvarDados(); alert(msgFinal); atualizarFiltroTemporadas(); ajustarInterfaceSave(); mudarAba('tab-diretoria');
         }
 
-        async function gerarEventoAleatorio() {
-            let plantelAtivo = db[currentSave].plantel.filter(p => p.status === 'Ativo');
-            let jogadoresRelevantes = plantelAtivo.map(p => `${p.nome} (${p.posicao}, OVR ${p.ovr})`).join(', ');
-            let ultimasPartidas = db[currentSave].partidas.slice(-5).map(p => `${p.contexto || 'Jogo'}: ${p.golsPro}x${p.golsContra}`).join(' | ');
-
-            let promptEvento = `Você é o Gerador de Eventos Inesperados de bastidores do "${db[currentSave].nome}" (Nota Diretoria: ${Math.round(db[currentSave].notaDiretoria||75)}/100, Orçamento: €${(db[currentSave].orcamento||0).toFixed(1)}M, Aprovação da Torcida: ${Math.round(db[currentSave].aprovacaoTorcida||75)}/100).
-            Elenco atual (USE APENAS ESTES NOMES SE FOR CITAR ALGUÉM): ${jogadoresRelevantes || "Elenco pequeno ainda, evite citar nomes"}
-            Últimos resultados: ${ultimasPartidas || "Início de temporada"}
-
-            Crie UM evento inesperado realista de bastidores de futebol (pode ser positivo, negativo ou neutro) — varie bastante o tipo a cada vez: lesão de treino em um jogador específico, polêmica no vestiário, boa fase física de alguém, proposta salarial, problema com a imprensa, gesto da torcida, doação/patrocínio da diretoria, conflito interno, etc.
-
-            ⚠️ REGRA DE OURO: se for citar um jogador, o nome TEM que ser copiado EXATAMENTE da lista do elenco acima. Se não houver ninguém adequado, não cite nome nenhum (deixe "jogadorAfetado" vazio).
-            ⚠️ Os efeitos numéricos devem ser pequenos e realistas (o orçamento em milhões de euros, entre -3 e +5; a nota da diretoria entre -0.3 e +0.3; a aprovação da torcida entre -5 e +5 pontos percentuais).
-
-            Retorne EXATAMENTE este JSON puro:
-            {
-              "titulo": "Título curto do evento",
-              "descricao": "1 a 2 frases descrevendo o que aconteceu",
-              "efeitoOrcamento": 0,
-              "efeitoNotaDiretoria": 0,
-              "efeitoAprovacaoTorcida": 0,
-              "jogadorAfetado": "",
-              "diasLesaoJogador": 0
-            }`;
-
-            mostrarCarregandoIA('⏳ Algo está acontecendo nos bastidores...');
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptEvento }] }] })
-                });
-                const data = await response.json();
-                let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
-                if (match) {
-                    let ev = JSON.parse(match[0]);
-
-                    if (ev.efeitoOrcamento && currentSave === 'clube') {
-                        let efeito = Math.max(-3, Math.min(5, Number(ev.efeitoOrcamento) || 0));
-                        db.clube.orcamento = Math.max(0, (db.clube.orcamento || 0) + efeito);
-                        registrarComandoOrcamento(db.clube.orcamento, "Evento Inesperado nos Bastidores");
-                    }
-                    if (ev.efeitoNotaDiretoria) {
-                        atualizarNotaDiretoria(Math.max(-0.3, Math.min(0.3, Number(ev.efeitoNotaDiretoria))));
-                    }
-                    if (ev.efeitoAprovacaoTorcida) {
-                        let atual = db[currentSave].aprovacaoTorcida || 75;
-                        db[currentSave].aprovacaoTorcida = Math.max(0, Math.min(100, atual + Math.max(-5, Math.min(5, Number(ev.efeitoAprovacaoTorcida)))));
-                    }
-                    if (ev.jogadorAfetado && Number(ev.diasLesaoJogador) > 0) {
-                        let alvo = plantelAtivo.find(p => p.nome === ev.jogadorAfetado); // só afeta se o nome bater exatamente com alguém real
-                        if (alvo) alvo.diasLesao = (alvo.diasLesao || 0) + Number(ev.diasLesaoJogador);
-                    }
-
-                    document.getElementById('evento-texto').innerText = `${ev.titulo}\n\n${ev.descricao}`;
-                    salvarDados(); atualizarPlantelUI(); atualizarDiretoriaUI();
-                } else {
-                    document.getElementById('evento-texto').innerText = "Algo aconteceu nos bastidores, mas os detalhes se perderam.";
-                }
-            } catch(e) {
-                document.getElementById('evento-texto').innerText = "Algo aconteceu nos bastidores, mas os detalhes se perderam.";
-            }
-            esconderCarregandoIA();
-            let h2Evento = document.querySelector('#modal-evento h2');
-            if (h2Evento) h2Evento.innerText = "⚠️ Evento Inesperado";
-            document.getElementById('modal-evento').style.display = 'flex';
-        }
-
         function cadastrarJogadorBase() {
             if(currentSave !== 'clube') return;
             let nome = document.getElementById('cad-nome').value.trim(); if(!nome) return;
             let idadeVal = document.getElementById('cad-idade').value;
             let novoJog = { nome: nome, posicao: document.getElementById('cad-pos').value, ovr: Number(document.getElementById('cad-ovr').value), status: 'Ativo', jogosAvaliacao: 0 };
             if (idadeVal) novoJog.idade = Number(idadeVal);
+            if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJog);
             db.clube.plantel.push(novoJog);
             salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); document.getElementById('cad-nome').value = ''; document.getElementById('cad-idade').value = '';
+            if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
+            if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Cadastro de ${nome} no elenco`);
         }
 
 // --- NOVO GERADOR DINÂMICO DE NOTÍCIAS DE MERCADO ---
@@ -412,9 +365,12 @@ ${blocoAvaliacao}
                 };
                 if (idadeVal) novoJog.idade = Number(idadeVal);
                 if (tipoTransicao === 'EmprestadoIn') novoJog.temporadasEmprestimo = duracao;
+                if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJog);
                 db.clube.plantel.push(novoJog);
             }
 
+            if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Chegada de ${nomeNovo} (${tipoTransicao})`);
+            if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
             salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores();
             alert(tipoTransicao === 'EmprestadoIn' ? "Jogador adicionado por empréstimo!" : "Contratação realizada!");
             checarEmbargoMercado();
@@ -496,7 +452,13 @@ ${blocoAvaliacao}
                 adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
             }
 
+            // Quem sai perde a braçadeira automaticamente
+            if (db.clube.capitao === nome) db.clube.capitao = '';
+            if (db.clube.viceCapitao === nome) db.clube.viceCapitao = '';
+
             document.getElementById('saida-nome-input').value = ''; document.getElementById('saida-valor').value = '0';
+            if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Saída de ${nome} (${tipo})`);
+            if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
             salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); filtrarMercado(statusFiltroMercado);
             checarEmbargoMercado();
         }
@@ -555,6 +517,11 @@ ${blocoAvaliacao}
             }
         }
     }
+    // Braçadeira não acompanha quem deixa de estar ativo no elenco
+    if (db[currentSave].capitao === nome && status !== 'ChamarDeVolta') db[currentSave].capitao = '';
+    if (db[currentSave].viceCapitao === nome && status !== 'ChamarDeVolta') db[currentSave].viceCapitao = '';
+    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Alteração de status de ${nome} (${status})`);
+    if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
     salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); filtrarMercado(statusFiltroMercado);
 }
 

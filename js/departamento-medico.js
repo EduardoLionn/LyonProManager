@@ -122,8 +122,20 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
             custo *= multiplicadorDesgastePorPosicao(p);
             p.stamina = Math.max(0, p.stamina - custo);
             p.jogosSeguidos = (p.jogosSeguidos || 0) + 1;
-        } else if (p.diasLesao <= 0 && !p.suspensoVermelho) {
-            p.jogosSeguidos = 0;
+
+            // Escalar quem tinha descanso concedido pelo Departamento Médico queima o combinado:
+            // o jogador se sente passado para trás e o descanso é cancelado.
+            if (p.poupadoRestante > 0) {
+                p.poupadoRestante = 0;
+                if (typeof ajustarMoral === 'function') ajustarMoral(p, -10);
+                if (typeof adicionarNoticiaAutomatica === 'function') {
+                    adicionarNoticiaAutomatica(`😠 QUEBRA DE COMBINADO: ${p.nome} joga mesmo tendo descanso concedido.`, `O atleta havia sido liberado pelo departamento médico, mas foi a campo. Nos bastidores, o clima com a comissão ficou ruim.`);
+                }
+            }
+        } else {
+            // Ficou de fora: cumpre um dos jogos de descanso que o DM concedeu
+            if (p.poupadoRestante > 0) p.poupadoRestante -= 1;
+            if (p.diasLesao <= 0 && !p.suspensoVermelho) p.jogosSeguidos = 0;
         }
     });
 
@@ -135,6 +147,13 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
         let risco = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_RISCO || p.stamina <= cfg.STAMINA_RISCO);
         if (critico) chance = cfg.CHANCE_LESAO_CRITICO;
         else if (risco) chance = cfg.CHANCE_LESAO_RISCO;
+
+        // Negar um pedido de descanso do Departamento Médico cobra o preço aqui: as próximas
+        // 2 partidas do atleta entram com risco extra, mesmo que ele não esteja no limite.
+        if (p.riscoExtraLesao > 0) {
+            chance += cfg.CHANCE_LESAO_RISCO;
+            p.riscoExtraLesao -= 1;
+        }
         if (chance <= 0) return;
 
         if (gerarNumeroAleatorio(1, 100) <= chance) {
@@ -190,6 +209,14 @@ function gerarRelatorioMedicoTexto() {
     if (r.risco.length) partes.push(`Risco de lesão (priorizar descanso): ${r.risco.map(p => `${p.nome} (${p.jogosSeguidos} jogos seguidos, condição ${Math.round(p.stamina)}%)`).join(', ')}`);
     if (r.alerta.length) partes.push(`Fadiga moderada: ${r.alerta.map(p => p.nome).join(', ')}`);
 
+    // Descanso concedido pelo Departamento Médico é ordem, não sugestão: o Auxiliar Técnico
+    // precisa ver isso no boletim pra não escalar quem foi poupado.
+    let poupados = db[currentSave].plantel.filter(p => p.status === 'Ativo' && p.poupadoRestante > 0);
+    if (poupados.length) partes.push(`NÃO ESCALAR (descanso concedido pelo DM): ${poupados.map(p => `${p.nome} (${p.poupadoRestante} jogo(s))`).join(', ')}`);
+
+    let desmotivados = db[currentSave].plantel.filter(p => p.status === 'Ativo' && typeof p.moral === 'number' && p.moral < 45);
+    if (desmotivados.length) partes.push(`Moral baixa no vestiário: ${desmotivados.map(p => `${p.nome} (${Math.round(p.moral)}/100)`).join(', ')}`);
+
     let descanso = (typeof db[currentSave].descansoAntesProxima === 'number') ? db[currentSave].descansoAntesProxima : 3;
     let cabecalho = `Descanso até a próxima partida: ${descanso} dia(s).`;
     if (partes.length === 0) return `${cabecalho} Elenco 100% saudável e sem sinais de fadiga.`;
@@ -229,6 +256,7 @@ function salvarDescansoManual() {
     db[currentSave].descansoAntesProxima = dias;
     salvarDados();
     atualizarDepartamentoMedicoUI();
+    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Descanso ajustado para ${dias} dia(s)`);
     alert(`✅ Descanso atualizado: ${dias} dia(s) até a próxima partida. O Auxiliar Técnico já está usando essa informação.`);
 }
 
@@ -245,6 +273,7 @@ function forcarDescansoPreventivo(nome) {
     if (typeof adicionarNoticiaAutomatica === 'function') {
         adicionarNoticiaAutomatica(`💤 DESCANSO PREVENTIVO: ${nome} é poupado pela comissão técnica.`, `Por recomendação do departamento médico, ${nome} folgou dos treinos de alta intensidade para preservar a condição física visando a sequência de jogos.`);
     }
+    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Descanso preventivo para ${nome}`);
 }
 
 function corPorNivel(nivel) {
@@ -272,6 +301,7 @@ function rotuloDesgastePosicao(p) {
 function atualizarDepartamentoMedicoUI() {
     if (!db[currentSave] || !db[currentSave].nome) return;
     garantirCondicaoFisicaTodos();
+    if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
     atualizarDescansoAtualUI();
 
     let r = gerarRelatorioMedico();
@@ -309,6 +339,9 @@ function atualizarDepartamentoMedicoUI() {
                 ? `<span class="badge" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">${p.diasLesao > 0 ? '🏥' : '🟥'} ${c.motivoIndisponivel}</span>`
                 : `<span class="badge" style="background: transparent; color: ${corPorNivel(c.nivel)}; border: 1px solid ${corPorNivel(c.nivel)};">${rotuloPorNivel(c.nivel)}</span>`;
 
+            if (p.poupadoRestante > 0) status += `<span class="badge" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 Poupado (${p.poupadoRestante} jogo(s))</span>`;
+            if (p.riscoExtraLesao > 0) status += `<span class="badge" style="background: rgba(226, 75, 75, 0.18); color: var(--danger);">⚠️ Risco extra (${p.riscoExtraLesao} jogo(s))</span>`;
+
             let botaoDescanso = (!c.indisponivel && c.nivel !== 'ok')
                 ? `<button style="background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 6px 10px; font-size: 11px;" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤 Dar Descanso</button>`
                 : '';
@@ -325,7 +358,7 @@ function atualizarDepartamentoMedicoUI() {
                         <span>Condição Física</span><span>${Math.round(p.stamina)}%</span>
                     </div>
                     <div class="stamina-bar"><div class="stamina-fill" style="width:${Math.max(0, Math.min(100, p.stamina))}%; background:${corBarra};"></div></div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100 ${typeof rotuloMoral === 'function' ? rotuloMoral(p.moral) : ''}` : ''}</div>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
                     ${status}

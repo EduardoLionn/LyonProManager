@@ -472,6 +472,16 @@
                 if (match) {
                     let res = JSON.parse(match[0]);
                     history.push({ role: 'ai', text: res.mensagem });
+                    // Avisa na Central de Mensagens que tem conversa nova esperando no chat
+                    if (typeof registrarMensagem === 'function') {
+                        registrarMensagem({
+                            tipo: tipo === 'diretoria' ? 'diretoria' : 'auxiliar',
+                            remetente: tipo === 'diretoria' ? nomeDiretorExibicao() : nomeAuxiliarExibicao(),
+                            assunto: tipo === 'diretoria' ? '💬 A diretoria puxou assunto no chat' : '💬 O auxiliar quer conversar',
+                            corpo: `<p>${res.mensagem}</p><p style="color:var(--text-muted);">Responda direto no chat da aba correspondente.</p>`,
+                            abaDestino: tipo === 'diretoria' ? 'tab-diretoria' : 'tab-auxiliar'
+                        });
+                    }
                     if(quickContainer && res.opcoes_resposta) {
                         quickContainer.innerHTML = res.opcoes_resposta.map(op => `<button class="btn-quick" onclick="usarQuickReply('${op.replace(/'/g, "\\'")}', 'input-${tipo}', 'enviarChat${tipo.charAt(0).toUpperCase() + tipo.slice(1)}')">${op}</button>`).join('');
                     }

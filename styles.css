@@ -642,3 +642,103 @@
 .btn-stats-toggle:hover { background: rgba(75, 159, 226, 0.1); transform: none; }
 .match-full-stats { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
 .match-full-stats.open { max-height: 1800px; }
+
+/* =====================================================================================
+   CENTRAL DE MENSAGENS — caixa de entrada, balões de notificação e badge da navegação
+   ===================================================================================== */
+
+/* Contador de não lidas colado no botão "Mensagens" da barra lateral */
+.badge-nav {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px;
+    background: var(--danger); color: #fff;
+    border-radius: 10px; font-size: 11px; font-weight: bold; line-height: 1;
+    vertical-align: middle;
+}
+
+/* Filtros por remetente */
+.mensagens-filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.chip-msg {
+    background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted);
+    padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    text-transform: none; letter-spacing: normal; cursor: pointer; transition: 0.2s;
+}
+.chip-msg:hover { background: var(--input-bg); color: var(--text-main); transform: none; }
+.chip-msg-ativo { border-color: var(--primary); color: var(--primary); background: rgba(232, 184, 75, 0.1); }
+.chip-msg-num { background: var(--danger); color: #fff; border-radius: 9px; padding: 1px 6px; font-size: 10px; margin-left: 4px; }
+
+/* Itens da caixa de entrada */
+.msg-item {
+    background: var(--input-bg); border: 1px solid var(--border); border-left: 4px solid var(--border);
+    border-radius: 8px; margin-bottom: 10px; overflow: hidden; transition: 0.2s;
+}
+.msg-item-nova { background: rgba(75, 159, 226, 0.06); }
+.msg-item-pendente { box-shadow: 0 0 0 1px rgba(217, 130, 43, 0.35); }
+
+.msg-cabecalho {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 14px 18px; cursor: pointer; flex-wrap: wrap;
+}
+.msg-cabecalho:hover { background: rgba(255,255,255,0.04); }
+.msg-cabecalho-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.msg-remetente { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px; }
+.msg-assunto { font-size: 15px; color: var(--text-main); font-weight: 600; }
+.msg-ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: middle; }
+.msg-cabecalho-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.msg-data { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.msg-badge-pendente { background: rgba(217, 130, 43, 0.18); color: var(--warning); }
+
+.msg-corpo { padding: 0 18px 18px 18px; border-top: 1px solid var(--border); }
+.msg-texto { font-size: 14px; line-height: 1.7; color: var(--text-main); padding-top: 14px; }
+.msg-texto p { margin: 0 0 10px 0; }
+
+/* Botões de decisão */
+.msg-opcoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.msg-opcao-btn {
+    flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; text-align: left;
+    background: var(--panel-bg); border: 1px solid var(--primary); color: var(--text-main);
+    padding: 12px 15px; border-radius: 8px; cursor: pointer;
+    text-transform: none; letter-spacing: normal; font-size: 14px; transition: 0.2s;
+}
+.msg-opcao-btn:hover { background: rgba(232, 184, 75, 0.12); transform: translateY(-1px); }
+.msg-opcao-btn span { font-size: 12px; color: var(--text-muted); font-weight: normal; }
+
+.msg-resultado {
+    margin-top: 14px; padding: 12px 15px; border-radius: 8px; font-size: 13px; line-height: 1.6;
+    background: rgba(75, 159, 226, 0.08); border: 1px solid rgba(75, 159, 226, 0.3);
+}
+
+.msg-acoes-rodape { margin-top: 14px; }
+.msg-link-aba {
+    background: transparent; border: 1px solid var(--accent); color: var(--accent);
+    padding: 8px 14px; font-size: 12px; text-transform: none; letter-spacing: normal; font-weight: 600;
+}
+.msg-link-aba:hover { background: rgba(75, 159, 226, 0.1); transform: none; }
+
+/* Balões de notificação (qualquer aba) */
+#toast-mensagens {
+    position: fixed; top: 20px; right: 20px; z-index: 10000;
+    display: flex; flex-direction: column; gap: 10px;
+    max-width: 340px; pointer-events: none;
+}
+.toast-msg {
+    pointer-events: auto; cursor: pointer;
+    background: var(--panel-bg); border: 1px solid var(--border); border-left: 4px solid var(--primary);
+    border-radius: 8px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    animation: toastEntra 0.28s ease;
+}
+.toast-msg:hover { background: var(--input-bg); }
+.toast-msg-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+.toast-msg-fechar { color: var(--text-muted); cursor: pointer; font-size: 12px; }
+.toast-msg-assunto { font-size: 14px; color: var(--text-main); font-weight: 600; margin: 6px 0 4px 0; line-height: 1.4; }
+.toast-msg-rodape { font-size: 11px; color: var(--text-muted); }
+.toast-msg-saindo { animation: toastSai 0.55s ease forwards; }
+
+@keyframes toastEntra { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastSai { to { opacity: 0; transform: translateX(40px); } }
+
+@media (max-width: 768px) {
+    #toast-mensagens { top: 12px; right: 12px; left: 12px; max-width: none; }
+    .msg-opcao-btn { min-width: 100%; }
+    .msg-cabecalho-meta { width: 100%; justify-content: space-between; }
+}

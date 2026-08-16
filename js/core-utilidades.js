@@ -279,6 +279,11 @@ function toggleChatDiretoria() {
             if (currentSave === 'clube' && abaId === 'tab-convocacao') {
                 abaId = 'tab-dashboard';
             }
+            // A Central de Mensagens depende de diretoria, departamento médico e elenco de clube —
+            // no slot Seleção Nacional esses departamentos não existem.
+            if (currentSave === 'selecao' && abaId === 'tab-mensagens') {
+                abaId = 'tab-dashboard';
+            }
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(abaId).classList.add('active');
@@ -300,6 +305,8 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarAuxiliarPartida(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
             if(abaId === 'tab-convocacao') { renderizarConvocacaoUI(); }
+            if(abaId === 'tab-mensagens') { renderizarCaixaMensagens(); }
+            if(typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
         }
 
         function trocarSave() { currentSave = document.getElementById('select-save').value; ajustarInterfaceSave(); }
@@ -328,15 +335,18 @@ function toggleChatDiretoria() {
             let btnDiretoria = document.getElementById('nav-btn-diretoria');
             let btnMedico = document.getElementById('nav-btn-medico');
             let btnConvocacao = document.getElementById('nav-btn-convocacao');
+            let btnMensagens = document.getElementById('nav-btn-mensagens');
 
             if (currentSave === 'selecao') {
                 btnPlantel.style.display = 'none'; btnMercado.style.display = 'none'; optRaioxDash.style.display = 'inline-block';
                 btnDiretoria.style.display = 'none'; btnMedico.style.display = 'none'; btnConvocacao.style.display = 'block';
+                if (btnMensagens) btnMensagens.style.display = 'none';
                 let activeTab = document.querySelector('.tab-content.active');
-                if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado' || activeTab.id === 'tab-diretoria' || activeTab.id === 'tab-medico')) mudarAba('tab-dashboard');
+                if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado' || activeTab.id === 'tab-diretoria' || activeTab.id === 'tab-medico' || activeTab.id === 'tab-mensagens')) mudarAba('tab-dashboard');
             } else {
                 btnPlantel.style.display = 'block'; btnMercado.style.display = 'block'; optRaioxDash.style.display = 'none';
                 btnDiretoria.style.display = 'block'; btnMedico.style.display = 'block'; btnConvocacao.style.display = 'none';
+                if (btnMensagens) btnMensagens.style.display = 'block';
                 let tabBarraAtiva = document.querySelector('#graf-tabs-barra .graf-tab.active');
                 if (tabBarraAtiva && tabBarraAtiva.dataset.view === 'view-raiox' && typeof mudarGrafico === 'function') mudarGrafico('view-notamedia', 'graf-tabs-barra', 'grupo-barra');
                 let activeTab = document.querySelector('.tab-content.active');
@@ -375,6 +385,10 @@ function toggleChatDiretoria() {
             comps.forEach(c => selectComp.innerHTML += `<option value="${c}">${c}</option>`);
 
             if (typeof garantirCondicaoFisicaTodos === 'function') garantirCondicaoFisicaTodos();
+            if (typeof garantirCentralMensagens === 'function') garantirCentralMensagens();
+            if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
+            if (typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
+            if (typeof renderizarLiderancaUI === 'function' && currentSave === 'clube') renderizarLiderancaUI();
             preencherDatalistJogadores(); document.getElementById('jog-nome-input').value = '';
             atualizarFiltroTemporadas(); carregarPreferenciasTaticas(); mudarAba('tab-dashboard');
         }
