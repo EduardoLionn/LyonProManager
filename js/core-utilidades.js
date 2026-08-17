@@ -1,3 +1,80 @@
+// =====================================================================================
+// SANEAMENTO DE TEXTO VINDO DE FORA
+// =====================================================================================
+// O app renderiza quase tudo com innerHTML (nomes de jogador, feed social, chat, metas da
+// diretoria — que guardam HTML de propósito, tipo <br> e <span style>). Enquanto o dado é
+// só do próprio jogador isso não é um problema de verdade, mas existe UMA fronteira em que
+// texto de outra pessoa entra: o arquivo de backup .json que alguém pode compartilhar.
+// Um backup "presenteado" com <img onerror=...> no nome do clube executaria script na sessão
+// de quem importou — com acesso ao token de login e aos saves na nuvem.
+//
+// Em vez de escapar em centenas de pontos de renderização, a barreira fica na ENTRADA.
+
+const TAGS_HTML_PERMITIDAS = new Set(['BR', 'B', 'STRONG', 'I', 'EM', 'U', 'SMALL', 'SPAN', 'P', 'DIV', 'UL', 'OL', 'LI', 'H3', 'H4', 'H5']);
+const ATRIBUTOS_HTML_PERMITIDOS = new Set(['style']);
+// Nestas tags o conteúdo é código, não texto pra ler: são descartadas inteiras. Nas outras
+// tags proibidas o conteúdo é preservado como texto puro (não se perde o que a pessoa escreveu).
+const TAGS_HTML_DESCARTADAS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TITLE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'MATH', 'HEAD', 'LINK', 'META', 'BASE']);
+
+// Remove o que é perigoso e preserva a formatação legítima. Usa o DOMParser em vez de regex
+// porque parsear HTML com expressão regular sempre deixa brecha; 'text/html' num documento
+// avulso não executa script nem baixa recurso nenhum.
+function limparHtmlUsuario(html) {
+    if (typeof html !== 'string') return html;
+    if (html.indexOf('<') === -1) return html;                      // caminho rápido: texto puro
+    if (typeof DOMParser === 'undefined') return html.replace(/[<>]/g, ''); // fora do navegador
+
+    let doc = new DOMParser().parseFromString('<div id="raiz-saneamento"></div>', 'text/html');
+    let raiz = doc.getElementById('raiz-saneamento');
+    raiz.innerHTML = html;
+
+    // De baixo pra cima: assim trocar um nó por texto não atrapalha a varredura dos filhos.
+    Array.from(raiz.querySelectorAll('*')).reverse().forEach(el => {
+        if (TAGS_HTML_DESCARTADAS.has(el.tagName)) { el.remove(); return; }
+        if (!TAGS_HTML_PERMITIDAS.has(el.tagName)) {
+            // Tag proibida mas com texto legítimo dentro (ex: <a>, <div onmouseover>) —
+            // mantém o que estava escrito e joga a tag fora.
+            el.replaceWith(doc.createTextNode(el.textContent || ''));
+            return;
+        }
+        Array.from(el.attributes).forEach(attr => {
+            let nome = attr.name.toLowerCase();
+            // Todo on* (onerror, onclick...) e qualquer coisa fora da lista cai aqui
+            if (!ATRIBUTOS_HTML_PERMITIDOS.has(nome)) { el.removeAttribute(attr.name); return; }
+            // style é útil pras cores do app, mas não pode carregar recurso externo
+            if (/url\s*\(|expression\s*\(|javascript:/i.test(attr.value)) el.removeAttribute(attr.name);
+        });
+    });
+
+    return raiz.innerHTML;
+}
+
+// Para campos que são texto puro (nome de jogador, clube, técnico): nenhum deles precisa de
+// < >, então some com eles e com caracteres de controle.
+function limparTextoUsuario(valor, limite) {
+    if (typeof valor !== 'string') return valor;
+    let limpo = valor.replace(/[<>]/g, '').replace(/[\u0000-\u001F\u007F]/g, '').trim();
+    return limite ? limpo.slice(0, limite) : limpo;
+}
+
+// Varre em profundidade um save importado de arquivo e limpa cada string. Os limites de
+// tamanho/profundidade também evitam que um arquivo enorme ou circular travi o navegador.
+function sanearSaveImportado(valor, profundidade) {
+    profundidade = profundidade || 0;
+    if (profundidade > 14) return null;
+    if (typeof valor === 'string') return limparHtmlUsuario(valor).slice(0, 20000);
+    if (Array.isArray(valor)) return valor.slice(0, 20000).map(v => sanearSaveImportado(v, profundidade + 1));
+    if (valor && typeof valor === 'object') {
+        let saida = {};
+        Object.keys(valor).slice(0, 2000).forEach(k => {
+            saida[limparTextoUsuario(k, 120)] = sanearSaveImportado(valor[k], profundidade + 1);
+        });
+        return saida;
+    }
+    if (typeof valor === 'number' && !Number.isFinite(valor)) return 0;
+    return valor; // número finito, booleano, null
+}
+
 // Converte qualquer coisa num número finito. É a porta de entrada obrigatória pra todo
 // valor que vem da IA (que pode devolver string, null, campo faltando) antes de virar
 // estado do save. Sem isso, um único retorno estranho grava NaN no save — e NaN vira null

@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// =====================================================================================
+// REGRAS DE SEGURANÇA DO FIRESTORE — LyonPro Manager
+// =====================================================================================
+// Este arquivo é a ÚNICA autoridade sobre o que o navegador pode ler e escrever. A chave
+// do Firebase que está em js/firebase-config.js é pública por natureza (todo app web
+// expõe a dela), então quem protege os dados é este arquivo — não o segredo da chave.
+//
+// O Admin SDK (as funções em api/, na Vercel) IGNORA estas regras por design. É por isso
+// que os campos de cobrança podem ficar totalmente bloqueados para o cliente: quem escreve
+// neles é o webhook da Stripe, do lado do servidor, depois de validar a assinatura HMAC.
+//
+// Para publicar depois de alterar:
+//     firebase deploy --only firestore:rules
+// (o deploy do GitHub Actions já faz isso automaticamente no push pra main)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function ehDono(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /usuarios/{uid} {
+      // O jogador lê o próprio cadastro (o app checa assinaturaStatus aqui).
+      allow read: if ehDono(uid);
+
+      // NENHUMA escrita do cliente. O app nunca precisou escrever neste documento — o
+      // apelido mora no perfil do Authentication (displayName) e os campos de cobrança
+      // (assinaturaStatus, stripeCustomerId) são escritos só pelo servidor.
+      //
+      // Isto fecha um furo real: com escrita liberada, qualquer pessoa criava uma conta e
+      // gravava assinaturaStatus = "ativa" no próprio documento, liberando o app de graça
+      // sem passar pela Stripe.
+      allow write: if false;
+
+      // Os saves do jogador. Cada um só alcança os seus.
+      match /saves/{saveId} {
+        allow read, write: if ehDono(uid);
+      }
+    }
+
+    // Qualquer outro caminho fica fechado por padrão — coleção nova só passa a funcionar
+    // depois de ganhar uma regra explícita aqui, e não por esquecimento.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
