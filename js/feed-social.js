@@ -98,11 +98,7 @@
             }`;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptDin }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptDin }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
 
                 if (match) {
@@ -178,11 +174,7 @@
             }`;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptEval }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptEval }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
                 
                 if (match) {
@@ -251,11 +243,7 @@
             }`;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptIA }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
                 
                 if (match) {

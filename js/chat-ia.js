@@ -129,11 +129,7 @@
                 let parts = [{ text: promptFull }];
                 imagensAnexadas.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } }));
 
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: parts }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: parts }] });
                 let rawText = data.candidates[0].content.parts[0].text;
                 let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                 
@@ -677,11 +673,7 @@ ${textoRegrasCompatibilidadePosicional()}
             if (imagemAdvTatica) parts.push({ inlineData: { mimeType: imagemAdvTatica.mimeType, data: imagemAdvTatica.base64 } });
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: parts }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: parts }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
 
                 if (match) {
@@ -1231,11 +1223,7 @@ ${textoRegrasCompatibilidadePosicional()}
 
             let textoResumo = '';
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptIA }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 textoResumo = (data.candidates[0].content.parts[0].text || '').trim().replace(/^["']|["']$/g, '');
             } catch (e) {
                 textoResumo = resultado === 'Vitória' ? 'Grande resultado, mister! O plano funcionou.' : (resultado === 'Derrota' ? 'Fica a lição, vamos corrigir pro próximo jogo.' : 'Resultado dentro do esperado, dava pra mais.');
@@ -1420,11 +1408,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 }`;
 
                 mostrarCarregandoIA('⏳ O jornalista está preparando a próxima pergunta...');
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptPayload }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptPayload }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
 
                 if(match) {

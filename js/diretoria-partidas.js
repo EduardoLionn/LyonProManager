@@ -87,11 +87,7 @@
 
             mostrarCarregandoIA('⏳ A diretoria está definindo o orçamento e as metas...');
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptIA }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 let rawText = data.candidates[0].content.parts[0].text;
                 let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
@@ -246,11 +242,7 @@
                 {"nome": "Nome Abreviado da Tabela", "overall": numero, "nota": numero, "gols": numero, "assistencias": numero, "finalizacoes": numero, "precisaoFinalizacao": numero, "passes": numero, "precisaoPasse": numero, "dribles": numero, "taxaDribles": numero, "dividas": numero, "taxaDivididas": numero, "possesGanhas": numero, "perdasPosse": numero, "faltas": numero, "defesas": numero, "mvp": numero}`;
 
                 try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] })
-                    });
-                    const data = await response.json();
+                    const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] });
                     let rawText = data.candidates[0].content.parts[0].text;
                     let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                     
@@ -300,11 +292,7 @@
                 const base64Data = reader.result.split(',')[1];
                 let prompt = `Leia estatísticas de jogo. O meu time é "${db[currentSave].nome}". Retorne EXATAMENTE este JSON: {"possePro": numero, "posseAdv": numero, "finPro": numero, "finAdv": numero, "golsPro": numero, "golsAdv": numero, "nomeAdv": "Nome", "mando": "Casa" ou "Fora"}`;
                 try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] })
-                    });
-                    const data = await response.json();
+                    const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] });
                     let rawText = data.candidates[0].content.parts[0].text;
                     let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {

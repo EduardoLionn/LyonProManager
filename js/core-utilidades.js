@@ -1,4 +1,39 @@
 // =====================================================================================
+// CHAMADA ÚNICA AO PROXY DA IA
+// =====================================================================================
+// Todas as chamadas à IA passam por aqui em vez de usar fetch(API_URL) espalhado pelo
+// código. O motivo é segurança: o endereço do proxy está no JS público, então sem exigir
+// prova de login qualquer pessoa poderia usá-lo como um Gemini de graça, na conta do dono
+// do site. Este ponto único anexa o token do Firebase do usuário logado; o Worker valida a
+// assinatura desse token antes de gastar a cota (ver worker/README.md).
+//
+// A resposta é devolvida crua (o mesmo objeto que response.json() dava antes), pra não
+// mudar o formato que as 14 telas já esperam.
+async function chamarIA(corpo) {
+    let cabecalhos = { 'Content-Type': 'application/json' };
+    try {
+        let user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (user) cabecalhos['Authorization'] = 'Bearer ' + await user.getIdToken();
+    } catch (e) {
+        // Sem token: o Worker vai recusar. Melhor recusar do que virar proxy aberto.
+    }
+
+    const resposta = await fetch(API_URL, {
+        method: 'POST',
+        headers: cabecalhos,
+        body: JSON.stringify(corpo)
+    });
+
+    if (resposta.status === 401 || resposta.status === 403) {
+        throw new Error('Sessão expirada — recarregue a página e entre de novo para usar a IA.');
+    }
+    if (resposta.status === 429) {
+        throw new Error('Muitas consultas à IA em pouco tempo. Espere um instante e tente de novo.');
+    }
+    return await resposta.json();
+}
+
+// =====================================================================================
 // SANEAMENTO DE TEXTO VINDO DE FORA
 // =====================================================================================
 // O app renderiza quase tudo com innerHTML (nomes de jogador, feed social, chat, metas da

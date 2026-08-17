@@ -138,11 +138,7 @@ ${blocoAvaliacao}
             mostrarCarregandoIA('⏳ Encerrando a temporada e definindo novas metas...');
             let resumoObjetivos = [];
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptFim }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptFim }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
                 if(match) {
                     let resAI = JSON.parse(match[0]);
