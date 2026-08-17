@@ -1,1 +1,7 @@
 node_modules/
+# Dependências de teste instaladas sob demanda (ver tests/README.md)
+tests/node_modules/
+tests/package-lock.json
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
