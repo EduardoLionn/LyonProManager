@@ -1717,6 +1717,7 @@
     <script src="js/save-manager.js"></script>
     <script src="js/core-utilidades.js"></script>
     <script src="js/taticas.js"></script>
+    <script src="js/funcoes-ea.js"></script>
     <script src="js/onboarding.js"></script>
     <script src="js/central-mensagens.js"></script>
     <script src="js/eventos-diretoria.js"></script>
@@ -1768,6 +1769,17 @@
                         <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarMudarFormacaoManual()">✅ Aplicar Nova Formação</button>
                         <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-mudar-formacao').style.display='none'">Cancelar</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- MODAL: FUNÇÃO DO JOGADOR NO PLANO DO AUXILIAR — só leitura, não escala nada.
+                 Fica fora de #tab-auxiliar pelo mesmo motivo dos modais acima. -->
+            <div id="modal-funcao-jogador" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 style="margin-top:0;" id="modal-funcao-titulo">⚽ Função em campo</h2>
+                    <p id="modal-funcao-resumo" style="font-size:14px; color:var(--primary); font-weight:bold; margin-top:-8px;"></p>
+                    <p id="modal-funcao-descricao" style="font-size:13px; color:var(--text-muted); line-height:1.6;"></p>
+                    <button style="width: 100%; margin-top: 10px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-funcao-jogador').style.display='none'">Fechar</button>
                 </div>
             </div>
 

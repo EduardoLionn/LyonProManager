@@ -471,17 +471,6 @@ ${textoRegrasCompatibilidadePosicional()}
             let faixa = faixaAbordagem(t.abordagemDefensiva);
             let partidaAtiva = !!d.partidaAuxiliar;
 
-            let escalacaoHtml = Object.keys(sug.escalacao || {}).map(role => {
-                let info = sug.escalacao[role] || {};
-                return `<div class="plano-jogador">
-                    <span class="plano-jogador-role">${role}</span>
-                    <strong>${info.nome || '—'}</strong>
-                    ${info.instrucao ? `<em>${info.instrucao}</em>` : ''}
-                </div>`;
-            }).join('');
-
-            let reservasHtml = (sug.reservas || []).map(r => `<li><strong>${r.nome}</strong>${r.papel ? ` — ${r.papel}` : ''}</li>`).join('');
-
             box.style.display = 'block';
             if (pedir) pedir.style.display = 'none';
             box.innerHTML = `
@@ -506,9 +495,9 @@ ${textoRegrasCompatibilidadePosicional()}
                     ${sug.alertaRotacao ? `<p style="font-size:13px; color:var(--warning); line-height:1.6; margin:8px 0 0 0;">${sug.alertaRotacao}</p>` : ''}
                     ${(sug.rotacoesAutomaticas && sug.rotacoesAutomaticas.length) ? `<p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin:6px 0 0 0;">🔁 Rotação forçada por fadiga: ${sug.rotacoesAutomaticas.join('; ')}</p>` : ''}
 
-                    <h4 style="margin:18px 0 8px 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Escalação sugerida</h4>
-                    <div class="plano-escalacao">${escalacaoHtml}</div>
-                    ${reservasHtml ? `<h4 style="margin:16px 0 6px 0; font-size:13px; color:var(--text-muted); text-transform:uppercase;">Banco</h4><ul class="plano-reservas">${reservasHtml}</ul>` : ''}
+                    <h4 style="margin:18px 0 8px 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Escalação sugerida <span style="font-weight:normal; color:var(--text-muted); font-size:12px; text-transform:none;">(clique num jogador pra ver a função dele)</span></h4>
+                    <div class="campo-futebol-grande" id="campo-sugestao-auxiliar"></div>
+                    <div id="banco-sugestao-auxiliar" style="margin-top:15px;"></div>
 
                     <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
                         ${partidaAtiva
@@ -518,7 +507,78 @@ ${textoRegrasCompatibilidadePosicional()}
                     </div>
                 </div>`;
 
+            renderizarCampinhoSugestaoAuxiliar(sug);
             renderizarHistoricoPartidasAuxiliar();
+        }
+
+        // -------------------------------------------------------------------------------------
+        // CAMPINHO DO PLANO DO AUXILIAR — só leitura. Mesma pinta do campinho de verdade (camisa,
+        // OVR, nome), mas clicar num jogador não troca ninguém: só mostra a função dele no EA FC
+        // (calculada pela especialidade cadastrada + a tática do plano). Isso existe porque só se
+        // pode mexer na escalação de fato depois de levar o plano pra aba "Salvar Partida".
+        // -------------------------------------------------------------------------------------
+        function renderizarCampinhoSugestaoAuxiliar(sug) {
+            let campo = document.getElementById('campo-sugestao-auxiliar');
+            if (!campo) return;
+            campo.innerHTML = '<div class="area-penalti-top"></div><div class="area-penalti-bot"></div><div class="campo-canto tl"></div><div class="campo-canto tr"></div><div class="campo-canto bl"></div><div class="campo-canto br"></div>';
+
+            let esquema = sug.tatica ? sug.tatica.esquema : null;
+            let positions = esquema ? coordsFormacoes[esquema] : null;
+            if (!positions) return;
+
+            positions.forEach(posObj => {
+                let info = (sug.escalacao || {})[posObj.role] || {};
+                let nomeJogador = info.nome || '???';
+                let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeJogador.toLowerCase().trim()));
+                let ovrTxt = jogBD ? jogBD.ovr : '?';
+                let escolhaFuncao = (jogBD && typeof escolherFuncaoJogador === 'function') ? escolherFuncaoJogador(posObj.role, jogBD.posicao, sug.tatica) : null;
+                let resumo = escolhaFuncao ? resumoFuncaoJogador(escolhaFuncao) : '';
+
+                campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="mostrarFuncaoJogadorSugestao('${posObj.role}')">
+                    <div class="jc-camisa"><span class="jc-ovr-label">OVR</span><span class="jc-ovr-num">${ovrTxt}</span></div>
+                    <div class="jc-nome">${nomeJogador}</div>
+                    ${resumo ? `<div class="jogador-tooltip"><strong>${nomeJogador}</strong><hr style="border-color:var(--border); margin:5px 0;">${resumo}</div>` : ''}
+                </div>`;
+            });
+
+            let boxBanco = document.getElementById('banco-sugestao-auxiliar');
+            if (boxBanco) {
+                let reservas = sug.reservas || [];
+                if (reservas.length) {
+                    boxBanco.innerHTML = `<h4 style="margin:0 0 10px 0; font-size:13px; color:var(--text-muted); text-transform:uppercase;">🪑 Banco <span style="font-weight:normal; text-transform:none;">— como cada um pode entrar</span></h4>
+                        <div class="banco-reservas-grid">
+                            ${reservas.map(r => {
+                                let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
+                                let txtOvr = jogBD ? ` · OVR ${jogBD.ovr}` : '';
+                                let entradas = (jogBD && positions) ? positions
+                                    .filter(p => posicaoCompativelComRole(p.role, jogBD.posicao))
+                                    .map(p => { let g = grupoFuncaoDoRole(p.role); return `${g ? GRUPOS_FUNCAO_EA[g].nome : p.role} (${p.role})`; }) : [];
+                                entradas = [...new Set(entradas)];
+                                return `<div class="banco-reserva-item">
+                                    <strong>${r.nome}</strong>
+                                    <span>${r.posicao || (jogBD ? jogBD.posicao : '')}${txtOvr}</span>
+                                    ${entradas.length ? `<span class="banco-reserva-papel">Pode entrar: ${entradas.join(', ')}</span>` : (r.papel ? `<span class="banco-reserva-papel">${r.papel}</span>` : '')}
+                                </div>`;
+                            }).join('')}
+                        </div>`;
+                } else {
+                    boxBanco.innerHTML = '';
+                }
+            }
+        }
+
+        // Clique num jogador do plano do Auxiliar: só mostra a função, não abre troca.
+        function mostrarFuncaoJogadorSugestao(role) {
+            let sug = db[currentSave].sugestaoAuxiliar;
+            if (!sug) return;
+            let info = (sug.escalacao || {})[role] || {};
+            let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((info.nome || '').toLowerCase().trim()));
+            let escolha = jogBD ? escolherFuncaoJogador(role, jogBD.posicao, sug.tatica) : null;
+
+            document.getElementById('modal-funcao-titulo').innerText = `⚽ ${info.nome || 'Vaga'} (${role})`;
+            document.getElementById('modal-funcao-resumo').innerText = escolha ? resumoFuncaoJogador(escolha) : 'Sem função definida.';
+            document.getElementById('modal-funcao-descricao').innerText = escolha ? descricaoFuncaoJogador(escolha) : '';
+            document.getElementById('modal-funcao-jogador').style.display = 'flex';
         }
 
         function descartarSugestaoAuxiliar() {
