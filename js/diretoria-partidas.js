@@ -87,11 +87,7 @@
 
             mostrarCarregandoIA('⏳ A diretoria está definindo o orçamento e as metas...');
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptIA }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 let rawText = data.candidates[0].content.parts[0].text;
                 let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
@@ -138,12 +134,19 @@
         // a conversão pra 0-100 (a mesma do jogo) acontece aqui dentro, multiplicando por 10, em
         // vez de mexer em cada chamada.
         function atualizarNotaDiretoria(variacao) {
-            if (db[currentSave].notaDiretoria !== undefined && variacao !== 0) {
-                db[currentSave].notaDiretoria = Math.max(0, Math.min(100, db[currentSave].notaDiretoria + variacao * 10));
-                let elNota = document.getElementById('dir-nota-diretoria');
-                if (elNota) elNota.innerText = Math.round(db[currentSave].notaDiretoria) + " / 100";
-                registrarComandoPrestigioSeMudou();
-            }
+            let data = db[currentSave];
+            if (!data) return;
+            // A variação pode chegar da IA como string, null ou campo faltando. Sem saneamento
+            // aqui, "undefined * 10" grava NaN no prestígio e trava o indicador pra sempre.
+            // O teto de ±3 cobre o pior caso legítimo (avaliação de fim de temporada, ±0,4 por
+            // objetivo) e barra qualquer valor absurdo.
+            let delta = numeroNaFaixa(variacao, -3, 3, 0);
+            if (delta === 0) return;
+            let atual = numeroNaFaixa(data.notaDiretoria, 0, 100, 75);
+            data.notaDiretoria = Math.max(0, Math.min(100, atual + delta * 10));
+            let elNota = document.getElementById('dir-nota-diretoria');
+            if (elNota) elNota.innerText = Math.round(data.notaDiretoria) + " / 100";
+            registrarComandoPrestigioSeMudou();
         }
 
         // --- CENTRAL DE COMANDOS PRO JOGO ---
@@ -239,11 +242,7 @@
                 {"nome": "Nome Abreviado da Tabela", "overall": numero, "nota": numero, "gols": numero, "assistencias": numero, "finalizacoes": numero, "precisaoFinalizacao": numero, "passes": numero, "precisaoPasse": numero, "dribles": numero, "taxaDribles": numero, "dividas": numero, "taxaDivididas": numero, "possesGanhas": numero, "perdasPosse": numero, "faltas": numero, "defesas": numero, "mvp": numero}`;
 
                 try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] })
-                    });
-                    const data = await response.json();
+                    const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] });
                     let rawText = data.candidates[0].content.parts[0].text;
                     let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                     
@@ -293,11 +292,7 @@
                 const base64Data = reader.result.split(',')[1];
                 let prompt = `Leia estatísticas de jogo. O meu time é "${db[currentSave].nome}". Retorne EXATAMENTE este JSON: {"possePro": numero, "posseAdv": numero, "finPro": numero, "finAdv": numero, "golsPro": numero, "golsAdv": numero, "nomeAdv": "Nome", "mando": "Casa" ou "Fora"}`;
                 try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] })
-                    });
-                    const data = await response.json();
+                    const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] });
                     let rawText = data.candidates[0].content.parts[0].text;
                     let jsonMatch = rawText.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {

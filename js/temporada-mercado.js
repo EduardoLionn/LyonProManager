@@ -138,11 +138,7 @@ ${blocoAvaliacao}
             mostrarCarregandoIA('⏳ Encerrando a temporada e definindo novas metas...');
             let resumoObjetivos = [];
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptFim }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptFim }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
                 if(match) {
                     let resAI = JSON.parse(match[0]);
@@ -199,19 +195,39 @@ ${blocoAvaliacao}
                 db.clube.plantel.forEach(p => {
                     if (typeof p.idade === 'number') p.idade++; // +1 ano de idade a cada temporada que passa
 
+                    // Estado de temporada não atravessa a virada: descanso concedido, risco extra
+                    // de lesão, promessa de minutos e pedido de saída valiam para a temporada que acabou.
+                    p.poupadoRestante = 0;
+                    p.riscoExtraLesao = 0;
+                    p.promessaMinutos = null;
+                    p.pediuSaida = false;
+
                     if (p.status === 'Emprestado' && p.temporadasEmprestimo > 0) {
-                        p.temporadasEmprestimo--; 
+                        p.temporadasEmprestimo--;
                         if (p.temporadasEmprestimo <= 0) {
                             p.status = 'Ativo';
                             adicionarNoticiaAutomatica(`✈️ DE VOLTA: ${p.nome} retorna de empréstimo.`, `O jogador está de volta ao elenco principal após o período cedido e já pode ser escalado.`);
                         }
                     }
                     else if (p.status === 'Ativo' && p.origem === 'EmprestadoIn') {
-                        p.status = 'FimEmprestimo'; 
-                        adicionarNoticiaAutomatica(`👋 ADEUS (POR ENQUANTO): Fim de empréstimo de ${p.nome}.`, `O contrato de empréstimo encerrou e o jogador deixou o elenco ativo. Caso seja contratado futuramente, seu histórico retornará intacto.`);
+                        // O empréstimo de ENTRADA também tem duração contratada. Antes o atleta ia
+                        // embora sempre no fim da primeira temporada, mesmo com contrato de 2.
+                        p.temporadasEmprestimo = Math.max(0, (Number(p.temporadasEmprestimo) || 1) - 1);
+                        if (p.temporadasEmprestimo <= 0) {
+                            p.status = 'FimEmprestimo';
+                            adicionarNoticiaAutomatica(`👋 ADEUS (POR ENQUANTO): Fim de empréstimo de ${p.nome}.`, `O contrato de empréstimo encerrou e o jogador deixou o elenco ativo. Caso seja contratado futuramente, seu histórico retornará intacto.`);
+                        } else {
+                            adicionarNoticiaAutomatica(`🤝 SEGUE CONOSCO: ${p.nome} tem mais ${p.temporadasEmprestimo} temporada(s) de empréstimo.`, `O contrato de cessão do atleta ainda não acabou e ele continua à disposição da comissão técnica.`);
+                        }
                     }
                 });
-                
+
+                // Quem deixou de estar ativo na virada não pode continuar com a braçadeira
+                ['capitao', 'viceCapitao'].forEach(cargo => {
+                    let lider = db.clube.plantel.find(p => p.nome === db.clube[cargo]);
+                    if (db.clube[cargo] && (!lider || lider.status !== 'Ativo')) db.clube[cargo] = '';
+                });
+
                 if (novaDivisao) {
                     let nomeAntiga = db.clube.liga.split(' (')[0];
                     db.clube.liga = novaDivisao;
@@ -418,7 +434,7 @@ ${blocoAvaliacao}
             if(!jogador) return alert("Jogador não encontrado ativo.");
 
             // NOVA TRAVA: Impede negociar quem está emprestado ao time
-            if (jogador.origem === 'EmprestadoIn' && (tipo === 'Venda' || tipo === 'Emprestimo' || tipo === 'Dispensa')) {
+            if (jogadorPertenceAOutroClube(jogador) && (tipo === 'Venda' || tipo === 'Emprestimo' || tipo === 'Dispensa')) {
                 return alert("⚠️ Você não pode vender, emprestar ou dispensar um jogador que pertence a outro clube! Vá na aba 'Elenco' se quiser encerrar o empréstimo dele.");
             }
 
@@ -488,6 +504,14 @@ ${blocoAvaliacao}
     } else {
         let jog = db[currentSave].plantel.find(p => p.nome === nome);
         if(jog) {
+            // Mesma trava de processarSaida(): quem está aqui emprestado pertence a outro
+            // clube e só pode ser devolvido. Sem isso, qualquer caminho que chame esta função
+            // com um status de saída negociaria um jogador que não é nosso.
+            if (jogadorPertenceAOutroClube(jog) && (status === 'Vendido' || status === 'Emprestado' || status === 'Aposentado')) {
+                alert(`⚠️ ${nome} está no clube por empréstimo e pertence a outro time. Você só pode encerrar o empréstimo e devolvê-lo.`);
+                if (typeof atualizarPlantelUI === 'function') atualizarPlantelUI();
+                return;
+            }
             if(status === 'Vendido' || status === 'Emprestado') {
                 let v = await promptModerno(`Valor recebido em €M?`, "0", "Valor da Negociação");
                 if (v === null) return;

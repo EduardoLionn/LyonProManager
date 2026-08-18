@@ -98,11 +98,7 @@
             }`;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptDin }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptDin }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
 
                 if (match) {
@@ -178,11 +174,7 @@
             }`;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptEval }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptEval }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
                 
                 if (match) {
@@ -251,11 +243,7 @@
             }`;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptIA }] }] })
-                });
-                const data = await response.json();
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
                 
                 if (match) {
@@ -277,6 +265,12 @@
                         // Lógica da Caça às Bruxas
                         if(p.pede_venda_jogador && p.pede_venda_jogador.trim() !== "") {
                             let alvo = p.pede_venda_jogador.trim();
+                            // A IA às vezes inventa um nome ou aponta alguém que não é nosso:
+                            // só vira exigência quem realmente está ativo no elenco e pode ser
+                            // negociado (quem chegou emprestado pertence a outro clube).
+                            let alvoReal = db[currentSave].plantel.find(j => j.status === 'Ativo' && j.nome.toLowerCase() === alvo.toLowerCase());
+                            if (!alvoReal || jogadorPertenceAOutroClube(alvoReal)) return;
+                            alvo = alvoReal.nome;
                             db[currentSave].alvosTorcida[alvo] = (db[currentSave].alvosTorcida[alvo] || 0) + 1;
                             
                             // Se bater 3 exigências seguidas da torcida, a diretoria interfere

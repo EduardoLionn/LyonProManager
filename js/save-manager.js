@@ -93,6 +93,11 @@ function excluirSave(id) {
 
 // Importa um backup .json (baixado via "Baixar Backup") como um save NOVO na lista, sem mexer no save ativo atual.
 function importarSaveDeBackup(dbImportado, nomeSugerido) {
+    // O arquivo pode ter vindo de qualquer lugar (alguém compartilhou, veio de outro PC).
+    // Como o app renderiza esses textos com innerHTML, tudo passa pelo saneamento antes de
+    // encostar no estado do jogo — é a única fronteira por onde texto de terceiro entra aqui.
+    if (typeof sanearSaveImportado === 'function') dbImportado = sanearSaveImportado(dbImportado) || {};
+
     let dbNovo = dbPadrao();
     if (dbImportado.clube) Object.assign(dbNovo.clube, dbImportado.clube);
     if (dbImportado.selecao) Object.assign(dbNovo.selecao, dbImportado.selecao);
@@ -100,6 +105,7 @@ function importarSaveDeBackup(dbImportado, nomeSugerido) {
     let id = _gerarIdSave();
     let agora = Date.now();
     let nome = nomeSugerido || dbNovo.clube.saveName || dbNovo.selecao.saveName || dbNovo.clube.nome || dbNovo.selecao.nome || 'Save Importado';
+    if (typeof limparTextoUsuario === 'function') nome = limparTextoUsuario(nome, 120) || 'Save Importado';
     localStorage.setItem(_chaveDadosSave(id), JSON.stringify(dbNovo));
     let indice = _lerIndiceSaves();
     indice.push({ id: id, nome: nome, criadoEm: agora, atualizadoEm: agora, resumo: _resumoDeDb(dbNovo) });

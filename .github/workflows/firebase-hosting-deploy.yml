@@ -17,3 +17,26 @@ jobs:
           firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_LYONPROMANAGER }}"
           projectId: lyonpromanager
           channelId: live
+
+  # As regras do Firestore são o que de fato protege os dados dos jogadores. Sem este passo,
+  # firestore.rules ficaria só no repositório e a produção continuaria com as regras antigas
+  # do console — dando uma falsa sensação de segurança.
+  deploy-firestore-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Gravar credencial da conta de serviço
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LYONPROMANAGER }}
+        run: |
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/service-account.json"
+      - name: Publicar regras do Firestore
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
+        run: npx --yes firebase-tools@13 deploy --only firestore:rules --project lyonpromanager --non-interactive
+      - name: Remover credencial
+        if: always()
+        run: rm -f "$RUNNER_TEMP/service-account.json"

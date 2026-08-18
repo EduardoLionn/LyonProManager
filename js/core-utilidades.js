@@ -1,4 +1,168 @@
-        // A IA às vezes devolve o orçamento em euros crus (ex: 15000000) em vez de milhões (15).
+// =====================================================================================
+// CHAMADA ÚNICA AO PROXY DA IA
+// =====================================================================================
+// Todas as chamadas à IA passam por aqui em vez de usar fetch(API_URL) espalhado pelo
+// código. O motivo é segurança: o endereço do proxy está no JS público, então sem exigir
+// prova de login qualquer pessoa poderia usá-lo como um Gemini de graça, na conta do dono
+// do site. Este ponto único anexa o token do Firebase do usuário logado; o Worker valida a
+// assinatura desse token antes de gastar a cota (ver worker/README.md).
+//
+// A resposta é devolvida crua (o mesmo objeto que response.json() dava antes), pra não
+// mudar o formato que as 14 telas já esperam.
+async function chamarIA(corpo) {
+    let cabecalhos = { 'Content-Type': 'application/json' };
+    try {
+        let user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (user) cabecalhos['Authorization'] = 'Bearer ' + await user.getIdToken();
+    } catch (e) {
+        // Sem token: o Worker vai recusar. Melhor recusar do que virar proxy aberto.
+    }
+
+    const resposta = await fetch(API_URL, {
+        method: 'POST',
+        headers: cabecalhos,
+        body: JSON.stringify(corpo)
+    });
+
+    if (resposta.status === 401 || resposta.status === 403) {
+        throw new Error('Sessão expirada — recarregue a página e entre de novo para usar a IA.');
+    }
+    if (resposta.status === 429) {
+        throw new Error('Muitas consultas à IA em pouco tempo. Espere um instante e tente de novo.');
+    }
+    return await resposta.json();
+}
+
+// =====================================================================================
+// SANEAMENTO DE TEXTO VINDO DE FORA
+// =====================================================================================
+// O app renderiza quase tudo com innerHTML (nomes de jogador, feed social, chat, metas da
+// diretoria — que guardam HTML de propósito, tipo <br> e <span style>). Enquanto o dado é
+// só do próprio jogador isso não é um problema de verdade, mas existe UMA fronteira em que
+// texto de outra pessoa entra: o arquivo de backup .json que alguém pode compartilhar.
+// Um backup "presenteado" com <img onerror=...> no nome do clube executaria script na sessão
+// de quem importou — com acesso ao token de login e aos saves na nuvem.
+//
+// Em vez de escapar em centenas de pontos de renderização, a barreira fica na ENTRADA.
+
+const TAGS_HTML_PERMITIDAS = new Set(['BR', 'B', 'STRONG', 'I', 'EM', 'U', 'SMALL', 'SPAN', 'P', 'DIV', 'UL', 'OL', 'LI', 'H3', 'H4', 'H5']);
+const ATRIBUTOS_HTML_PERMITIDOS = new Set(['style']);
+// Nestas tags o conteúdo é código, não texto pra ler: são descartadas inteiras. Nas outras
+// tags proibidas o conteúdo é preservado como texto puro (não se perde o que a pessoa escreveu).
+const TAGS_HTML_DESCARTADAS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TITLE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'MATH', 'HEAD', 'LINK', 'META', 'BASE']);
+
+// Remove o que é perigoso e preserva a formatação legítima. Usa o DOMParser em vez de regex
+// porque parsear HTML com expressão regular sempre deixa brecha; 'text/html' num documento
+// avulso não executa script nem baixa recurso nenhum.
+function limparHtmlUsuario(html) {
+    if (typeof html !== 'string') return html;
+    if (html.indexOf('<') === -1) return html;                      // caminho rápido: texto puro
+    if (typeof DOMParser === 'undefined') return html.replace(/[<>]/g, ''); // fora do navegador
+
+    let doc = new DOMParser().parseFromString('<div id="raiz-saneamento"></div>', 'text/html');
+    let raiz = doc.getElementById('raiz-saneamento');
+    raiz.innerHTML = html;
+
+    // De baixo pra cima: assim trocar um nó por texto não atrapalha a varredura dos filhos.
+    Array.from(raiz.querySelectorAll('*')).reverse().forEach(el => {
+        if (TAGS_HTML_DESCARTADAS.has(el.tagName)) { el.remove(); return; }
+        if (!TAGS_HTML_PERMITIDAS.has(el.tagName)) {
+            // Tag proibida mas com texto legítimo dentro (ex: <a>, <div onmouseover>) —
+            // mantém o que estava escrito e joga a tag fora.
+            el.replaceWith(doc.createTextNode(el.textContent || ''));
+            return;
+        }
+        Array.from(el.attributes).forEach(attr => {
+            let nome = attr.name.toLowerCase();
+            // Todo on* (onerror, onclick...) e qualquer coisa fora da lista cai aqui
+            if (!ATRIBUTOS_HTML_PERMITIDOS.has(nome)) { el.removeAttribute(attr.name); return; }
+            // style é útil pras cores do app, mas não pode carregar recurso externo
+            if (/url\s*\(|expression\s*\(|javascript:/i.test(attr.value)) el.removeAttribute(attr.name);
+        });
+    });
+
+    return raiz.innerHTML;
+}
+
+// Para campos que são texto puro (nome de jogador, clube, técnico): nenhum deles precisa de
+// < >, então some com eles e com caracteres de controle.
+function limparTextoUsuario(valor, limite) {
+    if (typeof valor !== 'string') return valor;
+    let limpo = valor.replace(/[<>]/g, '').replace(/[\u0000-\u001F\u007F]/g, '').trim();
+    return limite ? limpo.slice(0, limite) : limpo;
+}
+
+// Varre em profundidade um save importado de arquivo e limpa cada string. Os limites de
+// tamanho/profundidade também evitam que um arquivo enorme ou circular travi o navegador.
+function sanearSaveImportado(valor, profundidade) {
+    profundidade = profundidade || 0;
+    if (profundidade > 14) return null;
+    if (typeof valor === 'string') return limparHtmlUsuario(valor).slice(0, 20000);
+    if (Array.isArray(valor)) return valor.slice(0, 20000).map(v => sanearSaveImportado(v, profundidade + 1));
+    if (valor && typeof valor === 'object') {
+        let saida = {};
+        Object.keys(valor).slice(0, 2000).forEach(k => {
+            saida[limparTextoUsuario(k, 120)] = sanearSaveImportado(valor[k], profundidade + 1);
+        });
+        return saida;
+    }
+    if (typeof valor === 'number' && !Number.isFinite(valor)) return 0;
+    return valor; // número finito, booleano, null
+}
+
+// Converte qualquer coisa num número finito. É a porta de entrada obrigatória pra todo
+// valor que vem da IA (que pode devolver string, null, campo faltando) antes de virar
+// estado do save. Sem isso, um único retorno estranho grava NaN no save — e NaN vira null
+// no JSON.stringify, o que congela indicadores na tela e depois os faz saltar do nada.
+function numeroSeguro(valor, padrao) {
+    // null/undefined/"" contam como "campo ausente", não como zero. Isso importa porque o
+    // JSON.stringify grava NaN como null: sem esse tratamento, um indicador corrompido
+    // "curaria" para 0 em vez de voltar ao padrão.
+    if (valor === null || valor === undefined || valor === '') return Number.isFinite(padrao) ? padrao : 0;
+    let n = Number(valor);
+    if (Number.isFinite(n)) return n;
+    return Number.isFinite(padrao) ? padrao : 0;
+}
+
+// Igual ao numeroSeguro, já preso a uma faixa válida.
+function numeroNaFaixa(valor, min, max, padrao) {
+    return Math.max(min, Math.min(max, numeroSeguro(valor, padrao)));
+}
+
+// Um atleta que está no clube por empréstimo pertence a outro time: não pode ser vendido,
+// emprestado de novo nem dispensado. A única saída válida é devolvê-lo (EncerrarEmprestimo).
+function jogadorPertenceAOutroClube(jogador) {
+    return !!(jogador && jogador.origem === 'EmprestadoIn');
+}
+
+// Conserta indicadores numéricos que já foram corrompidos em partidas anteriores (o bug
+// clássico: a IA devolvia um valor estranho, o campo virava NaN, o JSON gravava null e o
+// número na tela ficava travado até dar um salto do nada). Roda uma vez por save carregado.
+function sanearNumerosDoSave() {
+    let d = db[currentSave];
+    if (!d) return;
+
+    d.aprovacaoTorcida = numeroNaFaixa(d.aprovacaoTorcida, 0, 100, 75);
+    d.notaDiretoria = numeroNaFaixa(d.notaDiretoria, 0, 100, 75);
+    d.orcamento = numeroSeguro(d.orcamento, 0);
+    d.gastoAtual = Math.max(0, numeroSeguro(d.gastoAtual, 0));
+    d.arrecadadoAtual = Math.max(0, numeroSeguro(d.arrecadadoAtual, 0));
+    d.mediaGastoHistorico = Math.max(0, numeroSeguro(d.mediaGastoHistorico, 0));
+    d.mediaArrecadadoHistorico = Math.max(0, numeroSeguro(d.mediaArrecadadoHistorico, 0));
+    d.verbaAntecipada = Math.max(0, numeroSeguro(d.verbaAntecipada, 0));
+
+    (d.plantel || []).forEach(p => {
+        p.ovr = Math.max(1, Math.round(numeroSeguro(p.ovr, 60)));
+        if (p.idade !== undefined && p.idade !== null) p.idade = Math.round(numeroSeguro(p.idade, 24));
+        p.stamina = numeroNaFaixa(p.stamina, 0, 100, 100);
+        p.moral = numeroNaFaixa(p.moral, 0, 100, 75);
+        p.diasLesao = Math.max(0, Math.round(numeroSeguro(p.diasLesao, 0)));
+        p.jogosSeguidos = Math.max(0, Math.round(numeroSeguro(p.jogosSeguidos, 0)));
+        p.poupadoRestante = Math.max(0, Math.round(numeroSeguro(p.poupadoRestante, 0)));
+    });
+}
+
+// A IA às vezes devolve o orçamento em euros crus (ex: 15000000) em vez de milhões (15).
 // Nenhum clube deveria ter um orçamento de transferências >= 1000 (bilhão de euros), então
 // qualquer valor absurdamente alto é reinterpretado como estando na escala errada.
 function normalizarValorOrcamento(valor) {
@@ -387,6 +551,10 @@ function toggleChatDiretoria() {
             if (typeof garantirCondicaoFisicaTodos === 'function') garantirCondicaoFisicaTodos();
             if (typeof garantirCentralMensagens === 'function') garantirCentralMensagens();
             if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
+            sanearNumerosDoSave();
+            // O termômetro fica no HTML com um valor fixo de exemplo até alguém desenhá-lo:
+            // sem esta chamada ele só era atualizado ao abrir o Feed Social.
+            if (typeof renderizarTermometroUI === 'function') renderizarTermometroUI();
             if (typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
             if (typeof renderizarLiderancaUI === 'function' && currentSave === 'clube') renderizarLiderancaUI();
             preencherDatalistJogadores(); document.getElementById('jog-nome-input').value = '';

@@ -78,11 +78,7 @@ async function lerImagemConvocacao(event) {
         {"jogadores": [{"nome": "Nome do Jogador", "posicao": "Posição", "ovr": numero}]}`;
 
         try {
-            const response = await fetch(API_URL, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } }] }] })
-            });
-            const data = await response.json();
+            const data = await chamarIA({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } }] }] });
             let rawText = data.candidates[0].content.parts[0].text;
             let jsonMatch = rawText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {

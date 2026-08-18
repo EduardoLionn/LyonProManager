@@ -392,11 +392,15 @@ function resolverEventoDiretoria(msg, opcao) {
 
         case 'venda_joia': {
             let jogador = d.plantel.find(p => p.nome === c.jogador);
+            if (jogador && jogadorPertenceAOutroClube(jogador)) {
+                return `${c.jogador} está no clube por empréstimo e pertence a outro time — a proposta do ${c.clube} foi devolvida ao remetente.`;
+            }
             if (opcao === 'vender') {
                 if (jogador) {
                     jogador.status = 'Vendido';
                     jogador.valor = c.proposta;
                     d.exigenciasDiretoria = (d.exigenciasDiretoria || []).filter(n => n !== c.jogador);
+                    if (typeof liberarBracadeiraSeNecessario === 'function') liberarBracadeiraSeNecessario(c.jogador);
                 }
                 d.orcamento = (d.orcamento || 0) + c.proposta * 0.8;
                 d.arrecadadoAtual = (d.arrecadadoAtual || 0) + c.proposta;
