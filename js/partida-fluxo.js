@@ -12,11 +12,15 @@
 // A aba do Auxiliar Técnico não escala mais ninguém: lá fica só o plano que ele sugere.
 
 // -------------------------------------------------------------------------------------
-// ESTADO DO FORMULÁRIO DE INÍCIO
+// COMO A ESCALAÇÃO É MONTADA
 // -------------------------------------------------------------------------------------
-// Escalação sendo montada antes do apito inicial. Vive fora do save de propósito: só vira
-// partida de verdade quando o treinador clica em Iniciar.
-let escalacaoEmMontagem = { formacao: null, titulares: {}, banco: [] };
+// A escalação é montada no MESMO campinho que se usa durante o jogo — clicando no jogador
+// pra trocar, com camisa, OVR e nome. Pra isso a partida nasce já como objeto real, com
+// status 'montando', e o "Iniciar Partida" só vira a chave pra 'em_andamento'.
+//
+// A vantagem de não ter um formulário paralelo: todo o maquinário que já existia (seletor
+// de troca por compatibilidade de posição, mudar formação, banco clicável) funciona igual
+// antes e depois do apito inicial, sem código duplicado.
 
 function _plantelDisponivelParaEscalar() {
     let d = db[currentSave];
@@ -25,165 +29,15 @@ function _plantelDisponivelParaEscalar() {
     return d.plantel.filter(p => p.status === 'Ativo');
 }
 
-// Jogador indisponível (lesionado/suspenso) não deveria entrar em campo — a lista mostra,
-// mas deixa claro o motivo, porque no fim quem manda é o que aconteceu no jogo de verdade.
-function _rotuloJogadorParaSelect(p) {
-    let extra = [];
-    if (p.diasLesao > 0) extra.push(`🏥 ${p.diasLesao}d`);
-    if (p.suspensoVermelho) extra.push('🟥 suspenso');
-    if (p.poupadoRestante > 0) extra.push(`💤 poupado (${p.poupadoRestante})`);
-    else if (typeof condicaoJogador === 'function') {
-        let c = condicaoJogador(p);
-        if (c.nivel === 'critico') extra.push('🚨 risco crítico');
-        else if (c.nivel === 'risco') extra.push('⚠️ risco');
-    }
-    return `${p.nome} — ${p.posicao} (${p.ovr})${extra.length ? ' • ' + extra.join(' ') : ''}`;
+function _jogadorIndisponivel(p) {
+    return (p.diasLesao > 0) || p.suspensoVermelho || (p.poupadoRestante > 0);
 }
 
-// -------------------------------------------------------------------------------------
-// TELA 1 — INICIAR PARTIDA
-// -------------------------------------------------------------------------------------
-
-function _optionsEsquemasPartida(selecionado) {
-    return (typeof listaFormacoesDisponiveis === 'function' ? listaFormacoesDisponiveis() : Object.keys(coordsFormacoes))
-        .map(f => `<option value="${f}"${f === selecionado ? ' selected' : ''}>${f}</option>`).join('');
-}
-
-function renderizarSetupPartida() {
-    let d = db[currentSave];
-    if (!d || !d.nome) return;
-
-    // Esquema começa no que está definido no Perfil do Treinador
-    let selEsquema = document.getElementById('inicio-partida-esquema');
-    if (selEsquema) {
-        let atual = escalacaoEmMontagem.formacao
-            || (typeof taticaDoSave === 'function' ? taticaDoSave().esquema : '4-2-3-1');
-        if (selEsquema.options.length === 0 || selEsquema.dataset.render !== 'ok') {
-            selEsquema.innerHTML = _optionsEsquemasPartida(atual);
-            selEsquema.dataset.render = 'ok';
-            selEsquema.onchange = function () { trocarEsquemaDaMontagem(this.value); };
-        }
-        selEsquema.value = atual;
-        escalacaoEmMontagem.formacao = atual;
-    }
-
-    // Se o Auxiliar já entregou um plano, oferece aproveitar
-    let boxSug = document.getElementById('inicio-sugestao-auxiliar');
-    if (boxSug) {
-        let sug = d.sugestaoAuxiliar;
-        if (sug) {
-            boxSug.style.display = 'block';
-            boxSug.innerHTML = `🤖 <strong>${(typeof nomeAuxiliarExibicao === 'function' ? nomeAuxiliarExibicao() : 'O Auxiliar')} já montou um plano</strong> contra <strong>${sug.adversarioNome}</strong> (${sug.tatica ? sug.tatica.esquema : '—'}).
-                <button onclick="usarSugestaoDoAuxiliar()" style="margin-left:8px; background:var(--accent); color:white; padding:6px 12px; font-size:12px;">📥 Usar este plano</button>`;
-        } else {
-            boxSug.style.display = 'none';
-        }
-    }
-
-    renderizarGradeEscalacao();
-}
-
-function trocarEsquemaDaMontagem(novoEsquema) {
-    escalacaoEmMontagem.formacao = novoEsquema;
-    // Mantém quem já foi escolhido nas funções que existem também no esquema novo
-    let rolesNovos = (coordsFormacoes[novoEsquema] || []).map(c => c.role);
-    let mantidos = {};
-    rolesNovos.forEach(r => { if (escalacaoEmMontagem.titulares[r]) mantidos[r] = escalacaoEmMontagem.titulares[r]; });
-    escalacaoEmMontagem.titulares = mantidos;
-    renderizarGradeEscalacao();
-}
-
-function renderizarGradeEscalacao() {
-    let grade = document.getElementById('inicio-escalacao-grade');
-    if (!grade) return;
-
-    let formacao = escalacaoEmMontagem.formacao || '4-2-3-1';
+// Escolhe os melhores disponíveis pra cada função da formação, respeitando compatibilidade
+// de posição e evitando quem está lesionado, suspenso ou poupado pelo Departamento Médico.
+function _montarTitularesAutomaticos(formacao) {
     let coords = coordsFormacoes[formacao] || [];
     let elenco = _plantelDisponivelParaEscalar();
-
-    if (elenco.length === 0) {
-        grade.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhum jogador ativo no elenco. Cadastre o elenco na aba "Elenco do Time" antes de iniciar uma partida.</p>`;
-        return;
-    }
-
-    // Um jogador não pode ocupar duas funções ao mesmo tempo
-    let usados = new Set(Object.values(escalacaoEmMontagem.titulares).filter(Boolean));
-
-    let optionsPara = (valorAtual, role) => {
-        let compat = [], resto = [];
-        elenco.forEach(p => {
-            if (usados.has(p.nome) && p.nome !== valorAtual) return;
-            let ehCompat = (typeof posicaoCompativelComRole === 'function') ? posicaoCompativelComRole(role, p.posicao) : true;
-            (ehCompat ? compat : resto).push(p);
-        });
-        let ordena = (a, b) => b.ovr - a.ovr;
-        compat.sort(ordena); resto.sort(ordena);
-        let opt = `<option value="">— escolher —</option>`;
-        if (compat.length) opt += `<optgroup label="Posição compatível">${compat.map(p => `<option value="${p.nome}"${p.nome === valorAtual ? ' selected' : ''}>${_rotuloJogadorParaSelect(p)}</option>`).join('')}</optgroup>`;
-        if (resto.length) opt += `<optgroup label="Fora de posição">${resto.map(p => `<option value="${p.nome}"${p.nome === valorAtual ? ' selected' : ''}>${_rotuloJogadorParaSelect(p)}</option>`).join('')}</optgroup>`;
-        return opt;
-    };
-
-    let titularesHtml = coords.map(c => `
-        <div class="escalacao-slot">
-            <label>${c.role}</label>
-            <select onchange="definirTitularMontagem('${c.role}', this.value)">${optionsPara(escalacaoEmMontagem.titulares[c.role] || '', c.role)}</select>
-        </div>`).join('');
-
-    // Banco: 9 vagas. Quem já é titular não aparece.
-    let usadosBanco = new Set([...usados]);
-    escalacaoEmMontagem.banco.forEach(n => { if (n) usadosBanco.add(n); });
-    let bancoHtml = Array.from({ length: 9 }, (_, i) => {
-        let atual = escalacaoEmMontagem.banco[i] || '';
-        let opts = `<option value="">— vazio —</option>` + elenco
-            .filter(p => !usadosBanco.has(p.nome) || p.nome === atual)
-            .sort((a, b) => b.ovr - a.ovr)
-            .map(p => `<option value="${p.nome}"${p.nome === atual ? ' selected' : ''}>${_rotuloJogadorParaSelect(p)}</option>`).join('');
-        return `
-        <div class="escalacao-slot">
-            <label>Banco ${i + 1}</label>
-            <select onchange="definirReservaMontagem(${i}, this.value)">${opts}</select>
-        </div>`;
-    }).join('');
-
-    let preenchidos = Object.values(escalacaoEmMontagem.titulares).filter(Boolean).length;
-    grade.innerHTML = `
-        <div class="escalacao-cabecalho">
-            <strong>Titulares</strong>
-            <span style="color:${preenchidos === coords.length ? 'var(--primary)' : 'var(--warning)'};">${preenchidos}/${coords.length} escalados</span>
-        </div>
-        <div class="escalacao-grade">${titularesHtml}</div>
-        <div class="escalacao-cabecalho" style="margin-top:18px;">
-            <strong>Reservas</strong>
-            <span style="color:var(--text-muted);">${escalacaoEmMontagem.banco.filter(Boolean).length}/9 no banco</span>
-        </div>
-        <div class="escalacao-grade">${bancoHtml}</div>`;
-}
-
-function definirTitularMontagem(role, nome) {
-    if (nome) escalacaoEmMontagem.titulares[role] = nome;
-    else delete escalacaoEmMontagem.titulares[role];
-    // Quem virou titular sai do banco
-    escalacaoEmMontagem.banco = escalacaoEmMontagem.banco.map(n => (n === nome ? '' : n));
-    renderizarGradeEscalacao();
-}
-
-function definirReservaMontagem(idx, nome) {
-    while (escalacaoEmMontagem.banco.length < 9) escalacaoEmMontagem.banco.push('');
-    escalacaoEmMontagem.banco[idx] = nome || '';
-    renderizarGradeEscalacao();
-}
-
-// Preenche a escalação com os melhores disponíveis de cada função — atalho pra quem não quer
-// montar tudo à mão nem mandar print. Respeita compatibilidade de posição e evita quem está
-// indisponível (lesionado, suspenso ou poupado pelo Departamento Médico).
-function preencherEscalacaoAutomatica() {
-    let formacao = escalacaoEmMontagem.formacao || '4-2-3-1';
-    let coords = coordsFormacoes[formacao] || [];
-    let elenco = _plantelDisponivelParaEscalar();
-    if (elenco.length === 0) return alert('Cadastre o elenco antes de escalar.');
-
-    let indisponivel = p => (p.diasLesao > 0) || p.suspensoVermelho || (p.poupadoRestante > 0);
     let usados = new Set();
     let titulares = {};
 
@@ -196,37 +50,81 @@ function preencherEscalacaoAutomatica() {
 
     ordemRoles.forEach(role => {
         let candidatos = elenco.filter(p => !usados.has(p.nome) && posicaoCompativelComRole(role, p.posicao));
-        let saudaveis = candidatos.filter(p => !indisponivel(p));
+        let saudaveis = candidatos.filter(p => !_jogadorIndisponivel(p));
         let pool = saudaveis.length ? saudaveis : candidatos;
         if (!pool.length) {
-            pool = elenco.filter(p => !usados.has(p.nome) && !indisponivel(p));
+            pool = elenco.filter(p => !usados.has(p.nome) && !_jogadorIndisponivel(p));
             if (!pool.length) pool = elenco.filter(p => !usados.has(p.nome));
         }
         if (!pool.length) return;
         pool.sort((a, b) => b.ovr - a.ovr);
-        titulares[role] = pool[0].nome;
+        titulares[role] = { nome: pool[0].nome, instrucao: '' };
         usados.add(pool[0].nome);
     });
 
-    escalacaoEmMontagem.titulares = titulares;
-    escalacaoEmMontagem.banco = _montarBancoAutomatico(usados, elenco);
-    renderizarGradeEscalacao();
+    return { titulares, usados };
 }
 
-// Monta o banco por relevância, garantindo SEMPRE um goleiro reserva (ver comentário em
-// completarGoleiroReserva) e no máximo 9 nomes.
-function _montarBancoAutomatico(usados, elenco) {
-    let indisponivel = p => (p.diasLesao > 0) || p.suspensoVermelho || (p.poupadoRestante > 0);
+// Banco por relevância, sempre com um goleiro reserva e no máximo 9 nomes.
+function _montarBancoAutomatico(usados) {
+    let elenco = _plantelDisponivelParaEscalar();
     let restantes = elenco.filter(p => !usados.has(p.nome)).sort((a, b) => {
-        if (indisponivel(a) !== indisponivel(b)) return indisponivel(a) ? 1 : -1;
+        if (_jogadorIndisponivel(a) !== _jogadorIndisponivel(b)) return _jogadorIndisponivel(a) ? 1 : -1;
         return b.ovr - a.ovr;
     });
     let banco = [];
     let goleiro = restantes.find(p => String(p.posicao).split('/')[0] === 'Goleiro');
-    if (goleiro) banco.push(goleiro.nome);
-    restantes.forEach(p => { if (banco.length < 9 && !banco.includes(p.nome)) banco.push(p.nome); });
-    while (banco.length < 9) banco.push('');
+    if (goleiro) banco.push({ nome: goleiro.nome, posicao: goleiro.posicao, papel: 'Goleiro reserva' });
+    restantes.forEach(p => {
+        if (banco.length < 9 && !banco.some(b => b.nome === p.nome)) {
+            banco.push({ nome: p.nome, posicao: p.posicao, papel: '' });
+        }
+    });
     return banco.slice(0, 9);
+}
+
+// Cria a partida em modo "montando" — a partir daqui tudo acontece no campinho.
+function _criarPartidaEmMontagem(dados) {
+    let d = db[currentSave];
+    let adversario = (document.getElementById('inicio-partida-adversario').value || '').trim();
+    if (!adversario) { alert('Informe o adversário antes de montar a escalação.'); return null; }
+
+    let tatica = (typeof taticaDoSave === 'function') ? Object.assign({}, taticaDoSave()) : null;
+    let formacao = (dados && dados.formacao) || (tatica ? tatica.esquema : '4-2-3-1');
+    if (!coordsFormacoes[formacao]) formacao = '4-2-3-1';
+    if (tatica) tatica.esquema = formacao;
+
+    d.partidaAuxiliar = {
+        id: Date.now(),
+        status: 'montando',
+        adversarioNome: adversario,
+        adversarioInfo: (dados && dados.adversarioInfo) || '',
+        analiseGeral: (dados && dados.analiseGeral) || '',
+        diretriz: (dados && dados.diretriz) || '',
+        formacaoEscolhida: formacao,
+        titulares: (dados && dados.titulares) || {},
+        banco: (dados && dados.banco) || [],
+        tatica: tatica,
+        substituicoes: [],
+        jogadoresForaDaPartida: [],
+        ajustesFeitos: [],
+        criadaEm: Date.now()
+    };
+    if (typeof pitchToggleSubView !== 'undefined') pitchToggleSubView = {};
+    salvarDados();
+    return d.partidaAuxiliar;
+}
+
+function montarEscalacaoAutomatica() {
+    let tatica = (typeof taticaDoSave === 'function') ? taticaDoSave() : null;
+    let formacao = tatica ? tatica.esquema : '4-2-3-1';
+    if (!coordsFormacoes[formacao]) formacao = '4-2-3-1';
+
+    if (_plantelDisponivelParaEscalar().length === 0) return alert('Cadastre o elenco na aba "Elenco do Time" antes de iniciar uma partida.');
+
+    let { titulares, usados } = _montarTitularesAutomaticos(formacao);
+    let criada = _criarPartidaEmMontagem({ formacao, titulares, banco: _montarBancoAutomatico(usados) });
+    if (criada) renderizarAbaSalvarPartida();
 }
 
 // O print da tela de Gerenciamento do Time mostra 11 titulares e só 8 reservas: o goleiro
@@ -318,60 +216,73 @@ function aplicarEscalacaoLida(res, loader) {
             || elenco.find(p => p.nome.toLowerCase().includes(alvo) || alvo.includes(p.nome.toLowerCase()));
     };
 
-    let formacao = (coordsFormacoes[res.formacao]) ? res.formacao : (escalacaoEmMontagem.formacao || '4-2-3-1');
-    escalacaoEmMontagem.formacao = formacao;
+    let tatica = (typeof taticaDoSave === 'function') ? taticaDoSave() : null;
+    let formacao = coordsFormacoes[res.formacao] ? res.formacao : (tatica ? tatica.esquema : '4-2-3-1');
+    if (!coordsFormacoes[formacao]) formacao = '4-2-3-1';
     let coords = coordsFormacoes[formacao] || [];
 
     let lidos = (Array.isArray(res.titulares) ? res.titulares : [])
-        .map(t => ({ jogador: acharNoElenco(t && t.nome), posicaoPrint: (t && t.posicao) || '' }))
-        .filter(x => x.jogador);
+        .map(t => acharNoElenco(t && t.nome))
+        .filter(Boolean);
 
     // Casa cada jogador lido com a função mais adequada que ainda estiver livre
     let titulares = {};
     let usados = new Set();
     let rolesLivres = coords.map(c => c.role);
 
-    // Primeira passada: só encaixes compatíveis de verdade
-    lidos.forEach(({ jogador }) => {
+    lidos.forEach(jogador => {
         if (usados.has(jogador.nome)) return;
         let role = rolesLivres.find(r => posicaoCompativelComRole(r, jogador.posicao));
         if (role) {
-            titulares[role] = jogador.nome;
+            titulares[role] = { nome: jogador.nome, instrucao: '' };
             usados.add(jogador.nome);
             rolesLivres = rolesLivres.filter(r => r !== role);
         }
     });
-    // Segunda passada: quem sobrou entra nas funções que restaram
-    lidos.forEach(({ jogador }) => {
+    lidos.forEach(jogador => {
         if (usados.has(jogador.nome) || rolesLivres.length === 0) return;
-        titulares[rolesLivres.shift()] = jogador.nome;
+        titulares[rolesLivres.shift()] = { nome: jogador.nome, instrucao: '' };
         usados.add(jogador.nome);
     });
 
-    let banco = (Array.isArray(res.reservas) ? res.reservas : [])
+    let bancoNomes = (Array.isArray(res.reservas) ? res.reservas : [])
         .map(n => acharNoElenco(n))
         .filter(p => p && !usados.has(p.nome))
         .map(p => p.nome);
-    banco = [...new Set(banco)].slice(0, 9);
+    bancoNomes = [...new Set(bancoNomes)].slice(0, 9);
 
     // O print corta o goleiro reserva — completa aqui
-    let { banco: bancoFinal, adicionado } = completarGoleiroReserva(Object.values(titulares), banco);
-    while (bancoFinal.length < 9) bancoFinal.push('');
+    let { banco: bancoFinal, adicionado } = completarGoleiroReserva(Object.values(titulares).map(t => t.nome), bancoNomes);
+    let banco = bancoFinal.filter(Boolean).map(nome => {
+        let p = elenco.find(x => x.nome === nome);
+        return { nome: nome, posicao: p ? p.posicao : '', papel: nome === adicionado ? 'Goleiro reserva (completado)' : '' };
+    });
 
-    escalacaoEmMontagem.titulares = titulares;
-    escalacaoEmMontagem.banco = bancoFinal.slice(0, 9);
+    // Se faltou alguém pra fechar os 11, completa pelo elenco em vez de deixar buraco
+    let faltando = coords.filter(c => !titulares[c.role]);
+    let completados = [];
+    if (faltando.length) {
+        let auto = _montarTitularesAutomaticos(formacao);
+        faltando.forEach(c => {
+            let escolha = auto.titulares[c.role];
+            if (escolha && !usados.has(escolha.nome) && !banco.some(b => b.nome === escolha.nome)) {
+                titulares[c.role] = escolha;
+                usados.add(escolha.nome);
+                completados.push(`${c.role}: ${escolha.nome}`);
+            }
+        });
+    }
 
-    let selEsquema = document.getElementById('inicio-partida-esquema');
-    if (selEsquema) selEsquema.value = formacao;
-    renderizarGradeEscalacao();
+    let criada = _criarPartidaEmMontagem({ formacao, titulares, banco });
+    if (!criada) return;
+    renderizarAbaSalvarPartida();
 
     if (loader) {
         loader.style.display = 'block';
         loader.style.color = 'var(--primary)';
-        let faltando = coords.length - Object.keys(titulares).length;
-        let partes = [`✅ Print lido: ${Object.keys(titulares).length} titular(es) e ${bancoFinal.filter(Boolean).length} reserva(s) no esquema ${formacao}.`];
+        let partes = [`✅ Print lido: ${lidos.length} titular(es) e ${bancoNomes.length} reserva(s) no esquema ${formacao}.`];
         if (adicionado) partes.push(`🧤 O goleiro reserva não aparece no print — completei com ${adicionado} (maior OVR entre os goleiros que não são titulares).`);
-        if (faltando > 0) partes.push(`⚠️ Faltam ${faltando} função(ões) — complete abaixo antes de iniciar.`);
+        if (completados.length) partes.push(`⚡ Completei o que faltava pelo elenco: ${completados.join(', ')}. Clique no campinho pra ajustar.`);
         loader.innerHTML = partes.join('<br>');
     }
 }
@@ -381,31 +292,35 @@ function aplicarEscalacaoLida(res, loader) {
 // -------------------------------------------------------------------------------------
 
 function usarSugestaoDoAuxiliar() {
-    let sug = db[currentSave] && db[currentSave].sugestaoAuxiliar;
+    let d = db[currentSave];
+    let sug = d && d.sugestaoAuxiliar;
     if (!sug) return;
-
-    escalacaoEmMontagem.formacao = (sug.tatica && sug.tatica.esquema) || escalacaoEmMontagem.formacao;
-    escalacaoEmMontagem.titulares = {};
-    Object.keys(sug.escalacao || {}).forEach(role => {
-        let info = sug.escalacao[role];
-        if (info && info.nome) escalacaoEmMontagem.titulares[role] = info.nome;
-    });
-    escalacaoEmMontagem.banco = (sug.reservas || []).map(r => r && r.nome).filter(Boolean).slice(0, 9);
-    while (escalacaoEmMontagem.banco.length < 9) escalacaoEmMontagem.banco.push('');
 
     let campoAdv = document.getElementById('inicio-partida-adversario');
     if (campoAdv && !campoAdv.value.trim() && sug.adversarioNome) campoAdv.value = sug.adversarioNome;
 
-    let selEsquema = document.getElementById('inicio-partida-esquema');
-    if (selEsquema) selEsquema.value = escalacaoEmMontagem.formacao;
+    let elenco = _plantelDisponivelParaEscalar();
+    let banco = (sug.reservas || []).filter(r => r && r.nome).slice(0, 9).map(r => {
+        let p = elenco.find(x => x.nome === r.nome);
+        return { nome: r.nome, posicao: p ? p.posicao : (r.posicao || ''), papel: r.papel || '' };
+    });
 
-    renderizarGradeEscalacao();
-    let loader = document.getElementById('inicio-escalacao-loader');
-    if (loader) {
-        loader.style.display = 'block';
-        loader.style.color = 'var(--accent)';
-        loader.innerText = `📥 Plano do Auxiliar aplicado (${escalacaoEmMontagem.formacao}). Ajuste o que quiser antes de iniciar.`;
-    }
+    let criada = _criarPartidaEmMontagem({
+        formacao: sug.tatica ? sug.tatica.esquema : null,
+        titulares: JSON.parse(JSON.stringify(sug.escalacao || {})),
+        banco: banco,
+        adversarioInfo: sug.adversarioInfo,
+        analiseGeral: sug.analiseGeral,
+        diretriz: sug.diretriz
+    });
+    if (!criada) return;
+
+    // O plano do Auxiliar traz o pacote tático dele — é o que vale nesta partida
+    if (sug.tatica) criada.tatica = Object.assign({}, sug.tatica);
+    criada.alertaRotacao = sug.alertaRotacao || '';
+    criada.rotacoesAutomaticas = sug.rotacoesAutomaticas || [];
+    salvarDados();
+    renderizarAbaSalvarPartida();
 }
 
 // -------------------------------------------------------------------------------------
@@ -414,78 +329,40 @@ function usarSugestaoDoAuxiliar() {
 
 function iniciarPartidaDoSetup() {
     let d = db[currentSave];
-    if (!d || !d.nome) return;
+    let partida = d && d.partidaAuxiliar;
+    if (!partida || partida.status !== 'montando') return;
 
-    let adversario = (document.getElementById('inicio-partida-adversario').value || '').trim();
-    if (!adversario) return alert('Informe o adversário antes de iniciar a partida.');
-
-    let formacao = escalacaoEmMontagem.formacao || '4-2-3-1';
-    let coords = coordsFormacoes[formacao] || [];
-    let faltando = coords.filter(c => !escalacaoEmMontagem.titulares[c.role]);
+    let coords = coordsFormacoes[partida.formacaoEscolhida] || [];
+    let faltando = coords.filter(c => !partida.titulares[c.role] || !partida.titulares[c.role].nome);
     if (faltando.length > 0) {
-        return alert(`Faltam ${faltando.length} jogador(es) na escalação: ${faltando.map(c => c.role).join(', ')}.`);
+        return alert(`Faltam ${faltando.length} jogador(es) na escalação: ${faltando.map(c => c.role).join(', ')}. Clique nas vagas vazias do campinho pra preencher.`);
     }
 
-    // Guarda o pacote tático que estará valendo em campo (o do Perfil, ou o sugerido se foi aplicado)
-    let tatica = (typeof taticaDoSave === 'function') ? Object.assign({}, taticaDoSave()) : null;
-    let sug = d.sugestaoAuxiliar;
-    if (sug && sug.tatica && sug.tatica.esquema === formacao) tatica = Object.assign({}, sug.tatica);
-    if (tatica) tatica.esquema = formacao;
-
-    // As instruções por jogador só existem se o plano veio do Auxiliar
-    let instrucoes = (sug && sug.escalacao) ? sug.escalacao : {};
-    let titulares = {};
-    Object.keys(escalacaoEmMontagem.titulares).forEach(role => {
-        let nome = escalacaoEmMontagem.titulares[role];
-        let daSugestao = instrucoes[role];
-        titulares[role] = {
-            nome: nome,
-            instrucao: (daSugestao && daSugestao.nome === nome && daSugestao.instrucao) ? daSugestao.instrucao : ''
-        };
-    });
-
-    let banco = escalacaoEmMontagem.banco.filter(Boolean).map(nome => {
-        let p = (d.plantel || []).find(x => x.nome === nome);
-        let daSugestao = (sug && sug.reservas || []).find(r => r && r.nome === nome);
-        return { nome: nome, posicao: p ? p.posicao : '', papel: daSugestao ? daSugestao.papel : '' };
-    });
-
-    d.partidaAuxiliar = {
-        id: Date.now(),
-        status: 'em_andamento',
-        adversarioNome: adversario,
-        adversarioInfo: (sug && sug.adversarioNome === adversario) ? sug.adversarioInfo : '',
-        analiseGeral: (sug && sug.adversarioNome === adversario) ? sug.analiseGeral : '',
-        diretriz: sug ? sug.diretriz : '',
-        comp: document.getElementById('inicio-partida-comp').value,
-        contexto: (document.getElementById('inicio-partida-contexto').value || '').trim(),
-        mando: document.getElementById('inicio-partida-mando').value,
-        diasProxima: Math.max(0, parseInt(document.getElementById('inicio-partida-dias').value) || 3),
-        formacaoEscolhida: formacao,
-        titulares: titulares,
-        banco: banco,
-        tatica: tatica,
-        // Fotografia do apito inicial: o histórico compara isso com o fim do jogo
-        escalacaoInicial: JSON.parse(JSON.stringify(titulares)),
-        formacaoInicial: formacao,
-        bancoInicial: JSON.parse(JSON.stringify(banco)),
-        substituicoes: [],
-        jogadoresForaDaPartida: [],
-        ajustesFeitos: [],
-        iniciadaEm: Date.now(),
-        criadaEm: Date.now()
-    };
+    partida.status = 'em_andamento';
+    // Fotografia do apito inicial: é o que separa a escalação original das trocas do jogo.
+    // A formação vai junto porque, se ela mudar no meio do jogo, formacaoEscolhida passa a
+    // apontar pra final — e o campinho do histórico precisa da formação original.
+    partida.escalacaoInicial = JSON.parse(JSON.stringify(partida.titulares));
+    partida.formacaoInicial = partida.formacaoEscolhida;
+    partida.bancoInicial = JSON.parse(JSON.stringify(partida.banco || []));
+    partida.substituicoes = [];
+    partida.jogadoresForaDaPartida = [];
+    partida.iniciadaEm = Date.now();
 
     if (typeof pitchToggleSubView !== 'undefined') pitchToggleSubView = {};
     salvarDados();
     renderizarAbaSalvarPartida();
-    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Partida iniciada vs ${adversario}`);
+    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Partida iniciada vs ${partida.adversarioNome}`);
 }
 
 async function cancelarPartidaEmAndamento() {
-    if (await confirmarModerno('Descartar esta partida? A escalação e as substituições declaradas serão perdidas.', 'Cancelar Partida', { perigo: true, textoConfirmar: 'Descartar' })) {
+    let partida = db[currentSave].partidaAuxiliar;
+    let montando = partida && partida.status === 'montando';
+    let msg = montando
+        ? 'Descartar esta escalação e começar de novo?'
+        : 'Descartar esta partida? A escalação e as substituições declaradas serão perdidas.';
+    if (await confirmarModerno(msg, montando ? 'Descartar Escalação' : 'Cancelar Partida', { perigo: true, textoConfirmar: 'Descartar' })) {
         db[currentSave].partidaAuxiliar = null;
-        escalacaoEmMontagem = { formacao: null, titulares: {}, banco: [] };
         salvarDados();
         renderizarAbaSalvarPartida();
     }
@@ -505,52 +382,75 @@ function renderizarAbaSalvarPartida() {
 
     let partida = d.partidaAuxiliar;
 
+    // Sem partida: só a pergunta do adversário e como montar a escalação
     if (!partida) {
         setup.style.display = 'block';
         andamento.style.display = 'none';
         resultado.style.display = 'none';
-        renderizarSetupPartida();
+
+        let boxSug = document.getElementById('inicio-sugestao-auxiliar');
+        if (boxSug) {
+            let sug = d.sugestaoAuxiliar;
+            if (sug) {
+                boxSug.style.display = 'block';
+                boxSug.innerHTML = `🤖 <strong>${(typeof nomeAuxiliarExibicao === 'function' ? nomeAuxiliarExibicao() : 'O Auxiliar')} já montou um plano</strong> contra <strong>${sug.adversarioNome}</strong> (${sug.tatica ? sug.tatica.esquema : '—'}).
+                    <button onclick="usarSugestaoDoAuxiliar()" style="margin-left:8px; background:var(--accent); color:white; padding:6px 12px; font-size:12px;">📥 Escalar com este plano</button>`;
+            } else {
+                boxSug.style.display = 'none';
+            }
+        }
         return;
     }
 
+    let montando = partida.status === 'montando';
     setup.style.display = 'none';
     andamento.style.display = 'block';
-    resultado.style.display = 'block';
+    resultado.style.display = montando ? 'none' : 'block';
 
     let banner = document.getElementById('partida-banner');
     if (banner) {
         let t = partida.tatica;
-        let descTatica = t && typeof predefinicaoPorId === 'function'
-            ? `${predefinicaoPorId(t.predefinicao).nome} • ${t.esquema} • ${estiloArmacaoPorId(t.estiloArmacao).nome} • ${t.abordagemDefensiva}/100 (${faixaAbordagem(t.abordagemDefensiva).nome})`
+        let descTatica = (t && typeof predefinicaoPorId === 'function')
+            ? `${predefinicaoPorId(t.predefinicao).nome} • ${partida.formacaoEscolhida} • ${estiloArmacaoPorId(t.estiloArmacao).nome} • ${t.abordagemDefensiva}/100 (${faixaAbordagem(t.abordagemDefensiva).nome})`
             : partida.formacaoEscolhida;
-        banner.style.background = 'rgba(226,75,75,0.1)';
-        banner.style.border = '1px solid var(--danger)';
-        banner.innerHTML = `🔴 <strong>EM ANDAMENTO:</strong> ${d.nome} ${partida.mando === 'Fora' ? '(fora)' : partida.mando === 'Neutro' ? '(campo neutro)' : '(casa)'} vs <strong>${partida.adversarioNome}</strong> — ${partida.comp}${partida.contexto ? ` · ${partida.contexto}` : ''}
-        <br><span style="font-size:12px; color:var(--text-muted);">Tática em campo: ${descTatica}</span>`;
+        if (montando) {
+            banner.style.background = 'rgba(232,184,75,0.1)';
+            banner.style.border = '1px solid var(--primary)';
+            banner.innerHTML = `📋 <strong>Montando a escalação</strong> — ${d.nome} vs <strong>${partida.adversarioNome}</strong>
+            <br><span style="font-size:12px; color:var(--text-muted);">Tática: ${descTatica}</span>`;
+        } else {
+            banner.style.background = 'rgba(226,75,75,0.1)';
+            banner.style.border = '1px solid var(--danger)';
+            banner.innerHTML = `🔴 <strong>EM ANDAMENTO:</strong> ${d.nome} vs <strong>${partida.adversarioNome}</strong>
+            <br><span style="font-size:12px; color:var(--text-muted);">Tática em campo: ${descTatica}</span>`;
+        }
     }
 
-    let alerta = document.getElementById('partida-alerta-auxiliar');
-    if (alerta) {
-        let textos = [];
-        if (partida.analiseGeral) textos.push(`🤖 <strong>Plano do Auxiliar:</strong> ${partida.analiseGeral}`);
-        if (partida.alertaRotacao) textos.push(`<span style="color:var(--warning);">${partida.alertaRotacao}</span>`);
-        if (textos.length) { alerta.style.display = 'block'; alerta.innerHTML = textos.join('<br>'); }
-        else alerta.style.display = 'none';
+    let dica = document.getElementById('partida-dica-campinho');
+    if (dica) {
+        dica.innerText = montando
+            ? 'Clique num jogador pra trocar. Vagas vazias abrem a lista do elenco.'
+            : 'Clique num jogador em campo pra trocar de posição ou declarar substituição. A setinha verde ▲ mostra quem entrou — clique nela pra ver quem saiu.';
     }
 
     let cab = document.getElementById('resultado-cabecalho-partida');
-    if (cab) {
-        cab.innerHTML = `📋 Registrando o resultado de <strong>${d.nome} vs ${partida.adversarioNome}</strong> — ${partida.comp}${partida.contexto ? ` · ${partida.contexto}` : ''} · ${partida.mando} · ${partida.diasProxima} dia(s) até a próxima.`;
-    }
+    if (cab) cab.innerHTML = `📋 Registrando o resultado de <strong>${d.nome} vs ${partida.adversarioNome}</strong>. Preencha abaixo o contexto do jogo e as estatísticas — dá pra ler tudo de um print.`;
 
     let acoes = document.getElementById('auxiliar-acoes-partida');
     if (acoes) {
-        let subsUsadas = (partida.substituicoes || []).length;
-        acoes.innerHTML = `
-            <p style="flex:1 1 100%; text-align:center; font-size:12px; color:var(--text-muted); margin: 0 0 4px 0;">Substituições declaradas: ${subsUsadas}/5 — clique num jogador em campo ou no banco pra declarar uma troca.</p>
-            <button onclick="abrirMudarFormacaoManual()" style="flex:1; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
-            <button onclick="pedirSugestaoAoVivo()" style="flex:1; background:var(--accent); color:white;">🤖 Pedir sugestão ao Auxiliar</button>
-            <button class="btn-hero-secundario" onclick="cancelarPartidaEmAndamento()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar Partida</button>`;
+        if (montando) {
+            acoes.innerHTML = `
+                <button onclick="abrirMudarFormacaoManual()" style="flex:1; min-width:180px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
+                <button class="btn-hero-secundario" onclick="cancelarPartidaEmAndamento()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar</button>
+                <button onclick="iniciarPartidaDoSetup()" style="flex:1 1 100%; background:var(--primary); color:black; padding:14px; font-size:16px;">▶️ Iniciar Partida</button>`;
+        } else {
+            let subsUsadas = (partida.substituicoes || []).length;
+            acoes.innerHTML = `
+                <p style="flex:1 1 100%; text-align:center; font-size:12px; color:var(--text-muted); margin: 0 0 4px 0;">Substituições: <strong style="color:${subsUsadas >= 5 ? 'var(--danger)' : 'var(--primary)'};">${subsUsadas}/5</strong> — quem sai não volta mais nesta partida.</p>
+                <button onclick="abrirMudarFormacaoManual()" style="flex:1; min-width:160px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
+                <button onclick="pedirSugestaoAoVivo()" style="flex:1; min-width:160px; background:var(--accent); color:white;">🤖 Pedir sugestão ao Auxiliar</button>
+                <button class="btn-hero-secundario" onclick="cancelarPartidaEmAndamento()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar Partida</button>`;
+        }
     }
 
     if (typeof renderizarCampinhoLimpo === 'function') renderizarCampinhoLimpo();
