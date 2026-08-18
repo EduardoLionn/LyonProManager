@@ -617,9 +617,10 @@ ${textoRegrasCompatibilidadePosicional()}
                 return alert('Digite o nome do adversário ou anexe pelo menos um print.');
             }
 
-            let formacaoPri = document.getElementById('tatica-primaria').value;
-            let formacaoSec = document.getElementById('tatica-secundaria').value;
-            let estiloJogo = document.getElementById('tatica-estilo').value;
+            let taticaBase = taticaDoSave();
+            let formacaoPri = taticaBase.esquema;
+            let formacaoSec = taticaBase.esquemaAlternativo;
+            let estiloJogo = descreverTaticaParaIA(taticaBase);
             let diasDescanso = (db[currentSave] && typeof db[currentSave].descansoAntesProxima === 'number') ? db[currentSave].descansoAntesProxima : 3;
 
             let btn = document.getElementById('btn-declarar-partida-ia');
@@ -748,7 +749,7 @@ ${textoRegrasCompatibilidadePosicional()}
             LAE: LATERAL_ESQUERDO_COMPATIVEL, ALE: LATERAL_ESQUERDO_COMPATIVEL,
             VOL: VOLANTE_COMPATIVEL, VOLD: VOLANTE_COMPATIVEL, VOLE: VOLANTE_COMPATIVEL,
             MCD: MEIOCAMPO_COMPATIVEL, MCE: MEIOCAMPO_COMPATIVEL, MC: MEIOCAMPO_COMPATIVEL,
-            MEI: MEIA_ARMADOR_COMPATIVEL,
+            MEI: MEIA_ARMADOR_COMPATIVEL, MEID: MEIA_ARMADOR_COMPATIVEL, MEIE: MEIA_ARMADOR_COMPATIVEL,
             PD: PONTA_DIREITA_COMPATIVEL, MD: PONTA_DIREITA_COMPATIVEL,
             PE: PONTA_ESQUERDA_COMPATIVEL, ME: PONTA_ESQUERDA_COMPATIVEL,
             ATA: ATACANTE_COMPATIVEL, ATD: ATACANTE_COMPATIVEL, ATE: ATACANTE_COMPATIVEL
@@ -769,7 +770,7 @@ ${textoRegrasCompatibilidadePosicional()}
             - Lateral Esquerdo (LAE/ALE): aceita lateral esquerdo de qualquer variação (defesa, ala, construtor) e lateral versátil de qualquer variação, além de ponta/ala esquerda.
             - Volante (VOL/VOLD/VOLE): aceita volante de qualquer variação, meio-campo/armador, meio-campo/equilibrado, meio-campo/versátil, lateral/construtor (direito, esquerdo ou versátil), zagueiro/construtor e zagueiro/versátil.
             - Meio-Campo genérico (MCD/MCE/MC): aceita meio-campo de qualquer variação, volante de qualquer variação e lateral/construtor (direito, esquerdo ou versátil).
-            - Meia Armador (MEI): aceita meio-campo de qualquer variação, ponta/armador, ponta/invertido, atacante/armador, atacante/versátil e ponta/versátil.
+            - Meia Armador (MEI/MEID/MEIE): aceita meio-campo de qualquer variação, ponta/armador, ponta/invertido, atacante/armador, atacante/versátil e ponta/versátil.
             - Ponta Direita (PD/MD): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil, lateral/ala direito, lateral/ala versátil, atacante/aberto e atacante/versátil.
             - Ponta Esquerda (PE/ME): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil, lateral/ala esquerdo, lateral/ala versátil, atacante/aberto e atacante/versátil.
             - Atacante (ATA/ATD/ATE): aceita atacante de qualquer variação, ponta/invertido, ponta/versátil, meio-campo/ataque e meio-campo/versátil.

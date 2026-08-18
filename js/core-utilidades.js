@@ -349,11 +349,10 @@ function lerTexto(texto) {
             }
         }
 
+     // As escolhas táticas agora vivem em js/taticas.js (modelo espelhado no jogo, com as
+     // travas de cada predefinição). Esta função só garante que o save tem o formato novo.
      function salvarPreferenciasTaticas() {
-            if(!db[currentSave].taticas) db[currentSave].taticas = {};
-            db[currentSave].taticas.primaria = document.getElementById('tatica-primaria').value;
-            db[currentSave].taticas.secundaria = document.getElementById('tatica-secundaria').value;
-            db[currentSave].taticas.estilo = document.getElementById('tatica-estilo').value;
+            if (typeof taticaDoSave === 'function') taticaDoSave();
             salvarDados();
         }
 
@@ -372,11 +371,7 @@ function toggleChatDiretoria() {
 }
 
    function carregarPreferenciasTaticas() {
-            if(db[currentSave].taticas) {
-                if(db[currentSave].taticas.primaria) document.getElementById('tatica-primaria').value = db[currentSave].taticas.primaria;
-                if(db[currentSave].taticas.secundaria) document.getElementById('tatica-secundaria').value = db[currentSave].taticas.secundaria;
-                if(db[currentSave].taticas.estilo) document.getElementById('tatica-estilo').value = db[currentSave].taticas.estilo;
-            }
+            if (typeof renderizarPainelTaticas === 'function') renderizarPainelTaticas();
         }
 
         function carregarPerfilTreinador() {

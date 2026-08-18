@@ -581,22 +581,32 @@
 
             <!-- ETAPA: TÁTICA -->
             <div id="wizard-step-tatica" class="wizard-card wizard-step" style="display:none;">
-                <h2>📋 Filosofia Tática</h2>
-                <p class="wizard-subtitle">Defina como seu time joga. Isso já deixa o Auxiliar Técnico pronto pra sugerir escalações desde o primeiro jogo (dá pra mudar depois na aba Auxiliar Técnico).</p>
-                <div class="grid-3">
+                <h2>📋 Escolhas Táticas</h2>
+                <p class="wizard-subtitle">As mesmas quatro escolhas que existem no jogo. Isso já deixa o Auxiliar Técnico pronto pra sugerir escalações desde o primeiro jogo (dá pra ajustar tudo depois no Perfil do Treinador).</p>
+                <div class="grid-2">
                     <div class="linha-form">
-                        <label>Formação Preferida</label>
-                        <select id="wiz-tatica-primaria"></select>
+                        <label>Predefinição Tática</label>
+                        <select id="wiz-tatica-predefinicao" onchange="wizardAtualizarRegraTatica()"></select>
                     </div>
                     <div class="linha-form">
-                        <label>Formação Secundária</label>
-                        <select id="wiz-tatica-secundaria"></select>
+                        <label>Estilo de Armação</label>
+                        <select id="wiz-tatica-estilo-armacao"></select>
                     </div>
                     <div class="linha-form">
-                        <label>Estilo de Jogo da Equipe</label>
-                        <select id="wiz-tatica-estilo"></select>
+                        <label>Esquema Principal</label>
+                        <select id="wiz-tatica-esquema"></select>
+                    </div>
+                    <div class="linha-form">
+                        <label>Esquema Alternativo</label>
+                        <select id="wiz-tatica-esquema-alt"></select>
                     </div>
                 </div>
+                <div class="linha-form" style="margin-top:10px;">
+                    <label>Abordagem Defensiva (0 a 100)</label>
+                    <input type="range" min="0" max="100" step="1" id="wiz-tatica-abordagem" value="50" class="tatica-slider" oninput="wizardAtualizarRegraTatica()">
+                    <div id="wiz-tatica-abordagem-valor" style="font-size:14px; font-weight:bold; margin-top:6px;">50 — Equilibrada</div>
+                </div>
+                <p id="wiz-tatica-regra" style="font-size:12px; color:var(--warning); margin-top:12px; line-height:1.6;"></p>
             </div>
 
             <!-- ETAPA: ELENCO INICIAL -->
@@ -1528,49 +1538,10 @@
             </div>
 
             <div class="panel">
-                <h2 style="margin: 0 0 6px 0; font-size:20px; color:var(--primary);">📋 Minha Filosofia Tática</h2>
-                <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Isso já deixa o Auxiliar Técnico pronto pra sugerir escalações — dá pra mudar quando quiser.</p>
-                <div class="grid-3">
-                    <div class="linha-form">
-                        <label style="color:var(--primary);">Formação Preferida</label>
-                        <select id="tatica-primaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
-                            <option value="4-3-3">4-3-3 (Ofensivo)</option>
-                            <option value="4-4-2">4-4-2 (Clássico)</option>
-                            <option value="3-5-2">3-5-2 (Alas)</option>
-                            <option value="4-2-3-1" selected>4-2-3-1 (Moderna)</option>
-                            <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
-                            <option value="3-4-3">3-4-3 (Agressiva)</option>
-                            <option value="5-3-2">5-3-2 (Defensiva)</option>
-                        </select>
-                    </div>
-                    <div class="linha-form">
-                        <label style="color:var(--primary);">Formação Secundária</label>
-                        <select id="tatica-secundaria" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
-                            <option value="4-3-3">4-3-3 (Ofensivo)</option>
-                            <option value="4-4-2">4-4-2 (Clássico)</option>
-                            <option value="3-5-2">3-5-2 (Alas)</option>
-                            <option value="4-2-3-1">4-2-3-1 (Moderna)</option>
-                            <option value="4-1-4-1">4-1-4-1 (Equilibrada)</option>
-                            <option value="3-4-3">3-4-3 (Agressiva)</option>
-                            <option value="5-3-2" selected>5-3-2 (Defensiva)</option>
-                        </select>
-                    </div>
-                    <div class="linha-form">
-                        <label style="color:var(--primary);">Estilo de Jogo da Equipe</label>
-                        <select id="tatica-estilo" onchange="salvarPreferenciasTaticas()" style="background: var(--bg-dark);">
-                            <option value="Posse de bola e cadência (Tiki-taka)">Posse de Bola (Tiki-Taka)</option>
-                            <option value="Jogadas rápidas pelas laterais e pontas (Amplitude)">Explorar Laterais/Pontas</option>
-                            <option value="Transição rápida e jogo vertical direto">Transição Rápida (Vertical)</option>
-                            <option value="Contra-ataque letal esperando o adversário">Contra-ataque Letal</option>
-                            <option value="Retranca total, linhas baixas e compactas">Retranca Total</option>
-                            <option value="Pressão alta sufocante (Gegenpressing)">Pressão Total (Gegenpressing)</option>
-                            <option value="Jogo direto e bolas longas para o ataque (Long Ball)">Jogo Direto (Bola Longa)</option>
-                            <option value="Ataques concentrados pelo corredor central">Ataque pelo Meio (Corredor Central)</option>
-                            <option value="Construção curta desde o goleiro e zagueiros (Build-up)">Construção Curta (Build-up)</option>
-                            <option value="Equilíbrio total entre ataque e defesa, sem prioridade fixa">Equilíbrio Total</option>
-                        </select>
-                    </div>
-                </div>
+                <h2 style="margin: 0 0 6px 0; font-size:20px; color:var(--primary);">📋 Minhas Escolhas Táticas</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">As mesmas quatro escolhas que existem no jogo. É daqui que o Auxiliar Técnico parte para montar a sugestão de cada partida — e a sugestão dele volta neste mesmo formato, pra você aplicar igualzinho.</p>
+                <div id="tatica-aviso-regra" style="display:none; background: rgba(217,130,43,0.12); border:1px solid var(--warning); color:var(--warning); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:15px;"></div>
+                <div id="painel-taticas"></div>
             </div>
         </div>
 
@@ -1748,6 +1719,7 @@
     <script src="js/clubes-data.js"></script>
     <script src="js/save-manager.js"></script>
     <script src="js/core-utilidades.js"></script>
+    <script src="js/taticas.js"></script>
     <script src="js/onboarding.js"></script>
     <script src="js/central-mensagens.js"></script>
     <script src="js/eventos-diretoria.js"></script>
