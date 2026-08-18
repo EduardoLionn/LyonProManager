@@ -319,6 +319,12 @@ function usarSugestaoDoAuxiliar() {
     if (sug.tatica) criada.tatica = Object.assign({}, sug.tatica);
     criada.alertaRotacao = sug.alertaRotacao || '';
     criada.rotacoesAutomaticas = sug.rotacoesAutomaticas || [];
+
+    // Fotografia da escalação ORIGINAL sugerida pelo Auxiliar — não muda mais depois disso.
+    // É o que permite mostrar a função (ex: "Defesa-Equilibrado") em cima de quem o treinador
+    // manteve como o Auxiliar sugeriu, e nada em cima de quem foi trocado manualmente.
+    criada.escalacaoSugeridaAuxiliar = JSON.parse(JSON.stringify(criada.titulares));
+
     salvarDados();
     renderizarAbaSalvarPartida();
 }

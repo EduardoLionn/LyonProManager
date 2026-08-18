@@ -392,6 +392,13 @@
             white-space: normal; text-align: center; line-height: 1.15; max-width: 15vw;
             overflow-wrap: break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.7);
         }
+        /* Função tática sugerida pelo Auxiliar (ex: "Defesa-Equilibrado") — só aparece em cima de
+           quem o treinador manteve exatamente como o plano sugeriu; troca manual tira a etiqueta. */
+        .jc-funcao {
+            background: rgba(232,184,75,0.16); border: 1px solid var(--primary); color: var(--primary);
+            font-size: clamp(5px, 1.5vw, 8px); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+            padding: 1px 5px; border-radius: 5px; white-space: nowrap; line-height: 1.4; margin-bottom: 1px;
+        }
         .jc-sub-badge {
             position: absolute; top: -6px; right: -6px; width: 17px; height: 17px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold;
