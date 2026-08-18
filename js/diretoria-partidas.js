@@ -300,8 +300,10 @@
                         document.getElementById('gols-pro').value = stats.golsPro || 0; document.getElementById('gols-contra').value = stats.golsAdv || 0;
                         document.getElementById('posse-pro').value = stats.possePro || 0; document.getElementById('posse-adv').value = stats.posseAdv || 0;
                         document.getElementById('fin-pro').value = stats.finPro || 0; document.getElementById('fin-adv').value = stats.finAdv || 0;
-                        if(stats.nomeAdv) document.getElementById('adversario').value = stats.nomeAdv;
-                        if(stats.mando) document.getElementById('partida-mando').value = stats.mando;
+                        // O adversário já foi declarado ao iniciar a partida (aba Salvar Partida);
+                        // não há mais campo #adversario aqui pra sobrescrever.
+                        let selMandoPrint = document.getElementById('partida-mando');
+                        if(stats.mando && selMandoPrint) selMandoPrint.value = stats.mando;
                     }
                     
                     // Mostra automaticamente o painel para o usuário conferir e editar a partida
@@ -432,7 +434,12 @@
             let golsP = Number(document.getElementById('gols-pro').value); let golsC = Number(document.getElementById('gols-contra').value);
             let penaltis = document.getElementById('vitoria-penaltis').checked;
             let adv = partidaAberta.adversarioNome || "Adversário";
-            let diasPassados = Math.max(0, Number(partidaAberta.diasProxima) || 3);
+            // Competição, mando, contexto e dias até a próxima partida só são perguntados agora,
+            // junto com o print das estatísticas — não mais ao iniciar a partida.
+            let comp = document.getElementById('partida-comp').value;
+            let mando = document.getElementById('partida-mando').value;
+            let contexto = document.getElementById('partida-contexto').value.trim();
+            let diasPassados = Math.max(0, Number(document.getElementById('partida-dias-proxima').value) || 3);
             processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp.map(j => j.nome));
 
             // A ficha completa da partida vive no próprio registro: escalação do apito inicial,
@@ -440,8 +447,8 @@
             // quando você clica na partida.
             db[currentSave].partidas.push({
                 id: partidaAberta.id || Date.now(), temporada: db[currentSave].temporadaAtual,
-                comp: partidaAberta.comp, contexto: partidaAberta.contexto,
-                adversario: adv, mando: partidaAberta.mando, golsPro: golsP, golsContra: golsC,
+                comp: comp, contexto: contexto,
+                adversario: adv, mando: mando, golsPro: golsP, golsContra: golsC,
                 possePro: Number(document.getElementById('posse-pro').value)||50, posseAdv: Number(document.getElementById('posse-adv').value)||50,
                 finPro: Number(document.getElementById('fin-pro').value)||0, finAdv: Number(document.getElementById('fin-adv').value)||0, penaltis: penaltis, jogadores: jogadoresPartidaTemp,
                 ficha: {
@@ -566,11 +573,12 @@
 
             // A partida acabou: zera o formulário e volta a aba pro estado "Iniciar Partida"
             db[currentSave].sugestaoAuxiliar = null;
-            if (typeof escalacaoEmMontagem !== 'undefined') escalacaoEmMontagem = { formacao: null, titulares: {}, banco: [] };
             ['gols-pro', 'gols-contra', 'fin-pro', 'fin-adv', 'posse-pro', 'posse-adv'].forEach(id => {
                 let el = document.getElementById(id);
                 if (el) el.value = (id === 'posse-pro' || id === 'posse-adv') ? '' : '0';
             });
+            let elContexto = document.getElementById('partida-contexto'); if (elContexto) elContexto.value = '';
+            let elDias = document.getElementById('partida-dias-proxima'); if (elDias) elDias.value = '3';
 
             salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
             alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!");

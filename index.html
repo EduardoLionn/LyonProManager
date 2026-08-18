@@ -885,54 +885,39 @@
                 </div>
             </div>
 
-            <!-- ETAPA 1: INICIAR A PARTIDA — obrigatório antes de registrar qualquer resultado -->
+            <!-- ETAPA 1: DECLARAR O ADVERSÁRIO E MONTAR A ESCALAÇÃO -->
+            <!-- Antes de começar só se pergunta duas coisas: contra quem e quem joga. Todo o
+                 resto (competição, mando, contexto, dias) é perguntado no fim, junto com o
+                 print das estatísticas — que é quando você realmente tem esses dados. -->
             <div id="partida-setup" class="panel" style="border-left: 4px solid var(--primary);">
                 <h3 style="margin-top:0; font-size:18px;">▶️ Iniciar Partida</h3>
-                <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">Declare o jogo e escale o time antes de começar. A partir daí o Auxiliar Técnico acompanha a partida e pode sugerir mudanças a qualquer momento.</p>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">Diga contra quem é o jogo e monte a escalação. A partir daí o Auxiliar Técnico acompanha a partida e você pode substituir e mudar de formação a qualquer momento.</p>
 
-                <div class="grid-3">
-                    <div class="linha-form"><label style="color:var(--primary);">Competição</label><select id="inicio-partida-comp"></select></div>
-                    <div class="linha-form"><label style="color:var(--primary);">Adversário</label><input type="text" id="inicio-partida-adversario" placeholder="Ex: Real Madrid"></div>
-                    <div class="linha-form"><label>Mando</label><select id="inicio-partida-mando"><option>Casa</option><option>Fora</option><option>Neutro</option></select></div>
-                </div>
-                <div class="grid-2">
-                    <div class="linha-form"><label>Contexto (posição na tabela / fase)</label><input type="text" id="inicio-partida-contexto" placeholder="Ex: 3º lugar, Quartas de final, Final"></div>
-                    <div class="linha-form"><label style="color:var(--warning);">Dias até a próxima partida</label><input type="number" id="inicio-partida-dias" value="3"><small style="color:var(--text-muted); font-size:10px; margin-top:4px;">Atualiza a condição física do elenco quando a partida for salva.</small></div>
+                <div class="linha-form" style="max-width:420px;">
+                    <label style="color:var(--primary);">Adversário</label>
+                    <input type="text" id="inicio-partida-adversario" placeholder="Ex: Real Madrid">
                 </div>
 
-                <div style="border-top:1px solid var(--border); margin:18px 0 0 0; padding-top:18px;">
-                    <h4 style="margin:0 0 4px 0; font-size:15px; color:var(--accent);">Escalação</h4>
-                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Monte à mão ou mande o print da tela de Gerenciamento do Time — a leitura pega os 11 titulares e as reservas.</p>
+                <div id="inicio-sugestao-auxiliar" style="display:none; background:rgba(75,159,226,0.08); border:1px solid var(--accent); border-radius:8px; padding:12px 15px; margin:15px 0; font-size:13px; line-height:1.6;"></div>
 
-                    <div class="grid-2" style="margin-bottom:12px;">
-                        <div class="linha-form">
-                            <label>Esquema</label>
-                            <select id="inicio-partida-esquema"></select>
-                        </div>
-                        <div style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
-                            <label class="btn-upload" style="margin:0; cursor:pointer; flex:1; text-align:center; box-sizing:border-box;">
-                                📸 Ler Escalação do Print (IA)
-                                <input type="file" accept="image/*" style="display:none;" onchange="lerEscalacaoDoPrint(event)">
-                            </label>
-                            <button type="button" onclick="preencherEscalacaoAutomatica()" style="background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent); flex:1;">⚡ Preencher pelo elenco</button>
-                        </div>
-                    </div>
-
-                    <div id="inicio-sugestao-auxiliar" style="display:none; background:rgba(75,159,226,0.08); border:1px solid var(--accent); border-radius:8px; padding:12px 15px; margin-bottom:12px; font-size:13px; line-height:1.6;"></div>
-                    <div id="inicio-escalacao-loader" style="display:none; font-size:13px; color:var(--warning); font-weight:bold; margin-bottom:10px;"></div>
-                    <div id="inicio-escalacao-grade"></div>
+                <p style="font-size:13px; color:var(--text-muted); margin:18px 0 10px 0;">Como quer montar a escalação?</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button onclick="montarEscalacaoAutomatica()" style="flex:1; min-width:200px; background:var(--primary); color:black; padding:12px;">⚡ Preencher pelo elenco</button>
+                    <label class="btn-upload" style="margin:0; cursor:pointer; flex:1; min-width:200px; text-align:center; box-sizing:border-box; padding:12px;">
+                        📸 Ler escalação do print (IA)
+                        <input type="file" accept="image/*" style="display:none;" onchange="lerEscalacaoDoPrint(event)">
+                    </label>
                 </div>
-
-                <button onclick="iniciarPartidaDoSetup()" style="width:100%; margin-top:20px; padding:14px; font-size:16px; background:var(--primary); color:black;">▶️ Iniciar Partida</button>
+                <div id="inicio-escalacao-loader" style="display:none; font-size:13px; color:var(--warning); font-weight:bold; margin-top:12px; line-height:1.6;"></div>
             </div>
 
-            <!-- ETAPA 2: PARTIDA EM ANDAMENTO — campinho, banco e substituições ao vivo -->
+            <!-- ETAPA 2: CAMPINHO — vale tanto pra montar antes do apito quanto pro jogo rolando -->
             <div id="partida-andamento" style="display:none;">
                 <div class="panel">
                     <div id="partida-banner" style="padding: 14px 18px; border-radius: 8px; margin-bottom: 15px; font-size:14px;"></div>
                     <div id="partida-alerta-auxiliar" style="display:none; background: rgba(75,159,226,0.08); border:1px solid var(--accent); border-radius:8px; padding:14px; margin-bottom:15px; font-size:14px; line-height:1.6;"></div>
 
-                    <p style="text-align:center; font-size: 13px; color: var(--text-muted); margin-bottom: 5px;">Clique num jogador em campo pra trocar. Passe o mouse pra ler as orientações.</p>
+                    <p id="partida-dica-campinho" style="text-align:center; font-size: 13px; color: var(--text-muted); margin-bottom: 5px;"></p>
                     <div class="campo-futebol-grande" id="campo-futebol-ui">
                         <div class="area-penalti-top"></div>
                         <div class="area-penalti-bot"></div>
@@ -1076,9 +1061,20 @@
 
                     <!-- ESCONDIDO POR PADRÃO -->
                     <div id="manual-partida-form" style="display: none;">
-                        <!-- Competição, adversário, mando, contexto e dias já foram declarados
-                             ao Iniciar a Partida — aqui só entra o que aconteceu em campo. -->
+                        <!-- O adversário e a escalação vieram do início da partida; o contexto do
+                             jogo é perguntado aqui, junto com o print, que é quando você tem esses dados. -->
                         <div id="resultado-cabecalho-partida" style="background: var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:12px 15px; margin-bottom:15px; font-size:13px; line-height:1.6;"></div>
+
+                        <div class="grid-3">
+                            <div class="linha-form"><label>Competição</label><select id="partida-comp"></select></div>
+                            <div class="linha-form"><label>Mando</label><select id="partida-mando"><option>Casa</option><option>Fora</option><option>Neutro</option></select></div>
+                            <div class="linha-form"><label>Posição na Tabela / Fase</label><input type="text" id="partida-contexto" placeholder="Ex: 3º lugar, Quartas de final"></div>
+                        </div>
+                        <div class="linha-form">
+                            <label style="color:var(--warning);">Dias para a Próxima Partida</label>
+                            <input type="number" id="partida-dias-proxima" value="3">
+                            <small style="color:var(--text-muted); font-size:10px; margin-top:4px;">Atualiza a condição física de todo o elenco assim que a partida for salva.</small>
+                        </div>
 
                         <div class="grid-2">
                             <div class="linha-form"><label style="color:var(--primary)">Gols Pró (Meus)</label><input type="number" id="gols-pro" value="0"></div>
@@ -1684,39 +1680,7 @@
                 <div id="auxiliar-historico-partidas" style="display:none; margin-top:15px;"></div>
             </div>
 
-            <!-- MODAL: TROCAR JOGADOR NA ESCALAÇÃO -->
-            <div id="modal-trocar-jogador" class="modal-troca-overlay" style="display: none;">
-                <div class="setup-box modal-troca-box">
-                    <h2 style="margin-top:0;" id="modal-trocar-titulo">🔄 Trocar Jogador</h2>
-                    <p id="modal-trocar-subtitulo" style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Escolha quem entra no lugar dele.</p>
-                    <div id="modal-trocar-lista" class="modal-troca-lista"></div>
-                    <div id="modal-trocar-ver-todos-wrap" style="display:none; text-align:center; margin-top:10px;">
-                        <button id="btn-modal-trocar-ver-todos" onclick="expandirVerTodosTroca()" style="background:transparent; border:none; color:var(--accent); text-decoration:underline; cursor:pointer; font-size:12px; padding:4px;">Ver todos os jogadores</button>
-                    </div>
-                    <div id="modal-trocar-botao-extra-wrap" style="display:none; margin-top:12px;"></div>
-                    <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
-                </div>
-            </div>
-
-            <!-- MODAL: MUDAR FORMAÇÃO -->
-            <div id="modal-mudar-formacao" class="modal-troca-overlay" style="display: none;">
-                <div class="setup-box modal-troca-box">
-                    <h2 style="margin-top:0;">🔄 Mudar Formação</h2>
-                    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Os jogadores atuais são realocados pra nova formação automaticamente — depois ajuste manualmente se precisar.</p>
-                    <div class="linha-form">
-                        <label>Nova formação</label>
-                        <select id="modal-formacao-select"></select>
-                    </div>
-                    <div style="display:flex; gap:10px; margin-top:15px;">
-                        <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarMudarFormacaoManual()">✅ Aplicar Nova Formação</button>
-                        <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-mudar-formacao').style.display='none'">Cancelar</button>
-                    </div>
-                </div>
-            </div>
-
         </div>
-
-        
         <!-- ABA: FEED SOCIAL DA TORCIDA (SUBSTITUI IMPRENSA E NOTÍCIAS) -->
         <div id="tab-social" class="tab-content">
             <div class="feed-cabecalho">
@@ -1773,6 +1737,39 @@
 
     <!-- Balões de notificação da Central de Mensagens (aparecem em qualquer aba) -->
     <div id="toast-mensagens"></div>
+
+    <!-- Modais de escalação: ficam no nível do <body> de propósito. Dentro de uma aba eles
+         herdam o display:none do .tab-content e simplesmente não apareceriam quando a partida
+         está sendo jogada na aba "Salvar Partida". -->
+            <!-- MODAL: TROCAR JOGADOR NA ESCALAÇÃO -->
+            <div id="modal-trocar-jogador" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 style="margin-top:0;" id="modal-trocar-titulo">🔄 Trocar Jogador</h2>
+                    <p id="modal-trocar-subtitulo" style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Escolha quem entra no lugar dele.</p>
+                    <div id="modal-trocar-lista" class="modal-troca-lista"></div>
+                    <div id="modal-trocar-ver-todos-wrap" style="display:none; text-align:center; margin-top:10px;">
+                        <button id="btn-modal-trocar-ver-todos" onclick="expandirVerTodosTroca()" style="background:transparent; border:none; color:var(--accent); text-decoration:underline; cursor:pointer; font-size:12px; padding:4px;">Ver todos os jogadores</button>
+                    </div>
+                    <div id="modal-trocar-botao-extra-wrap" style="display:none; margin-top:12px;"></div>
+                    <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
+                </div>
+            </div>
+
+            <!-- MODAL: MUDAR FORMAÇÃO -->
+            <div id="modal-mudar-formacao" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 style="margin-top:0;">🔄 Mudar Formação</h2>
+                    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Os jogadores atuais são realocados pra nova formação automaticamente — depois ajuste manualmente se precisar.</p>
+                    <div class="linha-form">
+                        <label>Nova formação</label>
+                        <select id="modal-formacao-select"></select>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarMudarFormacaoManual()">✅ Aplicar Nova Formação</button>
+                        <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-mudar-formacao').style.display='none'">Cancelar</button>
+                    </div>
+                </div>
+            </div>
 
     <!-- Modal moderno reutilizável: substitui confirm()/prompt() do navegador -->
     <div id="modal-moderno" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(13,21,18,0.75); z-index:5000; justify-content:center; align-items:center;">

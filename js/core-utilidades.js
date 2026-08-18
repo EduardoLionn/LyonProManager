@@ -538,7 +538,7 @@ function toggleChatDiretoria() {
             document.getElementById('header-nome-tecnico').innerText = config.nomeTecnico || '-';
             document.getElementById('header-temp-ano').innerText = config.temporadaAtual;
 
-            let selectComp = document.getElementById('inicio-partida-comp');
+            let selectComp = document.getElementById('partida-comp');
             if (selectComp) {
                 selectComp.innerHTML = '';
                 let comps = currentSave === 'clube'
