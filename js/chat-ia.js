@@ -457,6 +457,13 @@ ${textoRegrasCompatibilidadePosicional()}
             let pedir = document.getElementById('auxiliar-pedir-sugestao');
             if (!box || !d) return;
 
+            // Com uma partida em aberto (montando ou ao vivo), o que importa é o espelho dela —
+            // não o plano que talvez tenha virado essa própria partida ou já esteja desatualizado.
+            if (d.partidaAuxiliar) {
+                renderizarEspelhoPartidaAuxiliar(d.partidaAuxiliar);
+                return;
+            }
+
             let sug = d.sugestaoAuxiliar;
             if (!sug) {
                 box.style.display = 'none';
@@ -469,7 +476,6 @@ ${textoRegrasCompatibilidadePosicional()}
             let pre = predefinicaoPorId(t.predefinicao);
             let est = estiloArmacaoPorId(t.estiloArmacao);
             let faixa = faixaAbordagem(t.abordagemDefensiva);
-            let partidaAtiva = !!d.partidaAuxiliar;
 
             box.style.display = 'block';
             if (pedir) pedir.style.display = 'none';
@@ -500,41 +506,88 @@ ${textoRegrasCompatibilidadePosicional()}
                     <div id="banco-sugestao-auxiliar" style="margin-top:15px;"></div>
 
                     <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
-                        ${partidaAtiva
-                            ? `<p style="flex:1 1 100%; font-size:13px; color:var(--warning); margin:0;">⚠️ Já existe uma partida em andamento. Finalize ou descarte ela na aba "Salvar Partida" para escalar com este plano.</p>`
-                            : `<button onclick="levarPlanoParaIniciarPartida()" style="flex:1; background:var(--primary); color:black; padding:12px; font-size:15px;">▶️ Escalar com este plano e iniciar</button>`}
+                        <button onclick="levarPlanoParaIniciarPartida()" style="flex:1; background:var(--primary); color:black; padding:12px; font-size:15px;">▶️ Iniciar Partida com este Plano</button>
                         <button onclick="declararPartidaIA()" style="background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Refazer o plano</button>
                     </div>
                 </div>`;
 
-            renderizarCampinhoSugestaoAuxiliar(sug);
+            renderizarCampinhoEspelhoLeitura(t.esquema, sug.escalacao, sug.reservas, sug.tatica);
             renderizarHistoricoPartidasAuxiliar();
         }
 
         // -------------------------------------------------------------------------------------
-        // CAMPINHO DO PLANO DO AUXILIAR — só leitura. Mesma pinta do campinho de verdade (camisa,
-        // OVR, nome), mas clicar num jogador não troca ninguém: só mostra a função dele no EA FC
-        // (calculada pela especialidade cadastrada + a tática do plano). Isso existe porque só se
-        // pode mexer na escalação de fato depois de levar o plano pra aba "Salvar Partida".
+        // ESPELHO MINIMALISTA DA PARTIDA (montando ou ao vivo) — mostra a escalação de verdade
+        // e as alterações feitas, sem deixar mexer em nada por aqui (isso é lá em "Salvar Partida").
         // -------------------------------------------------------------------------------------
-        function renderizarCampinhoSugestaoAuxiliar(sug) {
+        function renderizarEspelhoPartidaAuxiliar(partida) {
+            let box = document.getElementById('auxiliar-sugestao-resultado');
+            let pedir = document.getElementById('auxiliar-pedir-sugestao');
+            if (!box) return;
+            box.style.display = 'block';
+            if (pedir) pedir.style.display = 'none';
+
+            let montando = partida.status === 'montando';
+            let t = partida.tatica || {};
+            let corDestaque = montando ? 'var(--primary)' : 'var(--danger)';
+            let descTatica = (t.predefinicao && typeof predefinicaoPorId === 'function')
+                ? `${predefinicaoPorId(t.predefinicao).emoji} ${predefinicaoPorId(t.predefinicao).nome} • ${partida.formacaoEscolhida} • ${estiloArmacaoPorId(t.estiloArmacao).nome} • ${t.abordagemDefensiva}/100 (${faixaAbordagem(t.abordagemDefensiva).nome})`
+                : partida.formacaoEscolhida;
+
+            let subs = partida.substituicoes || [];
+            let subsHtml = subs.map(s => `
+                <div style="background:var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:13px;">
+                    <strong style="color:var(--primary);">${s.minuto}'</strong> — 🟢 <strong>${s.entrou}</strong> entrou no lugar de 🔴 <strong>${s.saiu}</strong>${s.instrucao ? `<br><span style="color:var(--text-muted); font-size:12px;">${s.instrucao}</span>` : ''}
+                </div>`).join('');
+
+            box.innerHTML = `
+                <div style="background: rgba(226,75,75,0.06); border:1px solid ${corDestaque}; border-radius:8px; padding:18px;">
+                    <h3 style="margin:0; font-size:17px; color:${corDestaque};">${montando ? '📋 Montando a escalação' : '🔴 Partida ao vivo'} — vs ${partida.adversarioNome}</h3>
+                    <p style="font-size:12.5px; color:var(--text-muted); margin:6px 0 0 0;">${descTatica}</p>
+
+                    <h4 style="margin:18px 0 8px 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Escalação em campo <span style="font-weight:normal; color:var(--text-muted); font-size:12px; text-transform:none;">(clique num jogador pra ver a função dele)</span></h4>
+                    <div class="campo-futebol-grande" id="campo-sugestao-auxiliar"></div>
+                    <div id="banco-sugestao-auxiliar" style="margin-top:15px;"></div>
+
+                    ${subs.length ? `<h4 style="margin:18px 0 8px 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Alterações (${subs.length}/5)</h4><div style="display:flex; flex-direction:column; gap:6px;">${subsHtml}</div>` : ''}
+
+                    <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
+                        <button onclick="mudarAba('tab-salvar-partida')" style="flex:1; min-width:170px; background:var(--primary); color:black; padding:12px; font-size:14px;">💾 Ir pra Salvar Partida</button>
+                        ${!montando ? `<button onclick="pedirSugestaoAoVivo()" style="background:var(--accent); color:white;">🤖 Pedir sugestão</button>` : ''}
+                    </div>
+                </div>`;
+
+            renderizarCampinhoEspelhoLeitura(partida.formacaoEscolhida, partida.titulares, partida.banco, partida.tatica);
+        }
+
+        // -------------------------------------------------------------------------------------
+        // CAMPINHO SÓ-LEITURA (aba Auxiliar) — usado tanto pra prévia do plano quanto pro espelho
+        // da partida ao vivo. Mesma pinta do campinho de verdade (camisa, OVR, nome), mas clicar
+        // num jogador não troca ninguém: só mostra a função dele no EA FC (calculada pela
+        // especialidade cadastrada + a tática ativa). Editar de verdade só na aba "Salvar Partida".
+        // Guarda a última fonte renderizada (plano ou partida) pra o clique no jogador saber onde ler.
+        // -------------------------------------------------------------------------------------
+        let _fonteCampinhoAuxiliarLeitura = null;
+
+        function renderizarCampinhoEspelhoLeitura(formacao, escalacaoMap, reservas, tatica) {
+            _fonteCampinhoAuxiliarLeitura = { escalacao: escalacaoMap || {}, tatica: tatica };
+
             let campo = document.getElementById('campo-sugestao-auxiliar');
             if (!campo) return;
             campo.innerHTML = '<div class="area-penalti-top"></div><div class="area-penalti-bot"></div><div class="campo-canto tl"></div><div class="campo-canto tr"></div><div class="campo-canto bl"></div><div class="campo-canto br"></div>';
 
-            let esquema = sug.tatica ? sug.tatica.esquema : null;
-            let positions = esquema ? coordsFormacoes[esquema] : null;
+            let positions = formacao ? coordsFormacoes[formacao] : null;
             if (!positions) return;
 
             positions.forEach(posObj => {
-                let info = (sug.escalacao || {})[posObj.role] || {};
+                let info = (escalacaoMap || {})[posObj.role] || {};
                 let nomeJogador = info.nome || '???';
                 let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeJogador.toLowerCase().trim()));
                 let ovrTxt = jogBD ? jogBD.ovr : '?';
-                let escolhaFuncao = (jogBD && typeof escolherFuncaoJogador === 'function') ? escolherFuncaoJogador(posObj.role, jogBD.posicao, sug.tatica) : null;
+                let escolhaFuncao = (jogBD && typeof escolherFuncaoJogador === 'function') ? escolherFuncaoJogador(posObj.role, jogBD.posicao, tatica) : null;
                 let resumo = escolhaFuncao ? resumoFuncaoJogador(escolhaFuncao) : '';
 
                 campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="mostrarFuncaoJogadorSugestao('${posObj.role}')">
+                    ${resumo ? `<div class="jc-funcao">${escolhaFuncao.funcao.nome}-${escolhaFuncao.foco.nome}</div>` : ''}
                     <div class="jc-camisa"><span class="jc-ovr-label">OVR</span><span class="jc-ovr-num">${ovrTxt}</span></div>
                     <div class="jc-nome">${nomeJogador}</div>
                     ${resumo ? `<div class="jogador-tooltip"><strong>${nomeJogador}</strong><hr style="border-color:var(--border); margin:5px 0;">${resumo}</div>` : ''}
@@ -543,11 +596,11 @@ ${textoRegrasCompatibilidadePosicional()}
 
             let boxBanco = document.getElementById('banco-sugestao-auxiliar');
             if (boxBanco) {
-                let reservas = sug.reservas || [];
-                if (reservas.length) {
+                let listaReservas = (reservas || []).filter(r => r && r.nome);
+                if (listaReservas.length) {
                     boxBanco.innerHTML = `<h4 style="margin:0 0 10px 0; font-size:13px; color:var(--text-muted); text-transform:uppercase;">🪑 Banco <span style="font-weight:normal; text-transform:none;">— como cada um pode entrar</span></h4>
                         <div class="banco-reservas-grid">
-                            ${reservas.map(r => {
+                            ${listaReservas.map(r => {
                                 let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
                                 let txtOvr = jogBD ? ` · OVR ${jogBD.ovr}` : '';
                                 let entradas = (jogBD && positions) ? positions
@@ -567,13 +620,14 @@ ${textoRegrasCompatibilidadePosicional()}
             }
         }
 
-        // Clique num jogador do plano do Auxiliar: só mostra a função, não abre troca.
+        // Clique num jogador do campinho só-leitura (plano ou espelho ao vivo): só mostra a
+        // função, não abre troca.
         function mostrarFuncaoJogadorSugestao(role) {
-            let sug = db[currentSave].sugestaoAuxiliar;
-            if (!sug) return;
-            let info = (sug.escalacao || {})[role] || {};
+            let fonte = _fonteCampinhoAuxiliarLeitura;
+            if (!fonte) return;
+            let info = (fonte.escalacao || {})[role] || {};
             let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((info.nome || '').toLowerCase().trim()));
-            let escolha = jogBD ? escolherFuncaoJogador(role, jogBD.posicao, sug.tatica) : null;
+            let escolha = jogBD ? escolherFuncaoJogador(role, jogBD.posicao, fonte.tatica) : null;
 
             document.getElementById('modal-funcao-titulo').innerText = `⚽ ${info.nome || 'Vaga'} (${role})`;
             document.getElementById('modal-funcao-resumo').innerText = escolha ? resumoFuncaoJogador(escolha) : 'Sem função definida.';
@@ -645,7 +699,19 @@ ${textoRegrasCompatibilidadePosicional()}
                         let tituloBadge = vendoQuemSaiu ? 'Voltar a ver quem está em campo' : `Entrou aos ${subInfo ? subInfo.minuto : ''}' — clique pra ver quem saiu`;
                         let badgeSub = subInfo ? `<div class="jc-sub-badge ${vendoQuemSaiu ? 'saiu' : 'entrou'}" onclick="toggleSubBadge('${posObj.role}', event)" title="${tituloBadge}">${vendoQuemSaiu ? '▼' : '▲'}</div>` : '';
 
+                        // Etiqueta da função (ex: "Defesa-Equilibrado") só aparece em cima de quem
+                        // continua exatamente como o Auxiliar sugeriu — troca manual (ou escalação
+                        // montada à mão/por print, sem plano nenhum) some com a etiqueta.
+                        let sugAplicada = partida.escalacaoSugeridaAuxiliar;
+                        let seguiuSugestao = !vendoQuemSaiu && sugAplicada && sugAplicada[posObj.role] && sugAplicada[posObj.role].nome === nomeJogador;
+                        let etiquetaFuncao = '';
+                        if (seguiuSugestao && jogBD && typeof escolherFuncaoJogador === 'function') {
+                            let escolha = escolherFuncaoJogador(posObj.role, jogBD.posicao, partida.tatica);
+                            if (escolha) etiquetaFuncao = `<div class="jc-funcao">${escolha.funcao.nome}-${escolha.foco.nome}</div>`;
+                        }
+
                         campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="abrirSeletorTroca('${posObj.role}')">
+                            ${etiquetaFuncao}
                             <div class="jc-camisa"><span class="jc-ovr-label">OVR</span><span class="jc-ovr-num">${ovrTxt}</span></div>
                             <div class="jc-nome">${nomeExibido}</div>
                             ${badgeSub}

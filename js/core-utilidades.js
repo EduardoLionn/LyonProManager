@@ -330,6 +330,12 @@ function lerTexto(texto) {
                 panel.style.display = 'flex';
                 btn.innerHTML = '💬 Ocultar Painel de Instruções e Conversa';
                 btn.style.background = 'rgba(0, 163, 255, 0.1)';
+                // renderizarChat() já rodou antes do painel abrir (a aba renderiza o chat sempre,
+                // mesmo escondido) — com display:none o scrollHeight lido na hora era 0, então o
+                // scroll ficava travado no topo (primeira mensagem). Agora que o painel é visível
+                // de verdade, o scrollHeight é o real e dá pra ir pro fim da conversa.
+                let log = document.getElementById('chat-log-auxiliar');
+                if (log) log.scrollTop = log.scrollHeight;
             } else {
                 panel.style.display = 'none';
                 btn.innerHTML = '💬 Abrir Painel de Instruções Diretas e Conversa (Chat)';
@@ -363,6 +369,8 @@ function toggleChatDiretoria() {
         panel.style.display = 'flex';
         btn.innerHTML = '👔 Encerrar Reunião (Ocultar Painel)';
         btn.style.background = 'rgba(255, 215, 0, 0.1)';
+        let log = document.getElementById('chat-log-diretoria');
+        if (log) log.scrollTop = log.scrollHeight;
     } else {
         panel.style.display = 'none';
         btn.innerHTML = '👔 Solicitar Reunião com a Diretoria (Chat)';
