@@ -567,3 +567,65 @@ function pedirSugestaoAoVivo() {
         input.focus();
     }
 }
+
+// -------------------------------------------------------------------------------------
+// FICHA COMPLETA DA PARTIDA (aba Dashboard)
+// -------------------------------------------------------------------------------------
+// Ao clicar numa partida no Dashboard, além das estatísticas já mostradas, aparece a ficha
+// que foi gravada quando a partida foi salva: tática aplicada, escalação do apito inicial,
+// substituições com o minuto exato e o banco. Reaproveita os mesmos renderizadores do
+// histórico do Auxiliar (campinho e lista de trocas) pra não existirem duas versões disso.
+function gerarHtmlFichaPartida(partida) {
+    let f = partida && partida.ficha;
+    if (!f) {
+        return `<p style="font-size:12.5px; color:var(--text-muted); margin-top:18px;">Esta partida foi registrada antes do novo fluxo (Iniciar Partida), então não tem escalação e substituições guardadas.</p>`;
+    }
+
+    // Adaptador: os renderizadores do histórico esperam os campos com estes nomes
+    let paraRenderizar = {
+        escalacaoInicial: f.escalacaoInicial,
+        formacaoInicial: f.formacaoInicial,
+        substituicoes: f.substituicoes,
+        jogadoresNotas: partida.jogadores || []
+    };
+
+    let blocoTatica = '';
+    if (f.tatica && typeof predefinicaoPorId === 'function') {
+        let t = f.tatica;
+        let pre = predefinicaoPorId(t.predefinicao);
+        let est = estiloArmacaoPorId(t.estiloArmacao);
+        let faixa = faixaAbordagem(t.abordagemDefensiva);
+        blocoTatica = `
+            <h4 class="historico-secao-titulo">🎛️ Tática aplicada</h4>
+            <div class="plano-tatico">
+                <div class="plano-tatico-item"><span>Predefinição</span><strong>${pre.emoji} ${pre.nome}</strong></div>
+                <div class="plano-tatico-item"><span>Esquema</span><strong>${f.formacaoInicial}${f.formacaoFinal && f.formacaoFinal !== f.formacaoInicial ? ` → ${f.formacaoFinal}` : ''}</strong></div>
+                <div class="plano-tatico-item"><span>Estilo de armação</span><strong>${est.nome}</strong></div>
+                <div class="plano-tatico-item"><span>Abordagem defensiva</span><strong>${t.abordagemDefensiva} — ${faixa.nome}</strong></div>
+            </div>`;
+    }
+
+    let bancoHtml = '';
+    let banco = (f.bancoInicial || []).filter(b => b && b.nome);
+    if (banco.length) {
+        let entraram = new Set((f.substituicoes || []).map(s => s.entrou));
+        bancoHtml = `
+            <h4 class="historico-secao-titulo">🪑 Banco</h4>
+            <div class="historico-subs-lista">
+                ${banco.map(b => `<div class="historico-sub-item">${entraram.has(b.nome) ? '🟢' : '⚪'} <strong>${b.nome}</strong>${b.posicao ? ` — ${b.posicao}` : ''}${entraram.has(b.nome) ? ' <em>(entrou)</em>' : ''}</div>`).join('')}
+            </div>`;
+    }
+
+    let contexto = [];
+    if (f.diretriz) contexto.push(`<p style="margin:0 0 6px 0;"><strong>Diretriz:</strong> ${f.diretriz}</p>`);
+    if (f.adversarioInfo) contexto.push(`<p style="margin:0 0 6px 0;"><strong>Sobre o adversário:</strong> ${f.adversarioInfo}</p>`);
+    if (f.analiseGeral) contexto.push(`<p style="margin:0 0 6px 0;"><strong>Plano do Auxiliar:</strong> ${f.analiseGeral}</p>`);
+
+    return `
+        ${blocoTatica}
+        ${contexto.length ? `<div style="font-size:13px; line-height:1.6; margin:12px 0;">${contexto.join('')}</div>` : ''}
+        <h4 class="historico-secao-titulo">🧩 Escalação do apito inicial</h4>
+        ${(typeof gerarHtmlCampinhoHistorico === 'function') ? gerarHtmlCampinhoHistorico(paraRenderizar) : ''}
+        ${(typeof gerarHtmlSubstituicoesHistorico === 'function') ? gerarHtmlSubstituicoesHistorico(paraRenderizar) : ''}
+        ${bancoHtml}`;
+}
