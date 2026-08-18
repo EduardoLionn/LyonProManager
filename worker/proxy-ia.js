@@ -14,7 +14,7 @@
 
 const PROJETO_FIREBASE = 'lyonpromanager';
 const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
-const MODELO_GEMINI = 'gemini-2.0-flash';
+const MODELO_GEMINI = 'gemini-3.1-flash-lite';
 
 // Só o site oficial e os canais de preview do Firebase Hosting. Atenção: isto é uma camada
 // de conveniência, NÃO a proteção principal — Origin é enviado pelo navegador e um script

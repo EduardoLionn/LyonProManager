@@ -88,6 +88,96 @@
                 {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '65%', left: '88%'}, {role: 'ZAD', top: '75%', left: '70%'}, {role: 'ZAC', top: '75%', left: '50%'}, {role: 'ZAE', top: '75%', left: '30%'}, {role: 'LAE', top: '65%', left: '12%'},
                 {role: 'MCD', top: '45%', left: '65%'}, {role: 'MC', top: '40%', left: '50%'}, {role: 'MCE', top: '45%', left: '35%'},
                 {role: 'ATD', top: '18%', left: '60%'}, {role: 'ATE', top: '18%', left: '40%'}
+            ],
+
+            // --- Esquemas adicionais (mesmos nomes usados no jogo, pra você aplicar igualzinho) ---
+            "3-1-4-2": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'},
+                {role: 'VOL', top: '62%', left: '50%'},
+                {role: 'MD', top: '45%', left: '88%'}, {role: 'MCD', top: '48%', left: '62%'}, {role: 'MCE', top: '48%', left: '38%'}, {role: 'ME', top: '45%', left: '12%'},
+                {role: 'ATD', top: '18%', left: '60%'}, {role: 'ATE', top: '18%', left: '40%'}
+            ],
+            "3-4-1-2": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'},
+                {role: 'ALD', top: '52%', left: '90%'}, {role: 'MCD', top: '55%', left: '62%'}, {role: 'MCE', top: '55%', left: '38%'}, {role: 'ALE', top: '52%', left: '10%'},
+                {role: 'MEI', top: '35%', left: '50%'},
+                {role: 'ATD', top: '16%', left: '62%'}, {role: 'ATE', top: '16%', left: '38%'}
+            ],
+            "3-4-2-1": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'},
+                {role: 'ALD', top: '52%', left: '90%'}, {role: 'MCD', top: '56%', left: '62%'}, {role: 'MCE', top: '56%', left: '38%'}, {role: 'ALE', top: '52%', left: '10%'},
+                {role: 'MEID', top: '32%', left: '65%'}, {role: 'MEIE', top: '32%', left: '35%'},
+                {role: 'ATA', top: '14%', left: '50%'}
+            ],
+            "4-1-2-1-2 (Estreito)": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'VOL', top: '62%', left: '50%'},
+                {role: 'MCD', top: '48%', left: '64%'}, {role: 'MCE', top: '48%', left: '36%'},
+                {role: 'MEI', top: '33%', left: '50%'},
+                {role: 'ATD', top: '16%', left: '60%'}, {role: 'ATE', top: '16%', left: '40%'}
+            ],
+            "4-1-2-1-2 (Largo)": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'VOL', top: '62%', left: '50%'},
+                {role: 'MD', top: '46%', left: '86%'}, {role: 'ME', top: '46%', left: '14%'},
+                {role: 'MEI', top: '34%', left: '50%'},
+                {role: 'ATD', top: '16%', left: '60%'}, {role: 'ATE', top: '16%', left: '40%'}
+            ],
+            "4-1-3-2": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'VOL', top: '62%', left: '50%'},
+                {role: 'MD', top: '44%', left: '85%'}, {role: 'MC', top: '46%', left: '50%'}, {role: 'ME', top: '44%', left: '15%'},
+                {role: 'ATD', top: '16%', left: '60%'}, {role: 'ATE', top: '16%', left: '40%'}
+            ],
+            "4-2-2-2": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'VOLD', top: '58%', left: '62%'}, {role: 'VOLE', top: '58%', left: '38%'},
+                {role: 'MEID', top: '36%', left: '70%'}, {role: 'MEIE', top: '36%', left: '30%'},
+                {role: 'ATD', top: '15%', left: '60%'}, {role: 'ATE', top: '15%', left: '40%'}
+            ],
+            "4-2-4": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'MCD', top: '52%', left: '62%'}, {role: 'MCE', top: '52%', left: '38%'},
+                {role: 'PD', top: '20%', left: '85%'}, {role: 'ATD', top: '15%', left: '60%'}, {role: 'ATE', top: '15%', left: '40%'}, {role: 'PE', top: '20%', left: '15%'}
+            ],
+            "4-3-1-2": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'MCD', top: '55%', left: '68%'}, {role: 'MC', top: '58%', left: '50%'}, {role: 'MCE', top: '55%', left: '32%'},
+                {role: 'MEI', top: '34%', left: '50%'},
+                {role: 'ATD', top: '16%', left: '60%'}, {role: 'ATE', top: '16%', left: '40%'}
+            ],
+            "4-3-2-1": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'MCD', top: '55%', left: '68%'}, {role: 'MC', top: '58%', left: '50%'}, {role: 'MCE', top: '55%', left: '32%'},
+                {role: 'MEID', top: '32%', left: '64%'}, {role: 'MEIE', top: '32%', left: '36%'},
+                {role: 'ATA', top: '14%', left: '50%'}
+            ],
+            "4-4-1-1": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'MD', top: '48%', left: '86%'}, {role: 'MCD', top: '52%', left: '62%'}, {role: 'MCE', top: '52%', left: '38%'}, {role: 'ME', top: '48%', left: '14%'},
+                {role: 'MEI', top: '30%', left: '50%'},
+                {role: 'ATA', top: '14%', left: '50%'}
+            ],
+            "4-5-1": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'LAD', top: '75%', left: '85%'}, {role: 'ZAD', top: '80%', left: '64%'}, {role: 'ZAE', top: '80%', left: '36%'}, {role: 'LAE', top: '75%', left: '15%'},
+                {role: 'MD', top: '44%', left: '88%'}, {role: 'MCD', top: '52%', left: '66%'}, {role: 'MC', top: '55%', left: '50%'}, {role: 'MCE', top: '52%', left: '34%'}, {role: 'ME', top: '44%', left: '12%'},
+                {role: 'ATA', top: '15%', left: '50%'}
+            ],
+            "5-2-1-2": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ALD', top: '62%', left: '90%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'}, {role: 'ALE', top: '62%', left: '10%'},
+                {role: 'MCD', top: '52%', left: '62%'}, {role: 'MCE', top: '52%', left: '38%'},
+                {role: 'MEI', top: '33%', left: '50%'},
+                {role: 'ATD', top: '16%', left: '60%'}, {role: 'ATE', top: '16%', left: '40%'}
+            ],
+            "5-2-3": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ALD', top: '62%', left: '90%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'}, {role: 'ALE', top: '62%', left: '10%'},
+                {role: 'MCD', top: '50%', left: '62%'}, {role: 'MCE', top: '50%', left: '38%'},
+                {role: 'PD', top: '20%', left: '82%'}, {role: 'ATA', top: '14%', left: '50%'}, {role: 'PE', top: '20%', left: '18%'}
+            ],
+            "5-4-1": [
+                {role: 'GOL', top: '90%', left: '50%'}, {role: 'ALD', top: '62%', left: '90%'}, {role: 'ZAD', top: '78%', left: '70%'}, {role: 'ZAC', top: '80%', left: '50%'}, {role: 'ZAE', top: '78%', left: '30%'}, {role: 'ALE', top: '62%', left: '10%'},
+                {role: 'MD', top: '45%', left: '86%'}, {role: 'MCD', top: '50%', left: '62%'}, {role: 'MCE', top: '50%', left: '38%'}, {role: 'ME', top: '45%', left: '14%'},
+                {role: 'ATA', top: '15%', left: '50%'}
             ]
         };
 

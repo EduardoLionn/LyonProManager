@@ -359,6 +359,9 @@
                         <div class="stat-card"><span>Posse de Bola</span><strong>Nós ${p.possePro}% x ${p.posseAdv}% Adv</strong></div>
                         <div class="stat-card"><span>Finalizações Totais</span><strong>Nós ${p.finPro} x ${p.finAdv} Adv</strong></div>
                     </div>
+                    <!-- Ficha da partida: escalação, substituições com minuto e tática aplicada.
+                         Gravada no registro quando a partida é salva (ver salvarPartida). -->
+                    ${(typeof gerarHtmlFichaPartida === 'function') ? gerarHtmlFichaPartida(p) : ''}
                     <button class="btn-stats-toggle" onclick="toggleFullStats('${idPrefix}', ${idx})">📊 Ver Estatísticas Completas dos Jogadores <span id="${idPrefix}-stats-chevron-${idx}">▾</span></button>
                     <div class="match-full-stats" id="${idPrefix}-full-stats-${idx}">
                         <h4 style="margin:20px 0 5px 0; color:var(--accent);">Estatísticas Individuais</h4>

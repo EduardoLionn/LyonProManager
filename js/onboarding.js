@@ -338,20 +338,61 @@ function wizardRenderStepDiretoria() {
 }
 
 // --- ETAPA: TÁTICA ---
+// As opções vêm do modelo tático (js/taticas.js), a mesma fonte que o Perfil do Treinador
+// e o Auxiliar usam — assim o assistente nunca oferece algo que o resto do app não conhece.
 function wizardRenderStepTatica() {
-    // Clona as opções dos selects "de verdade" da aba Auxiliar Técnico (fonte única de verdade)
-    [['wiz-tatica-primaria', 'tatica-primaria'], ['wiz-tatica-secundaria', 'tatica-secundaria'], ['wiz-tatica-estilo', 'tatica-estilo']]
-        .forEach(([wizId, realId]) => {
-            let wizEl = document.getElementById(wizId);
-            let realEl = document.getElementById(realId);
-            if (wizEl && realEl && wizEl.options.length === 0) wizEl.innerHTML = realEl.innerHTML;
-        });
+    let t = (typeof taticaDoSave === 'function') ? taticaDoSave() : null;
+    if (!t) return;
 
-    let taticas = db[currentSave].taticas;
-    if (taticas) {
-        if (taticas.primaria) document.getElementById('wiz-tatica-primaria').value = taticas.primaria;
-        if (taticas.secundaria) document.getElementById('wiz-tatica-secundaria').value = taticas.secundaria;
-        if (taticas.estilo) document.getElementById('wiz-tatica-estilo').value = taticas.estilo;
+    let selPre = document.getElementById('wiz-tatica-predefinicao');
+    let selEst = document.getElementById('wiz-tatica-estilo-armacao');
+    let selEsq = document.getElementById('wiz-tatica-esquema');
+    let selEsqAlt = document.getElementById('wiz-tatica-esquema-alt');
+    if (!selPre || !selEst || !selEsq || !selEsqAlt) return;
+
+    selPre.innerHTML = PREDEFINICOES_TATICAS.map(p => `<option value="${p.id}">${p.emoji} ${p.nome}</option>`).join('');
+    selEst.innerHTML = ESTILOS_ARMACAO.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
+    let optsFormacoes = listaFormacoesDisponiveis().map(f => `<option value="${f}">${f}</option>`).join('');
+    selEsq.innerHTML = optsFormacoes;
+    selEsqAlt.innerHTML = optsFormacoes;
+
+    selPre.value = t.predefinicao;
+    selEst.value = t.estiloArmacao;
+    selEsq.value = t.esquema;
+    selEsqAlt.value = t.esquemaAlternativo;
+    document.getElementById('wiz-tatica-abordagem').value = t.abordagemDefensiva;
+
+    wizardAtualizarRegraTatica();
+}
+
+// Mostra a trava da predefinição escolhida e já corrige o que estiver fora da regra,
+// pra que o assistente nunca termine com uma combinação impossível no jogo.
+function wizardAtualizarRegraTatica() {
+    let selPre = document.getElementById('wiz-tatica-predefinicao');
+    if (!selPre || typeof corrigirTatica !== 'function') return;
+
+    let bruta = {
+        predefinicao: selPre.value,
+        estiloArmacao: document.getElementById('wiz-tatica-estilo-armacao').value,
+        esquema: document.getElementById('wiz-tatica-esquema').value,
+        esquemaAlternativo: document.getElementById('wiz-tatica-esquema-alt').value,
+        abordagemDefensiva: Number(document.getElementById('wiz-tatica-abordagem').value)
+    };
+    let { tatica, ajustes } = corrigirTatica(bruta);
+
+    document.getElementById('wiz-tatica-estilo-armacao').value = tatica.estiloArmacao;
+    document.getElementById('wiz-tatica-abordagem').value = tatica.abordagemDefensiva;
+
+    let faixa = faixaAbordagem(tatica.abordagemDefensiva);
+    let elValor = document.getElementById('wiz-tatica-abordagem-valor');
+    if (elValor) { elValor.innerText = `${tatica.abordagemDefensiva} — ${faixa.nome}`; elValor.style.color = faixa.cor; }
+
+    let elRegra = document.getElementById('wiz-tatica-regra');
+    if (elRegra) {
+        let regra = textoRegraPredefinicao(tatica.predefinicao);
+        elRegra.innerHTML = ajustes.length
+            ? `⚠️ ${regra}<br>Ajustado automaticamente: ${ajustes.join(' ')}`
+            : `ℹ️ ${regra}`;
     }
 }
 
@@ -413,7 +454,7 @@ function wizardRenderResumo() {
     let titulos = document.getElementById('setup-dir-titulos').value || 0;
     let posicao = document.getElementById('setup-dir-posicao').value || '-';
     let posicaoCopa = document.getElementById('setup-dir-posicao-copa').value || '-';
-    let formacaoPrimaria = document.getElementById('wiz-tatica-primaria') ? document.getElementById('wiz-tatica-primaria').value : '-';
+    let formacaoPrimaria = document.getElementById('wiz-tatica-esquema') ? document.getElementById('wiz-tatica-esquema').value : '-';
 
     let itens = [
         ['Save', saveName],
@@ -458,12 +499,14 @@ async function wizardFinalizar() {
     db[currentSave].liga = liga;
     db[currentSave].temporadaAtual = temporada;
 
-    if (document.getElementById('wiz-tatica-primaria')) {
-        db[currentSave].taticas = {
-            primaria: document.getElementById('wiz-tatica-primaria').value,
-            secundaria: document.getElementById('wiz-tatica-secundaria').value,
-            estilo: document.getElementById('wiz-tatica-estilo').value
-        };
+    if (document.getElementById('wiz-tatica-predefinicao') && typeof corrigirTatica === 'function') {
+        db[currentSave].taticas = corrigirTatica({
+            predefinicao: document.getElementById('wiz-tatica-predefinicao').value,
+            estiloArmacao: document.getElementById('wiz-tatica-estilo-armacao').value,
+            esquema: document.getElementById('wiz-tatica-esquema').value,
+            esquemaAlternativo: document.getElementById('wiz-tatica-esquema-alt').value,
+            abordagemDefensiva: Number(document.getElementById('wiz-tatica-abordagem').value)
+        }).tatica;
     }
 
     adicionarNoticiaAutomatica(
@@ -491,7 +534,7 @@ async function wizardFinalizar() {
     // Mensagens automáticas de boas-vindas do Diretor e do Auxiliar (texto fixo, sem custo de IA)
     let exibDiretor = nomeDiretor || 'A Diretoria';
     let exibAuxiliar = nomeAuxiliar || 'O Auxiliar Técnico';
-    let formacaoEscolhida = (document.getElementById('wiz-tatica-primaria') && document.getElementById('wiz-tatica-primaria').value) || '4-2-3-1';
+    let formacaoEscolhida = (document.getElementById('wiz-tatica-esquema') && document.getElementById('wiz-tatica-esquema').value) || '4-2-3-1';
     db[currentSave].chatHistory.diretoria.push({
         role: 'ai',
         text: `Seja muito bem-vindo(a) ao ${nome}, ${nomeTecnico}! Eu sou ${exibDiretor}${nomeDiretor ? '' : ', a diretoria do clube'}. A partir de agora vou acompanhar de perto sua gestão — os objetivos da temporada já estão definidos, dá uma olhada aí embaixo. Conte comigo pra o que precisar.`

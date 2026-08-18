@@ -742,3 +742,84 @@
     .msg-opcao-btn { min-width: 100%; }
     .msg-cabecalho-meta { width: 100%; justify-content: space-between; }
 }
+
+/* =====================================================================================
+   PAINEL DE ESCOLHAS TÁTICAS (Perfil do Treinador) — espelho das opções do jogo
+   ===================================================================================== */
+
+.tatica-bloco { margin-bottom: 26px; }
+.tatica-titulo { margin: 0 0 4px 0; font-size: 15px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
+.tatica-ajuda { font-size: 12px; color: var(--text-muted); margin: 0 0 12px 0; line-height: 1.6; }
+
+.tatica-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+
+.tatica-card {
+    display: flex; flex-direction: column; gap: 6px; text-align: left; cursor: pointer;
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; transition: 0.2s;
+    text-transform: none; letter-spacing: normal; font-weight: normal; color: var(--text-main);
+}
+.tatica-card:hover:not(:disabled) { border-color: var(--primary); background: rgba(232,184,75,0.08); transform: translateY(-1px); }
+.tatica-card-ativo { border-color: var(--primary); background: rgba(232,184,75,0.12); box-shadow: 0 0 0 1px var(--primary); }
+.tatica-card-bloqueado { opacity: 0.4; cursor: not-allowed; }
+.tatica-card-bloqueado:hover { transform: none; }
+.tatica-card-nome { font-size: 14px; font-weight: bold; color: var(--text-main); font-family: var(--font-display); letter-spacing: 0.3px; }
+.tatica-card-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.55; }
+.tatica-card-regra { font-size: 11px; color: var(--warning); line-height: 1.5; margin-top: 2px; }
+.tatica-card-menor { padding: 12px 14px; }
+
+/* Slider da abordagem defensiva */
+.tatica-slider-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.tatica-slider {
+    flex: 1; min-width: 200px; -webkit-appearance: none; appearance: none; height: 8px; border-radius: 4px; padding: 0;
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent) 30%, var(--primary) 30%, var(--primary) 60%, var(--warning) 60%, var(--warning) 90%, var(--danger) 90%, var(--danger) 100%);
+    border: none; outline: none; cursor: pointer;
+}
+.tatica-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--text-main); border: 3px solid var(--bg-dark); cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.tatica-slider::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--text-main); border: 3px solid var(--bg-dark); cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.tatica-slider-valor { font-size: 16px; white-space: nowrap; font-family: var(--font-display); }
+
+.tatica-faixas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+.tatica-faixa {
+    display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center;
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 6px;
+    font-size: 11px; color: var(--text-muted);
+}
+.tatica-faixa strong { font-size: 11.5px; }
+.tatica-faixa-ativa { background: rgba(255,255,255,0.05); }
+.tatica-faixa-bloqueada { opacity: 0.35; }
+
+.tatica-resumo {
+    display: flex; flex-direction: column; gap: 6px;
+    background: rgba(75,159,226,0.08); border: 1px solid var(--accent); border-radius: 8px;
+    padding: 14px 16px; font-size: 14px; line-height: 1.6;
+}
+.tatica-resumo span { color: var(--text-main); font-family: var(--font-display); letter-spacing: 0.4px; }
+
+@media (max-width: 768px) {
+    .tatica-grade { grid-template-columns: 1fr; }
+    .tatica-faixas { grid-template-columns: repeat(2, 1fr); }
+    .tatica-slider-valor { width: 100%; }
+}
+
+/* Grade de escalação da tela "Iniciar Partida" */
+.escalacao-cabecalho { display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px; }
+.escalacao-cabecalho strong { font-family: var(--font-display); letter-spacing:0.5px; text-transform:uppercase; font-size:13px; color:var(--text-main); }
+.escalacao-grade { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:10px; }
+.escalacao-slot { display:flex; flex-direction:column; gap:3px; }
+.escalacao-slot label { font-size:10px; color:var(--accent); font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; margin:0; }
+.escalacao-slot select { padding:8px 10px; font-size:12.5px; background:var(--bg-dark); border:1px solid var(--border); border-radius:6px; color:var(--text-main); width:100%; box-sizing:border-box; }
+.escalacao-slot select:focus { border-color: var(--primary); outline:none; }
+
+/* Painel do plano sugerido pelo Auxiliar */
+.plano-tatico { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:10px; margin:14px 0; }
+.plano-tatico-item { background:var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+.plano-tatico-item span { display:block; font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:bold; margin-bottom:4px; }
+.plano-tatico-item strong { font-size:14px; color:var(--primary); font-family:var(--font-display); letter-spacing:0.3px; }
+@media (max-width: 768px) { .escalacao-grade { grid-template-columns: 1fr; } }
