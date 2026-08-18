@@ -453,7 +453,7 @@ function toggleChatDiretoria() {
                 if (typeof menuPrincipalResetView === 'function') menuPrincipalResetView();
             }
             if(abaId === 'tab-dashboard') { atualizarFiltroTemporadas(); desenharGraficos(); }
-            if(abaId === 'tab-salvar-partida') preencherDatalistJogadores();
+            if(abaId === 'tab-salvar-partida') { preencherDatalistJogadores(); if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida(); }
             if(abaId === 'tab-plantel') atualizarPlantelUI();
             if(abaId === 'tab-mercado') { filtrarMercado(statusFiltroMercado); checarEmbargoMercado(); }
             if(abaId === 'tab-upgrades') atualizarUpgradesUI();
@@ -461,7 +461,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); checarNovidadesIA('diretoria'); }
             if(abaId === 'tab-medico') { atualizarDepartamentoMedicoUI(); }
             if(abaId === 'tab-perfil-treinador') { carregarPerfilTreinador(); carregarPreferenciasTaticas(); }
-            if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarAuxiliarPartida(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
+            if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarSugestaoAuxiliar(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
             if(abaId === 'tab-convocacao') { renderizarConvocacaoUI(); }
             if(abaId === 'tab-mensagens') { renderizarCaixaMensagens(); }
@@ -538,10 +538,14 @@ function toggleChatDiretoria() {
             document.getElementById('header-nome-tecnico').innerText = config.nomeTecnico || '-';
             document.getElementById('header-temp-ano').innerText = config.temporadaAtual;
 
-            let selectComp = document.getElementById('partida-comp');
-            selectComp.innerHTML = '';
-            let comps = currentSave === 'clube' ? ["Liga", "Copa Nacional", "Torneio Continental", "Amistoso"] : ["Copa do Mundo", "Eliminatórias", "Copa Continental", "Amistoso"];
-            comps.forEach(c => selectComp.innerHTML += `<option value="${c}">${c}</option>`);
+            let selectComp = document.getElementById('inicio-partida-comp');
+            if (selectComp) {
+                selectComp.innerHTML = '';
+                let comps = currentSave === 'clube'
+                    ? ["Liga", "Copa Nacional", "Torneio Continental", "Amistoso", "Outros"]
+                    : ["Copa do Mundo", "Eliminatórias", "Copa Continental", "Amistoso", "Outros"];
+                comps.forEach(c => selectComp.innerHTML += `<option value="${c}">${c}</option>`);
+            }
 
             if (typeof garantirCondicaoFisicaTodos === 'function') garantirCondicaoFisicaTodos();
             if (typeof garantirCentralMensagens === 'function') garantirCentralMensagens();

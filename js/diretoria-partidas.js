@@ -420,16 +420,44 @@
         function editarJogadorTemp(idTemp) { toggleEditInline(idTemp); }
 
         async function salvarPartida() {
+            // Adversário, competição, mando, contexto e dias de descanso são declarados ao
+            // Iniciar a Partida — sem partida iniciada não há o que salvar.
+            let partidaAberta = db[currentSave].partidaAuxiliar;
+            if (!partidaAberta) {
+                alert('Inicie a partida antes de registrar o resultado: informe o adversário, a competição e escale o time em "▶️ Iniciar Partida".');
+                if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida();
+                return;
+            }
+
             let golsP = Number(document.getElementById('gols-pro').value); let golsC = Number(document.getElementById('gols-contra').value);
-            let adv = document.getElementById('adversario').value || "Adversário"; let penaltis = document.getElementById('vitoria-penaltis').checked;
-            let diasPassados = parseInt(document.getElementById('partida-dias-proxima')?.value) || 3;
+            let penaltis = document.getElementById('vitoria-penaltis').checked;
+            let adv = partidaAberta.adversarioNome || "Adversário";
+            let diasPassados = Math.max(0, Number(partidaAberta.diasProxima) || 3);
             processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp.map(j => j.nome));
 
+            // A ficha completa da partida vive no próprio registro: escalação do apito inicial,
+            // substituições com minuto, tática aplicada e o banco. É o que a aba Dashboard abre
+            // quando você clica na partida.
             db[currentSave].partidas.push({
-                id: Date.now(), temporada: db[currentSave].temporadaAtual, comp: document.getElementById('partida-comp').value, contexto: document.getElementById('partida-contexto').value,
-                adversario: adv, mando: document.getElementById('partida-mando').value, golsPro: golsP, golsContra: golsC,
+                id: partidaAberta.id || Date.now(), temporada: db[currentSave].temporadaAtual,
+                comp: partidaAberta.comp, contexto: partidaAberta.contexto,
+                adversario: adv, mando: partidaAberta.mando, golsPro: golsP, golsContra: golsC,
                 possePro: Number(document.getElementById('posse-pro').value)||50, posseAdv: Number(document.getElementById('posse-adv').value)||50,
-                finPro: Number(document.getElementById('fin-pro').value)||0, finAdv: Number(document.getElementById('fin-adv').value)||0, penaltis: penaltis, jogadores: jogadoresPartidaTemp
+                finPro: Number(document.getElementById('fin-pro').value)||0, finAdv: Number(document.getElementById('fin-adv').value)||0, penaltis: penaltis, jogadores: jogadoresPartidaTemp,
+                ficha: {
+                    formacaoInicial: partidaAberta.formacaoInicial || partidaAberta.formacaoEscolhida,
+                    formacaoFinal: partidaAberta.formacaoEscolhida,
+                    escalacaoInicial: partidaAberta.escalacaoInicial || partidaAberta.titulares || {},
+                    escalacaoFinal: partidaAberta.titulares || {},
+                    bancoInicial: partidaAberta.bancoInicial || partidaAberta.banco || [],
+                    substituicoes: partidaAberta.substituicoes || [],
+                    tatica: partidaAberta.tatica || null,
+                    adversarioInfo: partidaAberta.adversarioInfo || '',
+                    analiseGeral: partidaAberta.analiseGeral || '',
+                    diretriz: partidaAberta.diretriz || '',
+                    ajustesFeitos: partidaAberta.ajustesFeitos || [],
+                    diasProxima: diasPassados
+                }
             });
 
             let posseP = Number(document.getElementById('posse-pro').value) || 50;
@@ -536,6 +564,14 @@
                 else if (golsC > golsP) ajustarMoralElenco(-gerarNumeroAleatorio(3, 6));
             }
 
+            // A partida acabou: zera o formulário e volta a aba pro estado "Iniciar Partida"
+            db[currentSave].sugestaoAuxiliar = null;
+            if (typeof escalacaoEmMontagem !== 'undefined') escalacaoEmMontagem = { formacao: null, titulares: {}, banco: [] };
+            ['gols-pro', 'gols-contra', 'fin-pro', 'fin-adv', 'posse-pro', 'posse-adv'].forEach(id => {
+                let el = document.getElementById(id);
+                if (el) el.value = (id === 'posse-pro' || id === 'posse-adv') ? '' : '0';
+            });
+
             salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
             alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!");
 
@@ -544,6 +580,7 @@
             if (typeof processarCiclosPosPartida === 'function') processarCiclosPosPartida();
             if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Partida salva vs ${adv}`);
 
+            if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida();
             atualizarFiltroTemporadas(); desenharGraficos(); preencherDatalistJogadores();
         }
 

@@ -449,49 +449,95 @@ ${textoRegrasCompatibilidadePosicional()}
         }
 
         // Orquestra qual "estado" da experiência de partida aparece na aba (vazio / declarada / em andamento)
-        function renderizarAuxiliarPartida() {
-            let partida = db[currentSave].partidaAuxiliar;
-            let elVazio = document.getElementById('auxiliar-estado-vazio');
-            let elAtiva = document.getElementById('auxiliar-partida-ativa');
-            if (!elVazio || !elAtiva) return;
+        // A aba do Auxiliar mostra o PLANO que ele recomenda. Quem escala e inicia a partida
+        // é a aba "Salvar Partida" — por isso esta função e a do fluxo de partida são separadas.
+        function renderizarSugestaoAuxiliar() {
+            let d = db[currentSave];
+            let box = document.getElementById('auxiliar-sugestao-resultado');
+            let pedir = document.getElementById('auxiliar-pedir-sugestao');
+            if (!box || !d) return;
 
-            if (!partida) {
-                elVazio.style.display = 'block';
-                elAtiva.style.display = 'none';
-                renderizarCampinhoLimpo();
+            let sug = d.sugestaoAuxiliar;
+            if (!sug) {
+                box.style.display = 'none';
+                if (pedir) pedir.style.display = 'block';
                 renderizarHistoricoPartidasAuxiliar();
                 return;
             }
 
-            elVazio.style.display = 'none';
-            elAtiva.style.display = 'block';
+            let t = sug.tatica || {};
+            let pre = predefinicaoPorId(t.predefinicao);
+            let est = estiloArmacaoPorId(t.estiloArmacao);
+            let faixa = faixaAbordagem(t.abordagemDefensiva);
+            let partidaAtiva = !!d.partidaAuxiliar;
 
-            let banner = document.getElementById('auxiliar-banner-partida');
-            if (partida.status === 'em_andamento') {
-                banner.style.background = 'rgba(226,75,75,0.1)'; banner.style.border = '1px solid var(--danger)';
-                banner.innerHTML = `🔴 <strong>AO VIVO:</strong> ${db[currentSave].nome} vs ${partida.adversarioNome} — Formação ${partida.formacaoEscolhida}. Manda print do jogo no chat pra pedir ajuda em tempo real.`;
-            } else {
-                banner.style.background = 'rgba(232,184,75,0.1)'; banner.style.border = '1px solid var(--primary)';
-                banner.innerHTML = `📋 <strong>Partida declarada:</strong> ${db[currentSave].nome} vs ${partida.adversarioNome} — revise a escalação (clique num jogador pra trocar) e clique em Iniciar quando estiver pronto.`;
-            }
+            let escalacaoHtml = Object.keys(sug.escalacao || {}).map(role => {
+                let info = sug.escalacao[role] || {};
+                return `<div class="plano-jogador">
+                    <span class="plano-jogador-role">${role}</span>
+                    <strong>${info.nome || '—'}</strong>
+                    ${info.instrucao ? `<em>${info.instrucao}</em>` : ''}
+                </div>`;
+            }).join('');
 
-            let acoes = document.getElementById('auxiliar-acoes-partida');
-            if (partida.status === 'declarada') {
-                acoes.innerHTML = `
-                    <button onclick="iniciarPartidaDeclarada()" style="flex:1 1 100%; background:var(--primary); color:black; padding:12px;">▶️ Iniciar Partida</button>
-                    <button onclick="abrirMudarFormacaoManual()" style="background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
-                    <button class="btn-hero-secundario" onclick="cancelarPartidaDeclarada()" style="color:var(--danger); border-color:var(--danger);">🗑️ Cancelar</button>`;
-            } else {
-                let subsUsadas = (partida.substituicoes || []).length;
-                acoes.innerHTML = `
-                    <p style="flex:1 1 100%; text-align:center; font-size:12px; color:var(--text-muted); margin: 0 0 4px 0;">Substituições usadas: ${subsUsadas}/5 — clique num jogador em campo ou no banco pra declarar uma troca.</p>
-                    <button onclick="abrirMudarFormacaoManual()" style="flex:1; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
-                    <button onclick="irRegistrarResultado()" style="flex:1 1 100%; background:var(--accent); color:white; padding:12px;">🏁 Ir Registrar Resultado no Dashboard</button>
-                    <button class="btn-hero-secundario" onclick="cancelarPartidaDeclarada()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar Partida</button>`;
-            }
+            let reservasHtml = (sug.reservas || []).map(r => `<li><strong>${r.nome}</strong>${r.papel ? ` — ${r.papel}` : ''}</li>`).join('');
 
-            renderizarCampinhoLimpo();
+            box.style.display = 'block';
+            if (pedir) pedir.style.display = 'none';
+            box.innerHTML = `
+                <div style="background: rgba(75,159,226,0.08); border:1px solid var(--accent); border-radius:8px; padding:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <h3 style="margin:0; font-size:17px; color:var(--accent);">📋 Plano contra ${sug.adversarioNome}</h3>
+                        <button onclick="descartarSugestaoAuxiliar()" style="background:transparent; border:1px solid var(--border); color:var(--text-muted); padding:6px 12px; font-size:12px;">🗑️ Descartar plano</button>
+                    </div>
+
+                    ${sug.adversarioInfo ? `<p style="font-size:13.5px; line-height:1.6; margin:12px 0 0 0;"><strong>Sobre o adversário:</strong> ${sug.adversarioInfo}</p>` : ''}
+                    ${sug.analiseGeral ? `<p style="font-size:13.5px; line-height:1.6; margin:8px 0 0 0;"><strong>A leitura:</strong> ${sug.analiseGeral}</p>` : ''}
+
+                    <h4 style="margin:18px 0 0 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Aplique isto no jogo</h4>
+                    <div class="plano-tatico">
+                        <div class="plano-tatico-item"><span>Predefinição tática</span><strong>${pre.emoji} ${pre.nome}</strong></div>
+                        <div class="plano-tatico-item"><span>Esquema</span><strong>${t.esquema}</strong></div>
+                        <div class="plano-tatico-item"><span>Estilo de armação</span><strong>${est.nome}</strong></div>
+                        <div class="plano-tatico-item"><span>Abordagem defensiva</span><strong>${t.abordagemDefensiva} — ${faixa.nome}</strong></div>
+                    </div>
+                    ${sug.justificativaTatica ? `<p style="font-size:13px; color:var(--text-muted); line-height:1.6; margin:0;">${sug.justificativaTatica}</p>` : ''}
+                    ${(sug.ajustesTaticos && sug.ajustesTaticos.length) ? `<p style="font-size:12px; color:var(--warning); line-height:1.6; margin:8px 0 0 0;">⚠️ Corrigi o que o plano tinha de inválido pelas regras do jogo: ${sug.ajustesTaticos.join(' ')}</p>` : ''}
+                    ${sug.alertaRotacao ? `<p style="font-size:13px; color:var(--warning); line-height:1.6; margin:8px 0 0 0;">${sug.alertaRotacao}</p>` : ''}
+                    ${(sug.rotacoesAutomaticas && sug.rotacoesAutomaticas.length) ? `<p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin:6px 0 0 0;">🔁 Rotação forçada por fadiga: ${sug.rotacoesAutomaticas.join('; ')}</p>` : ''}
+
+                    <h4 style="margin:18px 0 8px 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Escalação sugerida</h4>
+                    <div class="plano-escalacao">${escalacaoHtml}</div>
+                    ${reservasHtml ? `<h4 style="margin:16px 0 6px 0; font-size:13px; color:var(--text-muted); text-transform:uppercase;">Banco</h4><ul class="plano-reservas">${reservasHtml}</ul>` : ''}
+
+                    <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
+                        ${partidaAtiva
+                            ? `<p style="flex:1 1 100%; font-size:13px; color:var(--warning); margin:0;">⚠️ Já existe uma partida em andamento. Finalize ou descarte ela na aba "Salvar Partida" para escalar com este plano.</p>`
+                            : `<button onclick="levarPlanoParaIniciarPartida()" style="flex:1; background:var(--primary); color:black; padding:12px; font-size:15px;">▶️ Escalar com este plano e iniciar</button>`}
+                        <button onclick="declararPartidaIA()" style="background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Refazer o plano</button>
+                    </div>
+                </div>`;
+
             renderizarHistoricoPartidasAuxiliar();
+        }
+
+        function descartarSugestaoAuxiliar() {
+            db[currentSave].sugestaoAuxiliar = null;
+            salvarDados();
+            renderizarSugestaoAuxiliar();
+        }
+
+        // Leva o plano para a tela de Iniciar Partida já preenchida.
+        function levarPlanoParaIniciarPartida() {
+            mudarAba('tab-salvar-partida');
+            if (typeof usarSugestaoDoAuxiliar === 'function') usarSugestaoDoAuxiliar();
+        }
+
+        // Mantida com o nome antigo porque várias telas ainda chamam por aqui: agora ela só
+        // reparte o trabalho entre as duas abas (plano no Auxiliar, partida no Salvar Partida).
+        function renderizarAuxiliarPartida() {
+            renderizarSugestaoAuxiliar();
+            if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida();
         }
 
         function renderizarCampinhoLimpo() {
@@ -501,7 +547,7 @@ ${textoRegrasCompatibilidadePosicional()}
 
             let partida = db[currentSave].partidaAuxiliar;
 
-            let boxAnalise = document.getElementById('auxiliar-analise-ia');
+            let boxAnalise = document.getElementById('partida-alerta-auxiliar');
             if (boxAnalise) {
                 if (partida && (partida.analiseGeral || partida.adversarioInfo || partida.alertaRotacao || (partida.rotacoesAutomaticas && partida.rotacoesAutomaticas.length > 0))) {
                     boxAnalise.style.display = 'block';
@@ -577,19 +623,6 @@ ${textoRegrasCompatibilidadePosicional()}
         let imagemAdvEscalacao = null;
         let imagemAdvTatica = null;
 
-        function abrirDeclararPartida() {
-            document.getElementById('auxiliar-estado-vazio').style.display = 'none';
-            document.getElementById('auxiliar-declarar-partida').style.display = 'block';
-            document.getElementById('declarar-adv-nome').value = '';
-            removerImagemAdversario('escalacao');
-            removerImagemAdversario('tatica');
-        }
-
-        function fecharDeclararPartida() {
-            document.getElementById('auxiliar-declarar-partida').style.display = 'none';
-            renderizarAuxiliarPartida();
-        }
-
         function anexarImagemAdversario(event, tipo) {
             let file = event.target.files[0];
             if (!file) return;
@@ -649,7 +682,10 @@ ${textoRegrasCompatibilidadePosicional()}
             📚 HISTÓRICO E APRENDIZADO (o conhecimento acumulado deste treinador com este time): ${montarResumoHistoricoAuxiliarIA()}
             ${regrasEstrategistaTexto(nomeAdvManual || 'o adversário', formacaoSec, estiloJogo, diretriz, diasDescanso)}
 
+            ${regrasTaticasParaIA()}
+
             REGRAS ABSOLUTAS DO JSON:
+            0. Além da escalação, escolha o PACOTE TÁTICO completo (predefinição, esquema, estilo de armação e abordagem defensiva de 0 a 100) respeitando as travas listadas acima. O treinador vai selecionar exatamente isso dentro do jogo, então uma combinação proibida é inútil.
             1. Escolha UMA das duas formações (A Primária ou a Secundária) e use EXATAMENTE AS SIGLAS DO SEGUINTE MAPA COMO CHAVES: ${plantelInfo.formacoesPossiveisStr}
             2. NÃO invente siglas (Ex: não crie "MC" se na formação escolhida tiver apenas "MCD" e "MCE").
             3. BANCO DE RESERVAS: monte também até 9 jogadores do elenco ativo que NÃO entraram nos 11 titulares, ordenados por relevância. Para cada um, diga em poucas palavras qual seria o papel dele se entrasse. Não invente jogadores fora da lista do elenco.
@@ -659,6 +695,10 @@ ${textoRegrasCompatibilidadePosicional()}
                 "adversarioNome": "Nome do time adversário",
                 "adversarioInfo": "2-3 frases resumindo o que você percebeu sobre o adversário (formação, nível, pontos fortes/fracos) e como isso influenciou seu plano.",
                 "analiseGeral": "2 a 3 frases explicando sua lógica: formação escolhida e por quê, quem foi poupado/priorizado (cite o Departamento Médico se pesou) e o plano tático geral.",
+                "justificativaTatica": "1 a 2 frases explicando por que ESTE pacote tático contra ESTE adversário.",
+                "predefinicao": "id da predefinição tática escolhida",
+                "estiloArmacao": "id do estilo de armação escolhido",
+                "abordagemDefensiva": 55,
                 "formacaoEscolhida": "4-2-3-1",
                 "escalacao": {
                     "GOL": {"nome": "Nome do Goleiro", "instrucao": "Instrução tática profunda contra o adversário..."},
@@ -679,36 +719,43 @@ ${textoRegrasCompatibilidadePosicional()}
 
                 if (match) {
                     let res = JSON.parse(match[0]);
+                    if (!coordsFormacoes[res.formacaoEscolhida]) res.formacaoEscolhida = formacaoPri;
                     let rotacoesAutomaticas = aplicarRotacaoObrigatoriaEscalacao(res);
                     let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
 
-                    db[currentSave].partidaAuxiliar = {
-                        id: Date.now(),
-                        status: 'declarada',
+                    // O que a IA devolve é um PLANO. Quem escala e inicia a partida é a aba
+                    // "Salvar Partida" — aqui o Auxiliar só recomenda.
+                    let normalizada = normalizarSugestaoTaticaIA({
+                        predefinicao: res.predefinicao,
+                        estiloArmacao: res.estiloArmacao,
+                        abordagemDefensiva: res.abordagemDefensiva,
+                        esquema: res.formacaoEscolhida
+                    });
+
+                    db[currentSave].sugestaoAuxiliar = {
                         adversarioNome: res.adversarioNome || nomeAdvManual || 'Adversário',
                         adversarioInfo: res.adversarioInfo || '',
-                        formacaoEscolhida: res.formacaoEscolhida,
-                        titulares: res.escalacao,
-                        banco: Array.isArray(res.reservas) ? res.reservas : [],
                         analiseGeral: res.analiseGeral || '',
+                        justificativaTatica: res.justificativaTatica || '',
+                        tatica: normalizada.tatica,
+                        ajustesTaticos: normalizada.ajustes,
+                        escalacao: res.escalacao,
+                        reservas: Array.isArray(res.reservas) ? res.reservas : [],
                         alertaRotacao: alertaRotacao,
                         rotacoesAutomaticas: rotacoesAutomaticas,
                         diretriz: diretriz,
-                        ajustesFeitos: [],
                         criadaEm: Date.now()
                     };
                     imagemAdvEscalacao = null; imagemAdvTatica = null;
-                    pitchToggleSubView = {};
                     salvarDados();
-                    document.getElementById('auxiliar-declarar-partida').style.display = 'none';
-                    renderizarAuxiliarPartida();
+                    renderizarSugestaoAuxiliar();
                 } else {
-                    alert('Não consegui montar a escalação a partir disso. Tente de novo ou digite o nome do adversário.');
+                    alert('Não consegui montar o plano a partir disso. Tente de novo ou digite o nome do adversário.');
                 }
             } catch (e) {
                 alert('Erro ao analisar o adversário. Verifique sua conexão e tente novamente.');
             }
-            btn.innerText = '🔍 Analisar Adversário e Montar Escalação (IA)'; btn.disabled = false;
+            btn.innerText = '🔍 Analisar Adversário e Montar Plano (IA)'; btn.disabled = false;
         }
 
         // --- TROCAR JOGADOR NA ESCALAÇÃO (clique no campinho) ---
@@ -1169,44 +1216,6 @@ ${textoRegrasCompatibilidadePosicional()}
         }
 
         // --- CICLO DE VIDA DA PARTIDA (iniciar / cancelar / ir registrar) ---
-
-        function iniciarPartidaDeclarada() {
-            let partida = db[currentSave].partidaAuxiliar;
-            if (!partida) return;
-            partida.status = 'em_andamento';
-            // Snapshot de quem entrou em campo — "como um todo" — separado de trocas feitas depois do apito inicial.
-            // formacaoInicial fica junto porque, se a formação mudar no meio do jogo, formacaoEscolhida
-            // passa a apontar pra formação final — sem isso, o campinho histórico tentaria desenhar a
-            // escalação do apito inicial usando as posições de uma formação diferente da que ela usa.
-            partida.escalacaoInicial = JSON.parse(JSON.stringify(partida.titulares || {}));
-            partida.formacaoInicial = partida.formacaoEscolhida;
-            partida.bancoInicial = JSON.parse(JSON.stringify(partida.banco || []));
-            partida.substituicoes = [];
-            partida.jogadoresForaDaPartida = [];
-            partida.iniciadaEm = Date.now();
-            pitchToggleSubView = {};
-            salvarDados();
-            renderizarAuxiliarPartida();
-        }
-
-        async function cancelarPartidaDeclarada() {
-            if (await confirmarModerno('Descartar esta partida declarada? A escalação montada será perdida.', 'Cancelar Partida', { perigo: true, textoConfirmar: 'Descartar' })) {
-                db[currentSave].partidaAuxiliar = null;
-                salvarDados();
-                renderizarAuxiliarPartida();
-            }
-        }
-
-        function irRegistrarResultado() {
-            let partida = db[currentSave].partidaAuxiliar;
-            if (partida && partida.adversarioNome) {
-                let advInput = document.getElementById('adversario');
-                if (advInput) advInput.value = partida.adversarioNome;
-            }
-            mudarAba('tab-salvar-partida');
-            let formPart = document.getElementById('manual-partida-form');
-            if (formPart && formPart.style.display === 'none' && typeof toggleModoVideo === 'function') toggleModoVideo();
-        }
 
         // Chamada pelo salvarPartida() (Dashboard) quando há uma partida declarada em aberto.
         async function finalizarPartidaAuxiliar(golsPro, golsContra, adversarioTexto) {

@@ -807,3 +807,19 @@
     .tatica-faixas { grid-template-columns: repeat(2, 1fr); }
     .tatica-slider-valor { width: 100%; }
 }
+
+/* Grade de escalação da tela "Iniciar Partida" */
+.escalacao-cabecalho { display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:8px; }
+.escalacao-cabecalho strong { font-family: var(--font-display); letter-spacing:0.5px; text-transform:uppercase; font-size:13px; color:var(--text-main); }
+.escalacao-grade { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:10px; }
+.escalacao-slot { display:flex; flex-direction:column; gap:3px; }
+.escalacao-slot label { font-size:10px; color:var(--accent); font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; margin:0; }
+.escalacao-slot select { padding:8px 10px; font-size:12.5px; background:var(--bg-dark); border:1px solid var(--border); border-radius:6px; color:var(--text-main); width:100%; box-sizing:border-box; }
+.escalacao-slot select:focus { border-color: var(--primary); outline:none; }
+
+/* Painel do plano sugerido pelo Auxiliar */
+.plano-tatico { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:10px; margin:14px 0; }
+.plano-tatico-item { background:var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+.plano-tatico-item span { display:block; font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:bold; margin-bottom:4px; }
+.plano-tatico-item strong { font-size:14px; color:var(--primary); font-family:var(--font-display); letter-spacing:0.3px; }
+@media (max-width: 768px) { .escalacao-grade { grid-template-columns: 1fr; } }
