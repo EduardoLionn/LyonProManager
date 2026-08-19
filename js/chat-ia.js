@@ -98,6 +98,12 @@
         - Aponte o que os dados/imagem mostram (ex: time recuado demais, lado sem criação, adversário dominando um setor, jogador sumido do jogo).
         - SEJA HONESTO: se o time estiver bem e os dados não pedirem mudança nenhuma, DIGA CLARAMENTE que está tudo certo e não force uma alteração só por forçar.` : '';
 
+                    let taticaBaseChat = (typeof taticaDoSave === 'function') ? taticaDoSave() : null;
+                    let formacoesPreferidasChat = (taticaBaseChat && Array.isArray(taticaBaseChat.formacoesPreferidas) && taticaBaseChat.formacoesPreferidas.length)
+                        ? taticaBaseChat.formacoesPreferidas.filter(f => coordsFormacoes[f])
+                        : Object.keys(coordsFormacoes);
+                    if (!formacoesPreferidasChat.length) formacoesPreferidasChat = Object.keys(coordsFormacoes);
+
                     let blocoSubstituicao = jogoAoVivo ? `
         🔄 SUBSTITUIÇÕES: já foram usadas ${subsUsadas} de 5 substituições permitidas nesta partida (restam ${subsRestantes}).
         - Se o contexto (texto e/ou imagem) pedir claramente uma substituição e ainda houver substituições disponíveis, preencha o campo "sugestaoSubstituicao" do JSON com um jogador REAL que sai (titular atual) e um jogador REAL que entra (de preferência do banco listado acima), citando os nomes EXATAMENTE como aparecem no contexto, mais uma instrução tática curta pro jogador que entra.
@@ -105,8 +111,9 @@
         - Ao escolher entre mais de uma opção coerente no banco, prefira quem estiver rendendo melhor recentemente (nota em campo), não só o de OVR mais alto — se você não souber a nota de cada reserva, baseie-se no contexto e na condição física deles.
         - Se não houver mais substituições disponíveis (restam 0), NÃO sugira substituição — dê apenas orientação tática/posicional.
         - Se a situação não pedir substituição nenhuma, deixe "sugestaoSubstituicao" como null. Não sugira trocas só por sugerir.
+        - SE você sugerir substituição JUNTO com uma mudança de formação (ambos os campos preenchidos na mesma resposta), pense primeiro em qual vaga da FORMAÇÃO NOVA o jogador que entra vai ocupar — "jogadorSai" tem que ser o titular que, depois de aplicada a formação nova, fica na posição que o jogador que entra pode substituir. Nunca pense a substituição em cima da formação antiga quando as duas mudanças vêm juntas.
 
-        🔄 MUDANÇA DE FORMAÇÃO: você também pode sugerir mudar a formação inteira do time (não gasta substituição, os mesmos 11 jogadores em campo só mudam de esquema). Se a leitura do jogo pedir isso claramente (ex: time sendo dominado no meio, precisa de mais gente na frente, etc), preencha "sugestaoFormacao" com uma formação DIFERENTE da atual (${partidaAtual.formacaoEscolhida}), escolhida EXATAMENTE entre: ${Object.keys(coordsFormacoes).join(', ')}. Caso contrário deixe "sugestaoFormacao" como null. Não sugira isso à toa — é uma mudança grande.` : '';
+        🔄 MUDANÇA DE FORMAÇÃO: você também pode sugerir mudar a formação inteira do time (não gasta substituição, os mesmos 11 jogadores em campo só mudam de esquema). Se a leitura do jogo pedir isso claramente (ex: time sendo dominado no meio, precisa de mais gente na frente, etc), preencha "sugestaoFormacao" com uma formação DIFERENTE da atual (${partidaAtual.formacaoEscolhida}), escolhida EXATAMENTE entre as formações preferidas do treinador: ${formacoesPreferidasChat.join(', ')}. Nunca sugira uma formação fora dessa lista. Caso contrário deixe "sugestaoFormacao" como null. Não sugira isso à toa — é uma mudança grande.` : '';
 
                     promptFull = `Atue como ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}".\n${contexto}\n${escalacaoStr}\nHistórico da Conversa:\n${historicoChat}\n
         INSTRUÇÕES:
@@ -140,7 +147,8 @@
                         sugestaoSub = { jogadorSai: res.sugestaoSubstituicao.jogadorSai, jogadorEntra: res.sugestaoSubstituicao.jogadorEntra, instrucao: res.sugestaoSubstituicao.instrucao || '', status: 'pendente' };
                     }
                     let sugestaoFormacao = null;
-                    if (tipo === 'auxiliar' && res.sugestaoFormacao && res.sugestaoFormacao.novaFormacao && coordsFormacoes[res.sugestaoFormacao.novaFormacao]) {
+                    if (tipo === 'auxiliar' && res.sugestaoFormacao && res.sugestaoFormacao.novaFormacao
+                        && (formacoesPreferidasChat || []).includes(res.sugestaoFormacao.novaFormacao)) {
                         sugestaoFormacao = { novaFormacao: res.sugestaoFormacao.novaFormacao, motivo: res.sugestaoFormacao.motivo || '', status: 'pendente' };
                     }
                     history.push({ role: 'ai', text: res.mensagem, sugestaoSub: sugestaoSub, sugestaoFormacao: sugestaoFormacao });
@@ -289,6 +297,14 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || partida.status !== 'em_andamento') { alert('A partida não está mais ao vivo.'); renderizarChat('auxiliar'); return; }
             if ((partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); renderizarChat('auxiliar'); return; }
+
+            // Se essa mesma mensagem também trouxe uma mudança de formação ainda não aplicada, ela
+            // TEM que entrar primeiro — senão o jogador que vai entrar cai numa posição pensada pra
+            // formação antiga, e não pra formação nova que o Auxiliar quis colocar junto.
+            if (msg.sugestaoFormacao && msg.sugestaoFormacao.status === 'pendente') {
+                let okFormacao = aplicarNovaFormacao(msg.sugestaoFormacao.novaFormacao);
+                if (okFormacao) msg.sugestaoFormacao.status = 'confirmada';
+            }
 
             let sug = msg.sugestaoSub;
             let roleSai = Object.keys(partida.titulares).find(r => partida.titulares[r].nome === sug.jogadorSai);
@@ -511,7 +527,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     </div>
                 </div>`;
 
-            renderizarCampinhoEspelhoLeitura(t.esquema, sug.escalacao, sug.reservas, sug.tatica);
+            renderizarCampinhoEspelhoLeitura(t.esquema, sug.escalacao, sug.reservas, sug.tatica, null, sug.funcoesPorRole);
             renderizarHistoricoPartidasAuxiliar();
         }
 
@@ -556,7 +572,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     </div>
                 </div>`;
 
-            renderizarCampinhoEspelhoLeitura(partida.formacaoEscolhida, partida.titulares, partida.banco, partida.tatica, partida.substituicoes);
+            renderizarCampinhoEspelhoLeitura(partida.formacaoEscolhida, partida.titulares, partida.banco, partida.tatica, partida.substituicoes, partida.funcoesPorRoleSugeridas);
         }
 
         // -------------------------------------------------------------------------------------
@@ -570,9 +586,9 @@ ${textoRegrasCompatibilidadePosicional()}
         let _ultimoRenderEspelho = null; // guarda os parâmetros pra toggleSubBadgeEspelho conseguir redesenhar
         let pitchToggleSubViewEspelho = {}; // igual ao pitchToggleSubView do campinho editável, mas pro espelho
 
-        function renderizarCampinhoEspelhoLeitura(formacao, escalacaoMap, reservas, tatica, substituicoes) {
-            _fonteCampinhoAuxiliarLeitura = { escalacao: escalacaoMap || {}, tatica: tatica, reservas: reservas || [] };
-            _ultimoRenderEspelho = { formacao, escalacaoMap, reservas, tatica, substituicoes };
+        function renderizarCampinhoEspelhoLeitura(formacao, escalacaoMap, reservas, tatica, substituicoes, funcoesPorRoleOverride) {
+            _fonteCampinhoAuxiliarLeitura = { escalacao: escalacaoMap || {}, tatica: tatica, reservas: reservas || [], funcoesPorRoleOverride: funcoesPorRoleOverride };
+            _ultimoRenderEspelho = { formacao, escalacaoMap, reservas, tatica, substituicoes, funcoesPorRoleOverride };
 
             let campo = document.getElementById('campo-sugestao-auxiliar');
             if (!campo) return;
@@ -593,7 +609,12 @@ ${textoRegrasCompatibilidadePosicional()}
 
                 let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeExibido.toLowerCase().trim()));
                 let ovrTxt = jogBD ? jogBD.ovr : '?';
-                let escolhaFuncao = (!vendoQuemSaiu && jogBD && typeof escolherFuncaoJogador === 'function') ? escolherFuncaoJogador(posObj.role, jogBD.posicao, tatica) : null;
+                // O Auxiliar já pode ter decidido a função levando o adversário em conta (funcoesPorRoleOverride,
+                // vindo do plano de declararPartidaIA) — só cai pro cálculo genérico por especialidade se não tiver isso.
+                let overrideFuncao = (!vendoQuemSaiu && funcoesPorRoleOverride && funcoesPorRoleOverride[posObj.role]) || null;
+                let escolhaFuncao = overrideFuncao
+                    ? escolhaFuncaoDeIds(posObj.role, overrideFuncao.funcao, overrideFuncao.foco)
+                    : ((!vendoQuemSaiu && jogBD && typeof escolherFuncaoJogador === 'function') ? escolherFuncaoJogador(posObj.role, jogBD.posicao, tatica) : null);
                 let resumo = escolhaFuncao ? resumoFuncaoJogador(escolhaFuncao) : '';
 
                 let tituloBadge = vendoQuemSaiu ? 'Voltar a ver quem está em campo' : `Entrou aos ${subInfo ? subInfo.minuto : ''}' — clique pra ver quem saiu`;
@@ -670,7 +691,10 @@ ${textoRegrasCompatibilidadePosicional()}
             if (!fonte) return;
             let info = (fonte.escalacao || {})[role] || {};
             let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((info.nome || '').toLowerCase().trim()));
-            let escolha = jogBD ? escolherFuncaoJogador(role, jogBD.posicao, fonte.tatica) : null;
+            let overrideFuncao = fonte.funcoesPorRoleOverride && fonte.funcoesPorRoleOverride[role];
+            let escolha = overrideFuncao
+                ? escolhaFuncaoDeIds(role, overrideFuncao.funcao, overrideFuncao.foco)
+                : (jogBD ? escolherFuncaoJogador(role, jogBD.posicao, fonte.tatica) : null);
 
             document.getElementById('modal-funcao-titulo').innerText = `⚽ ${info.nome || 'Vaga'} (${role})`;
             document.getElementById('modal-funcao-resumo').innerText = escolha ? resumoFuncaoJogador(escolha) : 'Sem função definida.';
@@ -744,8 +768,11 @@ ${textoRegrasCompatibilidadePosicional()}
                         let sugAplicada = partida.escalacaoSugeridaAuxiliar;
                         let seguiuSugestao = !vendoQuemSaiu && sugAplicada && sugAplicada[posObj.role] && sugAplicada[posObj.role].nome === nomeJogador;
                         let funcaoResumo = '';
-                        if (seguiuSugestao && jogBD && typeof escolherFuncaoJogador === 'function') {
-                            let escolha = escolherFuncaoJogador(posObj.role, jogBD.posicao, partida.tatica);
+                        if (seguiuSugestao) {
+                            let overrideFuncao = partida.funcoesPorRoleSugeridas && partida.funcoesPorRoleSugeridas[posObj.role];
+                            let escolha = overrideFuncao
+                                ? escolhaFuncaoDeIds(posObj.role, overrideFuncao.funcao, overrideFuncao.foco)
+                                : (jogBD && typeof escolherFuncaoJogador === 'function' ? escolherFuncaoJogador(posObj.role, jogBD.posicao, partida.tatica) : null);
                             if (escolha) funcaoResumo = resumoFuncaoJogador(escolha);
                         }
                         let tooltipHTML = `<div class="jogador-tooltip"><strong>${nomeJogador}</strong>${funcaoResumo ? `<div style="color:var(--primary); font-weight:bold; margin-top:3px;">${funcaoResumo}</div>` : ''}<hr style="border-color:var(--border); margin:5px 0;">${instrucao}</div>`;
@@ -824,6 +851,16 @@ ${textoRegrasCompatibilidadePosicional()}
             let estiloJogo = descreverTaticaParaIA(taticaBase);
             let diasDescanso = (db[currentSave] && typeof db[currentSave].descansoAntesProxima === 'number') ? db[currentSave].descansoAntesProxima : 3;
 
+            // As formações preferidas (até 4, do Perfil do Treinador) — quando o save ainda não usou
+            // o seletor de Estilo de Jogo, cai pras duas formações do painel manual de sempre.
+            let formacoesPreferidasIA = (Array.isArray(taticaBase.formacoesPreferidas) && taticaBase.formacoesPreferidas.length)
+                ? taticaBase.formacoesPreferidas.filter(f => coordsFormacoes[f])
+                : [formacaoPri, formacaoSec].filter(f => f && coordsFormacoes[f]);
+            if (!formacoesPreferidasIA.length) formacoesPreferidasIA = [formacaoPri];
+            let funcoesBaseTexto = (taticaBase.funcoesPorRoleSugeridas && Object.keys(taticaBase.funcoesPorRoleSugeridas).length)
+                ? Object.entries(taticaBase.funcoesPorRoleSugeridas).map(([role, f]) => `${role}: ${f.funcao}/${f.foco}`).join(', ')
+                : 'nenhuma definida ainda — decida pela sua própria leitura do adversário';
+
             let btn = document.getElementById('btn-declarar-partida-ia');
             btn.innerText = '⏳ Analisando o adversário e montando o plano...'; btn.disabled = true;
 
@@ -840,10 +877,10 @@ ${textoRegrasCompatibilidadePosicional()}
 
             MEU ELENCO: ${plantelInfo.texto}
 
-            FILOSOFIA TÁTICA E OPÇÕES:
-            - Formação Primária: ${formacaoPri}
-            - Formação Secundária (Alternativa de Ouro): ${formacaoSec}
+            FILOSOFIA TÁTICA E OPÇÕES (a identidade do time — adapte um pouco pra ESTE adversário específico, sem trair a essência):
+            - Formações preferidas do treinador, em ordem de prioridade: ${formacoesPreferidasIA.join(' > ')}. A "Formação Primária" de referência é ${formacaoPri}.
             - Estilo de Jogo: ${estiloJogo}
+            - Função/foco de cada posição na configuração BASE do treinador (o ponto de partida — ${funcoesBaseTexto})
             - Diretriz: ${diretriz}
 
             🏥 BOLETIM DO DEPARTAMENTO MÉDICO (LEIA COM ATENÇÃO): ${(typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "Sem novidades."}
@@ -852,25 +889,29 @@ ${textoRegrasCompatibilidadePosicional()}
 
             ${regrasTaticasParaIA()}
 
+            FUNÇÕES E FOCOS POR GRUPO DE POSIÇÃO (use SÓ estes ids ao preencher "funcao"/"foco" de cada titular — nunca invente um novo):
+            ${_listarGruposFuncaoParaIA()}
+
             REGRAS ABSOLUTAS DO JSON:
-            0. Além da escalação, escolha o PACOTE TÁTICO completo (predefinição, esquema, estilo de armação e abordagem defensiva de 0 a 100) respeitando as travas listadas acima. O treinador vai selecionar exatamente isso dentro do jogo, então uma combinação proibida é inútil.
-            1. Escolha UMA das duas formações (A Primária ou a Secundária) e use EXATAMENTE AS SIGLAS DO SEGUINTE MAPA COMO CHAVES: ${plantelInfo.formacoesPossiveisStr}
+            0. Além da escalação, escolha o PACOTE TÁTICO completo (predefinição, esquema, estilo de armação e abordagem defensiva de 0 a 100) respeitando as travas listadas acima. O treinador vai selecionar exatamente isso dentro do jogo, então uma combinação proibida é inútil. ESTE PACOTE PARTE DA CONFIGURAÇÃO BASE DO TREINADOR, mas você DEVE ajustá-lo pra ESTE adversário específico: contra um time de posse/tiki-taka, reduza a abordagem defensiva e recue mais a linha; contra um time fraco ou que joga muito recuado, pode subir a linha e ser mais agressivo; ajuste o foco de zagueiros/volantes pra "Defesa"/"Roubada de Bola" contra ataques fortes, ou pra "Ataque"/"Armação" contra defesas fracas. A justificativa desse ajuste vai em "justificativaTatica".
+            1. Escolha UMA das formações preferidas listadas acima (${formacoesPreferidasIA.join(', ')}) — a mais adequada pra ESTE adversário — e use EXATAMENTE AS SIGLAS DO SEGUINTE MAPA COMO CHAVES: ${plantelInfo.formacoesPossiveisStr}
             2. NÃO invente siglas (Ex: não crie "MC" se na formação escolhida tiver apenas "MCD" e "MCE").
             3. BANCO DE RESERVAS: monte também até 9 jogadores do elenco ativo que NÃO entraram nos 11 titulares, ordenados por relevância. Para cada um, diga em poucas palavras qual seria o papel dele se entrasse. Não invente jogadores fora da lista do elenco.
+            4. Para CADA titular, além da "instrucao" em texto livre, preencha também "funcao" e "foco" com ids REAIS da lista de funções acima, coerentes com o grupo daquela sigla — parta da configuração base do treinador e só desvie quando o adversário realmente pedir.
 
             Retorne EXATAMENTE este JSON PURO:
             {
                 "adversarioNome": "Nome do time adversário",
                 "adversarioInfo": "2-3 frases resumindo o que você percebeu sobre o adversário (formação, nível, pontos fortes/fracos) e como isso influenciou seu plano.",
                 "analiseGeral": "2 a 3 frases explicando sua lógica: formação escolhida e por quê, quem foi poupado/priorizado (cite o Departamento Médico se pesou) e o plano tático geral.",
-                "justificativaTatica": "1 a 2 frases explicando por que ESTE pacote tático contra ESTE adversário.",
+                "justificativaTatica": "1 a 2 frases explicando por que ESTE pacote tático contra ESTE adversário, e o que mudou em relação à configuração base.",
                 "predefinicao": "id da predefinição tática escolhida",
                 "estiloArmacao": "id do estilo de armação escolhido",
                 "abordagemDefensiva": 55,
                 "formacaoEscolhida": "4-2-3-1",
                 "escalacao": {
-                    "GOL": {"nome": "Nome do Goleiro", "instrucao": "Instrução tática profunda contra o adversário..."},
-                    "LAD": {"nome": "Nome do Lateral", "instrucao": "..."}
+                    "GOL": {"nome": "Nome do Goleiro", "instrucao": "Instrução tática profunda contra o adversário...", "funcao": "id", "foco": "id"},
+                    "LAD": {"nome": "Nome do Lateral", "instrucao": "...", "funcao": "id", "foco": "id"}
                 },
                 "reservas": [
                     {"nome": "Nome do Jogador", "posicao": "Posição dele no elenco", "papel": "Papel curto se ele entrar"}
@@ -887,7 +928,8 @@ ${textoRegrasCompatibilidadePosicional()}
 
                 if (match) {
                     let res = JSON.parse(match[0]);
-                    if (!coordsFormacoes[res.formacaoEscolhida]) res.formacaoEscolhida = formacaoPri;
+                    // A formação tem que ser uma das preferidas do treinador — nunca uma de fora da lista.
+                    if (!formacoesPreferidasIA.includes(res.formacaoEscolhida)) res.formacaoEscolhida = formacoesPreferidasIA[0];
                     let rotacoesAutomaticas = aplicarRotacaoObrigatoriaEscalacao(res);
                     let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
 
@@ -900,6 +942,24 @@ ${textoRegrasCompatibilidadePosicional()}
                         esquema: res.formacaoEscolhida
                     });
 
+                    // Função/foco de cada titular: parte do que a IA sugeriu, mas nunca aceita um id
+                    // que não exista no grupo daquela sigla — nesse caso cai pro motor determinístico
+                    // usando a especialidade real do jogador escalado ali.
+                    let funcoesPorRole = {};
+                    (coordsFormacoes[normalizada.tatica.esquema] || []).forEach(c => {
+                        let grupo = grupoFuncaoDoRole(c.role);
+                        let pedida = res.escalacao && res.escalacao[c.role];
+                        let valida = grupo && pedida && pedida.funcao && pedida.foco
+                            && GRUPOS_FUNCAO_EA[grupo].funcoes.some(f => f.id === pedida.funcao && f.focos.some(fo => fo.id === pedida.foco));
+                        if (valida) {
+                            funcoesPorRole[c.role] = { funcao: pedida.funcao, foco: pedida.foco };
+                        } else {
+                            let jogBD = pedida && pedida.nome ? db[currentSave].plantel.find(p => p.nome === pedida.nome) : null;
+                            let escolha = escolherFuncaoJogador(c.role, jogBD ? jogBD.posicao : null, normalizada.tatica);
+                            if (escolha) funcoesPorRole[c.role] = { funcao: escolha.funcao.id, foco: escolha.foco.id };
+                        }
+                    });
+
                     db[currentSave].sugestaoAuxiliar = {
                         adversarioNome: res.adversarioNome || nomeAdvManual || 'Adversário',
                         adversarioInfo: res.adversarioInfo || '',
@@ -908,6 +968,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         tatica: normalizada.tatica,
                         ajustesTaticos: normalizada.ajustes,
                         escalacao: res.escalacao,
+                        funcoesPorRole: funcoesPorRole,
                         reservas: Array.isArray(res.reservas) ? res.reservas : [],
                         alertaRotacao: alertaRotacao,
                         rotacoesAutomaticas: rotacoesAutomaticas,
@@ -1322,8 +1383,13 @@ ${textoRegrasCompatibilidadePosicional()}
 
         // --- MUDAR FORMAÇÃO (sugerida pela IA ou manual, pré-jogo ou ao vivo) ---
 
-        // Realoca os titulares atuais pra nova formação — heurística: ordena por posição vertical no campo
-        // (do goleiro ao ataque) nas duas formações e casa jogador a jogador nessa ordem. Não gasta substituição.
+        // Realoca os titulares atuais pra nova formação de forma coerente com a posição de cada um
+        // (mesma régua de compatibilidade do seletor de troca), não só por ordem de profundidade em
+        // campo. 1) sigla idêntica entre as duas formações fica onde já estava; 2) o resto é casado
+        // com a vaga cujo grupo de função (zagueiro, lateral, volante...) é compatível com a posição
+        // de carteirinha do jogador, preferindo o encaixe mais próximo pela profundidade em campo;
+        // 3) sobrou jogador sem vaga compatível? cai numa vaga livre qualquer, pra não sumir do time.
+        // Não gasta substituição.
         function aplicarNovaFormacao(novaFormacaoKey) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || !partida.titulares) return false;
@@ -1335,25 +1401,56 @@ ${textoRegrasCompatibilidadePosicional()}
                 .filter(([r, j]) => j.nome && j.nome !== '???')
                 .map(([r, j]) => {
                     let posObj = velhasPos.find(p => p.role === r);
-                    return { nome: j.nome, instrucao: j.instrucao, topNum: posObj ? parseFloat(posObj.top) : 50 };
+                    let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
+                    return { nome: j.nome, instrucao: j.instrucao, roleAntigo: r, posicaoJogador: jogBD ? jogBD.posicao : '', topNum: posObj ? parseFloat(posObj.top) : 50 };
                 })
                 .sort((a, b) => b.topNum - a.topNum);
 
-            let novasPosOrdenadas = novasPos.slice().sort((a, b) => parseFloat(b.top) - parseFloat(a.top));
-
+            let vagasAbertas = novasPos.slice().sort((a, b) => parseFloat(b.top) - parseFloat(a.top));
             let novosTitulares = {};
-            novasPosOrdenadas.forEach((posObj, idx) => {
-                let jog = jogadoresOrdenados[idx];
-                novosTitulares[posObj.role] = jog ? { nome: jog.nome, instrucao: jog.instrucao } : { nome: '???', instrucao: 'Vaga em aberto — escolha um jogador.' };
+            let restantes = jogadoresOrdenados.slice();
+
+            function ocupar(vaga, jog) {
+                novosTitulares[vaga.role] = { nome: jog.nome, instrucao: jog.instrucao };
+                vagasAbertas = vagasAbertas.filter(v => v.role !== vaga.role);
+                restantes = restantes.filter(j => j.nome !== jog.nome);
+            }
+
+            // 1ª passada: a mesma sigla existe nas duas formações — o jogador continua na função que já tinha.
+            restantes.slice().forEach(jog => {
+                let vaga = vagasAbertas.find(v => v.role === jog.roleAntigo);
+                if (vaga) ocupar(vaga, jog);
             });
 
-            if (jogadoresOrdenados.length > novasPosOrdenadas.length) {
-                if (!partida.banco) partida.banco = [];
-                for (let i = novasPosOrdenadas.length; i < jogadoresOrdenados.length; i++) {
-                    let sobra = jogadoresOrdenados[i];
-                    let jogBD = db[currentSave].plantel.find(p => p.nome === sobra.nome);
-                    partida.banco.unshift({ nome: sobra.nome, posicao: jogBD ? jogBD.posicao : '', papel: 'Saiu por mudança de formação' });
+            // 2ª passada: encaixe pela posição de carteirinha (régua de compatibilidade), vaga mais
+            // próxima em profundidade primeiro, pra manter quem jogava mais atrás/mais à frente coerente.
+            vagasAbertas.slice().forEach(vaga => {
+                if (!restantes.length) return;
+                let candidato = restantes.find(j => posicaoCompativelComRole(vaga.role, j.posicaoJogador));
+                if (candidato) ocupar(vaga, candidato);
+            });
+
+            // 3ª passada: quem sobrou sem encaixe de posição vai pras vagas que sobraram, só pra
+            // ninguém desaparecer do time — fica marcado na instrução que foi um encaixe forçado.
+            vagasAbertas.slice().forEach(vaga => {
+                let jog = restantes.shift();
+                if (jog) {
+                    novosTitulares[vaga.role] = { nome: jog.nome, instrucao: `${jog.instrucao || ''} (Reposicionado sem encaixe exato de posição na nova formação.)`.trim() };
+                    vagasAbertas = vagasAbertas.filter(v => v.role !== vaga.role);
                 }
+            });
+
+            // Vagas que continuam sem ninguém ficam em aberto pro treinador escolher.
+            vagasAbertas.forEach(vaga => {
+                novosTitulares[vaga.role] = { nome: '???', instrucao: 'Vaga em aberto — escolha um jogador.' };
+            });
+
+            // Jogador que sobrou (mais titulares do que vagas na formação nova) vai pro banco.
+            if (restantes.length) {
+                if (!partida.banco) partida.banco = [];
+                restantes.forEach(sobra => {
+                    partida.banco.unshift({ nome: sobra.nome, posicao: sobra.posicaoJogador, papel: 'Saiu por mudança de formação' });
+                });
             }
 
             partida.titulares = novosTitulares;

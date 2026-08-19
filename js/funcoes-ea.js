@@ -341,6 +341,19 @@ function escolherFuncaoJogador(role, posicaoJogador, tatica) {
     return { grupoKey: grupoKey, grupoNome: grupo.nome, funcao: funcao, foco: foco };
 }
 
+// Monta a mesma forma {grupoKey, grupoNome, funcao, foco} a partir de ids já escolhidos (ex: pelo
+// Auxiliar, que decidiu função/foco levando o adversário em conta) — sem recalcular nada,
+// só valida que os ids existem de fato no grupo daquele role antes de devolver.
+function escolhaFuncaoDeIds(role, funcaoId, focoId) {
+    let grupoKey = grupoFuncaoDoRole(role);
+    if (!grupoKey) return null;
+    let grupo = GRUPOS_FUNCAO_EA[grupoKey];
+    let funcao = grupo.funcoes.find(f => f.id === funcaoId);
+    if (!funcao) return null;
+    let foco = funcao.focos.find(f => f.id === focoId) || funcao.focos[0];
+    return { grupoKey: grupoKey, grupoNome: grupo.nome, funcao: funcao, foco: foco };
+}
+
 // "Zagueiro: Defesa-Equilibrado"
 function resumoFuncaoJogador(escolha) {
     if (!escolha) return '';
