@@ -556,7 +556,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     </div>
                 </div>`;
 
-            renderizarCampinhoEspelhoLeitura(partida.formacaoEscolhida, partida.titulares, partida.banco, partida.tatica);
+            renderizarCampinhoEspelhoLeitura(partida.formacaoEscolhida, partida.titulares, partida.banco, partida.tatica, partida.substituicoes);
         }
 
         // -------------------------------------------------------------------------------------
@@ -567,9 +567,12 @@ ${textoRegrasCompatibilidadePosicional()}
         // Guarda a última fonte renderizada (plano ou partida) pra o clique no jogador saber onde ler.
         // -------------------------------------------------------------------------------------
         let _fonteCampinhoAuxiliarLeitura = null;
+        let _ultimoRenderEspelho = null; // guarda os parâmetros pra toggleSubBadgeEspelho conseguir redesenhar
+        let pitchToggleSubViewEspelho = {}; // igual ao pitchToggleSubView do campinho editável, mas pro espelho
 
-        function renderizarCampinhoEspelhoLeitura(formacao, escalacaoMap, reservas, tatica) {
-            _fonteCampinhoAuxiliarLeitura = { escalacao: escalacaoMap || {}, tatica: tatica };
+        function renderizarCampinhoEspelhoLeitura(formacao, escalacaoMap, reservas, tatica, substituicoes) {
+            _fonteCampinhoAuxiliarLeitura = { escalacao: escalacaoMap || {}, tatica: tatica, reservas: reservas || [] };
+            _ultimoRenderEspelho = { formacao, escalacaoMap, reservas, tatica, substituicoes };
 
             let campo = document.getElementById('campo-sugestao-auxiliar');
             if (!campo) return;
@@ -581,15 +584,25 @@ ${textoRegrasCompatibilidadePosicional()}
             positions.forEach(posObj => {
                 let info = (escalacaoMap || {})[posObj.role] || {};
                 let nomeJogador = info.nome || '???';
-                let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeJogador.toLowerCase().trim()));
+
+                // Mesma setinha verde/vermelha do campinho editável: quem entrou tem badge, clicar
+                // nela mostra quem saiu no lugar dele (só visual, não mexe em nada).
+                let subInfo = (substituicoes || []).find(s => s.entrou === nomeJogador);
+                let vendoQuemSaiu = subInfo && pitchToggleSubViewEspelho[posObj.role];
+                let nomeExibido = vendoQuemSaiu ? subInfo.saiu : nomeJogador;
+
+                let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeExibido.toLowerCase().trim()));
                 let ovrTxt = jogBD ? jogBD.ovr : '?';
-                let escolhaFuncao = (jogBD && typeof escolherFuncaoJogador === 'function') ? escolherFuncaoJogador(posObj.role, jogBD.posicao, tatica) : null;
+                let escolhaFuncao = (!vendoQuemSaiu && jogBD && typeof escolherFuncaoJogador === 'function') ? escolherFuncaoJogador(posObj.role, jogBD.posicao, tatica) : null;
                 let resumo = escolhaFuncao ? resumoFuncaoJogador(escolhaFuncao) : '';
 
+                let tituloBadge = vendoQuemSaiu ? 'Voltar a ver quem está em campo' : `Entrou aos ${subInfo ? subInfo.minuto : ''}' — clique pra ver quem saiu`;
+                let badgeSub = subInfo ? `<div class="jc-sub-badge ${vendoQuemSaiu ? 'saiu' : 'entrou'}" onclick="toggleSubBadgeEspelho('${posObj.role}', event)" title="${tituloBadge}">${vendoQuemSaiu ? '▼' : '▲'}</div>` : '';
+
                 campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="mostrarFuncaoJogadorSugestao('${posObj.role}')">
-                    ${resumo ? `<div class="jc-funcao">${escolhaFuncao.funcao.nome}-${escolhaFuncao.foco.nome}</div>` : ''}
                     <div class="jc-camisa"><span class="jc-ovr-label">OVR</span><span class="jc-ovr-num">${ovrTxt}</span></div>
-                    <div class="jc-nome">${nomeJogador}</div>
+                    <div class="jc-nome">${nomeExibido}</div>
+                    ${badgeSub}
                     ${resumo ? `<div class="jogador-tooltip"><strong>${nomeJogador}</strong><hr style="border-color:var(--border); margin:5px 0;">${resumo}</div>` : ''}
                 </div>`;
             });
@@ -598,19 +611,14 @@ ${textoRegrasCompatibilidadePosicional()}
             if (boxBanco) {
                 let listaReservas = (reservas || []).filter(r => r && r.nome);
                 if (listaReservas.length) {
-                    boxBanco.innerHTML = `<h4 style="margin:0 0 10px 0; font-size:13px; color:var(--text-muted); text-transform:uppercase;">🪑 Banco <span style="font-weight:normal; text-transform:none;">— como cada um pode entrar</span></h4>
+                    boxBanco.innerHTML = `<h4 style="margin:0 0 10px 0; font-size:13px; color:var(--text-muted); text-transform:uppercase;">🪑 Banco <span style="font-weight:normal; text-transform:none;">(clique pra ver como cada um pode entrar)</span></h4>
                         <div class="banco-reservas-grid">
-                            ${listaReservas.map(r => {
+                            ${listaReservas.map((r, idx) => {
                                 let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
                                 let txtOvr = jogBD ? ` · OVR ${jogBD.ovr}` : '';
-                                let entradas = (jogBD && positions) ? positions
-                                    .filter(p => posicaoCompativelComRole(p.role, jogBD.posicao))
-                                    .map(p => { let g = grupoFuncaoDoRole(p.role); return `${g ? GRUPOS_FUNCAO_EA[g].nome : p.role} (${p.role})`; }) : [];
-                                entradas = [...new Set(entradas)];
-                                return `<div class="banco-reserva-item">
+                                return `<div class="banco-reserva-item" onclick="mostrarEntradasReserva(${idx})">
                                     <strong>${r.nome}</strong>
                                     <span>${r.posicao || (jogBD ? jogBD.posicao : '')}${txtOvr}</span>
-                                    ${entradas.length ? `<span class="banco-reserva-papel">Pode entrar: ${entradas.join(', ')}</span>` : (r.papel ? `<span class="banco-reserva-papel">${r.papel}</span>` : '')}
                                 </div>`;
                             }).join('')}
                         </div>`;
@@ -618,6 +626,41 @@ ${textoRegrasCompatibilidadePosicional()}
                     boxBanco.innerHTML = '';
                 }
             }
+        }
+
+        // Mesma ideia do toggleSubBadge do campinho editável, mas redesenha o campinho só-leitura.
+        function toggleSubBadgeEspelho(role, event) {
+            if (event) event.stopPropagation();
+            pitchToggleSubViewEspelho[role] = !pitchToggleSubViewEspelho[role];
+            if (_ultimoRenderEspelho) {
+                let p = _ultimoRenderEspelho;
+                renderizarCampinhoEspelhoLeitura(p.formacao, p.escalacaoMap, p.reservas, p.tatica, p.substituicoes);
+            }
+        }
+
+        // Clique num reserva do banco só-leitura: mostra em quais posições do esquema atual ele
+        // pode entrar e a função que faria em cada uma — não abre nenhuma troca de verdade.
+        function mostrarEntradasReserva(idx) {
+            let fonte = _fonteCampinhoAuxiliarLeitura;
+            if (!fonte) return;
+            let r = (fonte.reservas || [])[idx];
+            if (!r) return;
+            let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
+            let positions = (_ultimoRenderEspelho && _ultimoRenderEspelho.formacao) ? coordsFormacoes[_ultimoRenderEspelho.formacao] : null;
+
+            let entradas = (jogBD && positions) ? positions
+                .filter(p => posicaoCompativelComRole(p.role, jogBD.posicao))
+                .map(p => {
+                    let escolha = escolherFuncaoJogador(p.role, jogBD.posicao, fonte.tatica);
+                    return { role: p.role, texto: escolha ? `${p.role} — ${resumoFuncaoJogador(escolha)}` : p.role };
+                }) : [];
+
+            document.getElementById('modal-funcao-titulo').innerText = `⚽ ${r.nome} (banco)`;
+            document.getElementById('modal-funcao-resumo').innerText = entradas.length ? 'Onde pode entrar:' : 'Nenhuma posição do esquema atual combina com ele.';
+            document.getElementById('modal-funcao-descricao').innerHTML = entradas.length
+                ? entradas.map(e => `<div style="margin-top:4px;">${e.texto}</div>`).join('')
+                : '';
+            document.getElementById('modal-funcao-jogador').style.display = 'flex';
         }
 
         // Clique num jogador do campinho só-leitura (plano ou espelho ao vivo): só mostra a
@@ -694,24 +737,23 @@ ${textoRegrasCompatibilidadePosicional()}
                         let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes(nomeExibido.toLowerCase().trim()));
                         let ovrTxt = jogBD ? jogBD.ovr : '?';
 
-                        let tooltipHTML = `<div class="jogador-tooltip"><strong>${nomeJogador}</strong><hr style="border-color:var(--border); margin:5px 0;">${instrucao}</div>`;
+                        // A função (ex: "Defesa-Equilibrado") só existe pra quem continua exatamente
+                        // como o Auxiliar sugeriu — troca manual (ou escalação sem plano nenhum) não
+                        // tem função pra mostrar. Fica só na aba do balão ao passar o mouse, sem
+                        // poluir o campinho com texto fixo.
+                        let sugAplicada = partida.escalacaoSugeridaAuxiliar;
+                        let seguiuSugestao = !vendoQuemSaiu && sugAplicada && sugAplicada[posObj.role] && sugAplicada[posObj.role].nome === nomeJogador;
+                        let funcaoResumo = '';
+                        if (seguiuSugestao && jogBD && typeof escolherFuncaoJogador === 'function') {
+                            let escolha = escolherFuncaoJogador(posObj.role, jogBD.posicao, partida.tatica);
+                            if (escolha) funcaoResumo = resumoFuncaoJogador(escolha);
+                        }
+                        let tooltipHTML = `<div class="jogador-tooltip"><strong>${nomeJogador}</strong>${funcaoResumo ? `<div style="color:var(--primary); font-weight:bold; margin-top:3px;">${funcaoResumo}</div>` : ''}<hr style="border-color:var(--border); margin:5px 0;">${instrucao}</div>`;
 
                         let tituloBadge = vendoQuemSaiu ? 'Voltar a ver quem está em campo' : `Entrou aos ${subInfo ? subInfo.minuto : ''}' — clique pra ver quem saiu`;
                         let badgeSub = subInfo ? `<div class="jc-sub-badge ${vendoQuemSaiu ? 'saiu' : 'entrou'}" onclick="toggleSubBadge('${posObj.role}', event)" title="${tituloBadge}">${vendoQuemSaiu ? '▼' : '▲'}</div>` : '';
 
-                        // Etiqueta da função (ex: "Defesa-Equilibrado") só aparece em cima de quem
-                        // continua exatamente como o Auxiliar sugeriu — troca manual (ou escalação
-                        // montada à mão/por print, sem plano nenhum) some com a etiqueta.
-                        let sugAplicada = partida.escalacaoSugeridaAuxiliar;
-                        let seguiuSugestao = !vendoQuemSaiu && sugAplicada && sugAplicada[posObj.role] && sugAplicada[posObj.role].nome === nomeJogador;
-                        let etiquetaFuncao = '';
-                        if (seguiuSugestao && jogBD && typeof escolherFuncaoJogador === 'function') {
-                            let escolha = escolherFuncaoJogador(posObj.role, jogBD.posicao, partida.tatica);
-                            if (escolha) etiquetaFuncao = `<div class="jc-funcao">${escolha.funcao.nome}-${escolha.foco.nome}</div>`;
-                        }
-
                         campo.innerHTML += `<div class="jogador-campo" style="top: ${posObj.top}; left: ${posObj.left};" onclick="abrirSeletorTroca('${posObj.role}')">
-                            ${etiquetaFuncao}
                             <div class="jc-camisa"><span class="jc-ovr-label">OVR</span><span class="jc-ovr-num">${ovrTxt}</span></div>
                             <div class="jc-nome">${nomeExibido}</div>
                             ${badgeSub}
@@ -1081,7 +1123,7 @@ ${textoRegrasCompatibilidadePosicional()}
             let posRelevantes = opcoesPosicao.filter(o => posicaoCompativelComRole(role, o.posicao));
             let posOutros = opcoesPosicao.filter(o => !posicaoCompativelComRole(role, o.posicao));
 
-            let opcoesFinal, opcoesExtras, subtitulo, botaoExtra = null;
+            let opcoesFinal, opcoesExtras, subtitulo;
 
             if (!aoVivo) {
                 // Pré-jogo: também dá pra trazer alguém do banco/elenco pra essa vaga (aí sim vira uma troca de escalação normal).
@@ -1093,23 +1135,40 @@ ${textoRegrasCompatibilidadePosicional()}
                 let bancoOutros = opcoesBanco.filter(o => !posicaoCompativelComRole(role, o.posicao));
                 bancoRelevantes.sort((a, b) => b.ovr - a.ovr);
                 bancoOutros.sort((a, b) => b.ovr - a.ovr);
-
-                opcoesFinal = posRelevantes.concat(bancoRelevantes);
-                opcoesExtras = posOutros.concat(bancoOutros);
-                subtitulo = 'Escolha outro titular pra trocar de posição, ou alguém do banco/elenco pra assumir essa vaga.';
-            } else {
-                // Ao vivo: só dá pra trocar de posição entre quem já está em campo direto na lista.
-                // Pra tirar alguém do banco tem que usar o botão de declarar substituição abaixo.
                 posRelevantes.sort((a, b) => b.ovr - a.ovr);
                 posOutros.sort((a, b) => b.ovr - a.ovr);
-                opcoesFinal = posRelevantes;
-                opcoesExtras = posOutros;
-                subtitulo = 'Troque de posição com outro titular (não gasta substituição), ou declare uma substituição do banco abaixo.';
+                // O que o treinador mais quer aqui é escalar alguém do elenco — isso vem primeiro.
+                // Trocar de posição com outro titular é secundário, fica depois.
+                opcoesFinal = bancoRelevantes.concat(posRelevantes);
+                opcoesExtras = bancoOutros.concat(posOutros);
+                subtitulo = 'Escolha alguém do banco/elenco pra essa vaga, ou outro titular pra trocar de posição com ele.';
+            } else {
+                // Ao vivo: a MESMA lista já mistura trocar de posição com quem está em campo (não
+                // gasta substituição) e trazer alguém do banco pro lugar dele (gasta 1 das 5 e pede
+                // o minuto) — antes eram dois passos separados e o segundo ficava escondido atrás
+                // de um botão, então na prática só aparecia quem cruzava de posição (geralmente
+                // pontas cobrindo lateral), nunca o lateral reserva de verdade que estava no banco.
                 let subsUsadas = (partida.substituicoes || []).length;
-                if (subsUsadas < 5) botaoExtra = { label: `🔁 Declarar Substituição (${subsUsadas}/5)`, onclick: `abrirDeclararSubParaSlot('${role}')` };
+                let fora = partida.jogadoresForaDaPartida || [];
+                let opcoesBanco = subsUsadas < 5 ? (partida.banco || []).filter(b => b.nome && !fora.includes(b.nome)).map(b => {
+                    let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
+                    return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: `Banco — declara substituição (${subsUsadas}/5)`, onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome) };
+                }) : [];
+                let bancoRelevantesVivo = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
+                let bancoOutrosVivo = opcoesBanco.filter(o => !posicaoCompativelComRole(role, o.posicao));
+                bancoRelevantesVivo.sort((a, b) => b.ovr - a.ovr);
+                bancoOutrosVivo.sort((a, b) => b.ovr - a.ovr);
+                posRelevantes.sort((a, b) => b.ovr - a.ovr);
+                posOutros.sort((a, b) => b.ovr - a.ovr);
+
+                opcoesFinal = bancoRelevantesVivo.concat(posRelevantes);
+                opcoesExtras = bancoOutrosVivo.concat(posOutros);
+                subtitulo = subsUsadas < 5
+                    ? `Traga alguém do banco (gasta 1 das ${5 - subsUsadas} substituições restantes e pede o minuto) ou troque de posição com outro titular (não gasta substituição).`
+                    : 'Limite de 5 substituições já atingido — só dá pra trocar de posição com outro titular.';
             }
 
-            abrirModalTroca(opcoesFinal, opcoesExtras, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo, botaoExtra);
+            abrirModalTroca(opcoesFinal, opcoesExtras, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo);
         }
 
         // Troca dois titulares de posição entre si — não mexe no banco, não conta como substituição.
@@ -1259,26 +1318,6 @@ ${textoRegrasCompatibilidadePosicional()}
             let ok = efetivarSubstituicao(roleSai, nomeEntra, minuto, instrucao);
             if (!ok) { alert('Não foi possível confirmar essa substituição.'); return; }
             renderizarAuxiliarPartida();
-        }
-
-        // Aberto pelo botão extra dentro do seletor de troca de um titular, quando a partida está ao vivo.
-        function abrirDeclararSubParaSlot(role) {
-            let partida = db[currentSave].partidaAuxiliar;
-            if (!partida || partida.status !== 'em_andamento') return;
-            if ((partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
-
-            let fora = partida.jogadoresForaDaPartida || [];
-            let opcoesBanco = (partida.banco || []).filter(b => !fora.includes(b.nome)).map(b => {
-                let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
-                return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: 'Banco', onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome) };
-            });
-            let relevantes = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
-            let outros = opcoesBanco.filter(o => !posicaoCompativelComRole(role, o.posicao));
-            relevantes.sort((a, b) => b.ovr - a.ovr);
-            outros.sort((a, b) => b.ovr - a.ovr);
-
-            let nomeAtual = partida.titulares[role] ? partida.titulares[role].nome : role;
-            abrirModalTroca(relevantes, outros, `Declarar Substituição de ${nomeAtual}`, 'Escolha quem entra no lugar dele — isso vai gastar uma das 5 substituições e ele não volta mais pro jogo.');
         }
 
         // --- MUDAR FORMAÇÃO (sugerida pela IA ou manual, pré-jogo ou ao vivo) ---
