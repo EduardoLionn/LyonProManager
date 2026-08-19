@@ -582,7 +582,9 @@
             <!-- ETAPA: TÁTICA -->
             <div id="wizard-step-tatica" class="wizard-card wizard-step" style="display:none;">
                 <h2>📋 Escolhas Táticas</h2>
-                <p class="wizard-subtitle">As mesmas quatro escolhas que existem no jogo. Isso já deixa o Auxiliar Técnico pronto pra sugerir escalações desde o primeiro jogo (dá pra ajustar tudo depois no Perfil do Treinador).</p>
+                <p class="wizard-subtitle">Não quer configurar tática fina agora? Escolha até 4 formações (em ordem de prioridade) e um estilo de jogo — o Auxiliar Técnico já entrega as 4 escolhas completas abaixo. Dá pra ajustar tudo depois no Perfil do Treinador.</p>
+                <div id="wiz-estilo-jogo-container"></div>
+                <p class="wizard-subtitle" style="margin-top:20px;">Ou configure manualmente as mesmas quatro escolhas que existem no jogo:</p>
                 <div class="grid-2">
                     <div class="linha-form">
                         <label>Predefinição Tática</label>
@@ -1590,6 +1592,12 @@
             </div>
 
             <div class="panel">
+                <h2 style="margin: 0 0 6px 0; font-size:20px; color:var(--primary);">🎯 Escolher por Estilo de Jogo</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">Não quer configurar tática fina na mão? Escolha até 4 formações (em ordem de prioridade) e um estilo de jogo — o Auxiliar Técnico traduz isso nas 4 escolhas táticas completas, com a função de cada posição em campo. Dá pra ajustar tudo depois, manualmente, no painel abaixo.</p>
+                <div id="perfil-estilo-jogo-container"></div>
+            </div>
+
+            <div class="panel">
                 <h2 style="margin: 0 0 6px 0; font-size:20px; color:var(--primary);">📋 Minhas Escolhas Táticas</h2>
                 <p style="font-size:13px; color:var(--text-muted); margin-bottom:8px;">As mesmas quatro escolhas que existem no jogo. É daqui que o Auxiliar Técnico parte para montar a sugestão de cada partida — e a sugestão dele volta neste mesmo formato, pra você aplicar igualzinho.</p>
                 <div id="tatica-aviso-regra" style="display:none; background: rgba(217,130,43,0.12); border:1px solid var(--warning); color:var(--warning); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:15px;"></div>
@@ -1720,6 +1728,7 @@
     <script src="js/core-utilidades.js"></script>
     <script src="js/taticas.js"></script>
     <script src="js/funcoes-ea.js"></script>
+    <script src="js/estilo-jogo.js"></script>
     <script src="js/onboarding.js"></script>
     <script src="js/central-mensagens.js"></script>
     <script src="js/eventos-diretoria.js"></script>

@@ -363,6 +363,7 @@ function wizardRenderStepTatica() {
     document.getElementById('wiz-tatica-abordagem').value = t.abordagemDefensiva;
 
     wizardAtualizarRegraTatica();
+    if (typeof renderizarSeletorEstiloJogo === 'function') renderizarSeletorEstiloJogo('wiz-');
 }
 
 // Mostra a trava da predefinição escolhida e já corrige o que estiver fora da regra,
@@ -507,6 +508,17 @@ async function wizardFinalizar() {
             esquemaAlternativo: document.getElementById('wiz-tatica-esquema-alt').value,
             abordagemDefensiva: Number(document.getElementById('wiz-tatica-abordagem').value)
         }).tatica;
+
+        // Se o treinador gerou a tática pelo seletor de Estilo de Jogo, guarda também as
+        // formações priorizadas e a função de cada posição — o mesmo formato que o Perfil
+        // do Treinador grava quando usado depois do jogo iniciado.
+        if (window._wizardRelatorioEstiloJogo) {
+            let r = window._wizardRelatorioEstiloJogo;
+            db[currentSave].taticas.formacoesPreferidas = r.formacoesPreferidas || [];
+            db[currentSave].taticas.estiloJogoSelecionado = r.origem;
+            db[currentSave].taticas.funcoesPorRoleSugeridas = r.funcoesPorRole;
+            window._wizardRelatorioEstiloJogo = null;
+        }
     }
 
     adicionarNoticiaAutomatica(
