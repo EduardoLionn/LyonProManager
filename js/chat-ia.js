@@ -659,6 +659,20 @@ ${textoRegrasCompatibilidadePosicional()}
 
         // Clique num reserva do banco só-leitura: mostra em quais posições do esquema atual ele
         // pode entrar e a função que faria em cada uma — não abre nenhuma troca de verdade.
+        // Por que trazer cada tipo de posição costuma fazer sentido tático — usado pra dar um
+        // motivo de verdade no plano de entrada do reserva, não só uma lista seca de siglas.
+        const MOTIVO_ENTRADA_POR_GRUPO = {
+            goleiro: 'se o titular se machucar ou for expulso',
+            zagueiro: 'se o time precisar reforçar a marcação segurando um resultado, ou se um zagueiro titular cansar ou se lesionar',
+            lateral: 'se o titular estiver cansado, for advertido/expulso, ou faltar fôlego nas subidas pelo lado',
+            volante: 'se o time estiver com dificuldade de controlar o meio-campo ou precisar de mais marcação e roubada de bola',
+            meio_campo_central: 'se o time estiver perdendo a posse ou precisar de mais controle de jogo no meio',
+            meia_atacante: 'se faltar criatividade ou passe decisivo no último terço do campo',
+            meia_lateral: 'se precisar de mais velocidade e amplitude pelo lado, ou o titular estiver marcado/cansado',
+            ponta: 'se precisar de mais velocidade e amplitude pelo lado, ou o titular estiver marcado/cansado',
+            atacante: 'se o time precisar de gols e estiver com dificuldade de finalizar'
+        };
+
         function mostrarEntradasReserva(idx) {
             let fonte = _fonteCampinhoAuxiliarLeitura;
             if (!fonte) return;
@@ -667,18 +681,42 @@ ${textoRegrasCompatibilidadePosicional()}
             let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
             let positions = (_ultimoRenderEspelho && _ultimoRenderEspelho.formacao) ? coordsFormacoes[_ultimoRenderEspelho.formacao] : null;
 
-            let entradas = (jogBD && positions) ? positions
+            let brutas = (jogBD && positions) ? positions
                 .filter(p => posicaoCompativelComRole(p.role, jogBD.posicao))
                 .map(p => {
+                    let grupoKey = grupoFuncaoDoRole(p.role);
                     let escolha = escolherFuncaoJogador(p.role, jogBD.posicao, fonte.tatica);
-                    return { role: p.role, texto: escolha ? `${p.role} — ${resumoFuncaoJogador(escolha)}` : p.role };
+                    let titular = (fonte.escalacao || {})[p.role];
+                    return {
+                        role: p.role, grupoKey: grupoKey, escolha: escolha,
+                        titularNome: (titular && titular.nome && titular.nome !== '???') ? titular.nome : null
+                    };
                 }) : [];
 
+            // Nos grupos sem lado (zagueiro/volante/meio-campo/meia-atacante/atacante) a função
+            // é idêntica pros dois lados — não repete a mesma leitura duas vezes só trocando a sigla.
+            let vistos = new Set();
+            let entradas = brutas.filter(b => {
+                if (!ROTULO_GENERICO_POR_GRUPO[b.grupoKey]) return true;
+                let chave = `${b.grupoKey}:${b.escolha ? b.escolha.funcao.id : ''}:${b.escolha ? b.escolha.foco.id : ''}`;
+                if (vistos.has(chave)) return false;
+                vistos.add(chave);
+                return true;
+            });
+
+            let html = entradas.map((e, i) => {
+                let resumo = e.escolha ? resumoFuncaoJogador(e.escolha) : e.role;
+                let quemSai = e.titularNome ? ` no lugar de <strong>${e.titularNome}</strong>` : '';
+                let motivo = MOTIVO_ENTRADA_POR_GRUPO[e.grupoKey] || 'quando o contexto da partida pedir essa característica';
+                return `<div style="${i === 0 ? '' : 'margin-top:12px; padding-top:10px; border-top:1px solid var(--border);'}">
+                    <strong style="color:var(--primary);">${resumo}</strong>${quemSai}
+                    <div style="font-size:12.5px; color:var(--text-muted); margin-top:3px;">Entra ${motivo}.</div>
+                </div>`;
+            }).join('');
+
             document.getElementById('modal-funcao-titulo').innerText = `⚽ ${r.nome} (banco)`;
-            document.getElementById('modal-funcao-resumo').innerText = entradas.length ? 'Onde pode entrar:' : 'Nenhuma posição do esquema atual combina com ele.';
-            document.getElementById('modal-funcao-descricao').innerHTML = entradas.length
-                ? entradas.map(e => `<div style="margin-top:4px;">${e.texto}</div>`).join('')
-                : '';
+            document.getElementById('modal-funcao-resumo').innerText = entradas.length ? 'Plano de entrada:' : 'Nenhuma posição do esquema atual combina com ele.';
+            document.getElementById('modal-funcao-descricao').innerHTML = html;
             document.getElementById('modal-funcao-jogador').style.display = 'flex';
         }
 
