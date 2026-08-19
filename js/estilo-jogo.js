@@ -484,7 +484,6 @@ async function gerarConfiguracaoEstiloJogo(prefixo) {
 
     if (prefixo === 'perfil-') {
         aplicarRelatorioTaticoNoSave(relatorio);
-        if (typeof renderizarPainelTaticas === 'function') renderizarPainelTaticas();
         // Salvo — volta pro resumo colapsado em vez de deixar o formulário inteiro aberto.
         _estiloJogoModoEdicao[prefixo] = false;
         renderizarSeletorEstiloJogo(prefixo);
