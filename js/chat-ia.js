@@ -659,19 +659,50 @@ ${textoRegrasCompatibilidadePosicional()}
 
         // Clique num reserva do banco só-leitura: mostra em quais posições do esquema atual ele
         // pode entrar e a função que faria em cada uma — não abre nenhuma troca de verdade.
-        // Por que trazer cada tipo de posição costuma fazer sentido tático — usado pra dar um
-        // motivo de verdade no plano de entrada do reserva, não só uma lista seca de siglas.
-        const MOTIVO_ENTRADA_POR_GRUPO = {
-            goleiro: 'se o titular se machucar ou for expulso',
-            zagueiro: 'se o time precisar reforçar a marcação segurando um resultado, ou se um zagueiro titular cansar ou se lesionar',
-            lateral: 'se o titular estiver cansado, for advertido/expulso, ou faltar fôlego nas subidas pelo lado',
-            volante: 'se o time estiver com dificuldade de controlar o meio-campo ou precisar de mais marcação e roubada de bola',
-            meio_campo_central: 'se o time estiver perdendo a posse ou precisar de mais controle de jogo no meio',
-            meia_atacante: 'se faltar criatividade ou passe decisivo no último terço do campo',
-            meia_lateral: 'se precisar de mais velocidade e amplitude pelo lado, ou o titular estiver marcado/cansado',
-            ponta: 'se precisar de mais velocidade e amplitude pelo lado, ou o titular estiver marcado/cansado',
-            atacante: 'se o time precisar de gols e estiver com dificuldade de finalizar'
+        // Perfil tático de uma especialidade cadastrada (Zagueiro/Construtor, Volante/Contenção...)
+        // — usado pra comparar reserva x titular e dar um motivo de entrada REAL, não um texto
+        // genérico igual pra qualquer jogador do mesmo grupo. Baseado só na posição de carteirinha
+        // (nunca em atributos escondidos, que o jogo não expõe pra IA/motor).
+        function _perfilTaticoDaPosicao(posicao) {
+            let p = _semAcento(String(posicao || '').toLowerCase());
+            if (p.includes('defesa') || p.includes('contencao') || p.includes('zaga')) return 'defesa';
+            if (p.includes('construtor') || p.includes('armador') || p.includes('armacao') || p.includes('abertura')) return 'criacao';
+            if (p.includes('fisico')) return 'fisico';
+            if (p.includes('velocidade') || p.includes('ataque') || p.includes('invertido') || p.includes('aberto')) return 'ataque';
+            if (p.includes('ala')) return 'amplitude';
+            return 'equilibrado';
+        }
+
+        const MOTIVO_POR_PERFIL_TATICO = {
+            defesa: 'reforçar a marcação e a roubada de bola',
+            criacao: 'melhorar a distribuição de jogo e a criação de chances',
+            ataque: 'dar mais poder ofensivo e presença no ataque',
+            fisico: 'ganhar mais força física e domínio no jogo aéreo',
+            amplitude: 'dar mais amplitude e cruzamentos pelo lado'
         };
+
+        // Regra de realismo: OVR muito menor que o titular = a entrada é rotação/fôlego, NUNCA
+        // upgrade técnico (não faz sentido dizer que um reserva pior entra "pra melhorar" algo).
+        // OVR competitivo + perfil diferente do titular = o motivo é essa característica específica.
+        // Perfil parecido = só descanso, sem mudar o padrão de jogo.
+        function _motivoEntradaReserva(jogBD, grupoKey, titularNome) {
+            if (grupoKey === 'goleiro') return 'se o titular se machucar ou for expulso';
+            let titularBD = titularNome ? db[currentSave].plantel.find(p => p.nome === titularNome) : null;
+            if (!titularBD) return 'quando o contexto da partida pedir essa característica';
+
+            let diffOvr = (jogBD.ovr || 0) - (titularBD.ovr || 0);
+            if (diffOvr <= -5) {
+                return `pra dar mais fôlego ao time — o nível de ${titularBD.nome} é bem superior, então não é upgrade técnico, é rotação`;
+            }
+
+            let perfilReserva = _perfilTaticoDaPosicao(jogBD.posicao);
+            let perfilTitular = _perfilTaticoDaPosicao(titularBD.posicao);
+            if (perfilReserva !== perfilTitular && MOTIVO_POR_PERFIL_TATICO[perfilReserva]) {
+                return `pra ${MOTIVO_POR_PERFIL_TATICO[perfilReserva]} — um perfil diferente do de ${titularBD.nome}`;
+            }
+
+            return `pra dar descanso a ${titularBD.nome} sem mudar muito o padrão de jogo`;
+        }
 
         function mostrarEntradasReserva(idx) {
             let fonte = _fonteCampinhoAuxiliarLeitura;
@@ -707,7 +738,7 @@ ${textoRegrasCompatibilidadePosicional()}
             let html = entradas.map((e, i) => {
                 let resumo = e.escolha ? resumoFuncaoJogador(e.escolha) : e.role;
                 let quemSai = e.titularNome ? ` no lugar de <strong>${e.titularNome}</strong>` : '';
-                let motivo = MOTIVO_ENTRADA_POR_GRUPO[e.grupoKey] || 'quando o contexto da partida pedir essa característica';
+                let motivo = _motivoEntradaReserva(jogBD, e.grupoKey, e.titularNome);
                 return `<div style="${i === 0 ? '' : 'margin-top:12px; padding-top:10px; border-top:1px solid var(--border);'}">
                     <strong style="color:var(--primary);">${resumo}</strong>${quemSai}
                     <div style="font-size:12.5px; color:var(--text-muted); margin-top:3px;">Entra ${motivo}.</div>
@@ -932,7 +963,7 @@ ${textoRegrasCompatibilidadePosicional()}
             0. Além da escalação, escolha o PACOTE TÁTICO completo (predefinição, esquema, estilo de armação e abordagem defensiva de 0 a 100) respeitando as travas listadas acima. O treinador vai selecionar exatamente isso dentro do jogo, então uma combinação proibida é inútil. ESTE PACOTE PARTE DA CONFIGURAÇÃO BASE DO TREINADOR, mas você DEVE ajustá-lo pra ESTE adversário específico: contra um time de posse/tiki-taka, reduza a abordagem defensiva e recue mais a linha; contra um time fraco ou que joga muito recuado, pode subir a linha e ser mais agressivo; ajuste o foco de zagueiros/volantes pra "Defesa"/"Roubada de Bola" contra ataques fortes, ou pra "Ataque"/"Armação" contra defesas fracas. A justificativa desse ajuste vai em "justificativaTatica".
             1. Escolha UMA das formações preferidas listadas acima (${formacoesPreferidasIA.join(', ')}) — a mais adequada pra ESTE adversário — e use EXATAMENTE AS SIGLAS DO SEGUINTE MAPA COMO CHAVES: ${plantelInfo.formacoesPossiveisStr}
             2. NÃO invente siglas (Ex: não crie "MC" se na formação escolhida tiver apenas "MCD" e "MCE").
-            3. BANCO DE RESERVAS: monte também até 9 jogadores do elenco ativo que NÃO entraram nos 11 titulares, ordenados por relevância. Para cada um, diga em poucas palavras qual seria o papel dele se entrasse. Não invente jogadores fora da lista do elenco.
+            3. BANCO DE RESERVAS: monte também até 9 jogadores do elenco ativo que NÃO entraram nos 11 titulares, ordenados por relevância. REGRA OBRIGATÓRIA: pelo menos 1 desses 9 TEM que ser um goleiro reserva (nunca deixe o banco sem nenhum goleiro). Para cada um, diga em poucas palavras qual seria o papel dele se entrasse. Não invente jogadores fora da lista do elenco.
             4. Para CADA titular, além da "instrucao" em texto livre, preencha também "funcao" e "foco" com ids REAIS da lista de funções acima, coerentes com o grupo daquela sigla — parta da configuração base do treinador e só desvie quando o adversário realmente pedir.
 
             Retorne EXATAMENTE este JSON PURO:
@@ -1005,7 +1036,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         ajustesTaticos: normalizada.ajustes,
                         escalacao: res.escalacao,
                         funcoesPorRole: funcoesPorRole,
-                        reservas: Array.isArray(res.reservas) ? res.reservas : [],
+                        reservas: (typeof garantirGoleiroNoBanco === 'function') ? garantirGoleiroNoBanco(res.reservas, res.escalacao) : (Array.isArray(res.reservas) ? res.reservas : []),
                         alertaRotacao: alertaRotacao,
                         rotacoesAutomaticas: rotacoesAutomaticas,
                         diretriz: diretriz,
