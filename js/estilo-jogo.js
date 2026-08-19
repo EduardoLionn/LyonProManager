@@ -503,8 +503,8 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
     let origem = t.estiloJogoSelecionado;
     let rotuloOrigem = origem.tipo === 'preset' ? origem.rotulo : `Personalizado: "${origem.rotulo}"`;
     let formacoesTxt = (t.formacoesPreferidas && t.formacoesPreferidas.length) ? t.formacoesPreferidas.join(' → ') : t.esquema;
-    let funcoesHtml = Object.keys(t.funcoesPorRoleSugeridas || {}).map(role => `
-        <div class="banco-reserva-item"><strong>${role}</strong><span>${_nomeFuncaoFoco(role, t.funcoesPorRoleSugeridas[role])}</span></div>
+    let funcoesHtml = _funcoesPorRoleParaExibicao(t.funcoesPorRoleSugeridas || {}).map(e => `
+        <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span></div>
     `).join('');
 
     container.innerHTML = `
@@ -604,6 +604,36 @@ function _nomeFuncaoFoco(role, escolha) {
     return f ? `${f.nome}${foco ? '-' + foco.nome : ''}` : escolha.funcao;
 }
 
+// Prepara a lista {rotulo, texto} pra exibir "função de cada posição em campo": nos grupos sem
+// lado (ver ROTULO_GENERICO_POR_GRUPO) onde TODAS as siglas do grupo caíram na mesma função/foco,
+// mostra uma linha só com o rótulo genérico (ex: "VOL") em vez de repetir "VOLD" e "VOLE" dizendo
+// exatamente a mesma coisa. Se as siglas do grupo tiverem funções diferentes entre si (ex: zagueiro
+// central com função diferente dos zagueiros abertos), mantém cada sigla separada — aí a diferença
+// é real e precisa aparecer.
+function _funcoesPorRoleParaExibicao(funcoesPorRole) {
+    let porGrupo = {};
+    let ordemGrupos = [];
+    Object.keys(funcoesPorRole).forEach(role => {
+        let grupoKey = grupoFuncaoDoRole(role) || role;
+        if (!porGrupo[grupoKey]) { porGrupo[grupoKey] = []; ordemGrupos.push(grupoKey); }
+        porGrupo[grupoKey].push({ role: role, escolha: funcoesPorRole[role] });
+    });
+
+    let saida = [];
+    ordemGrupos.forEach(grupoKey => {
+        let itens = porGrupo[grupoKey];
+        let rotuloGenerico = ROTULO_GENERICO_POR_GRUPO[grupoKey];
+        let todasIguais = rotuloGenerico && itens.length > 1 && itens.every(it =>
+            it.escolha.funcao === itens[0].escolha.funcao && it.escolha.foco === itens[0].escolha.foco);
+        if (todasIguais) {
+            saida.push({ rotulo: rotuloGenerico, texto: _nomeFuncaoFoco(itens[0].role, itens[0].escolha) });
+        } else {
+            itens.forEach(it => saida.push({ rotulo: it.role, texto: _nomeFuncaoFoco(it.role, it.escolha) }));
+        }
+    });
+    return saida;
+}
+
 function renderizarResultadoEstiloJogo(prefixo, relatorio) {
     let box = document.getElementById(`${prefixo}estilo-resultado`);
     if (!box) return;
@@ -618,8 +648,8 @@ function renderizarResultadoEstiloJogo(prefixo, relatorio) {
     let ajustesHtml = relatorio.ajustesAutomaticos.length
         ? `<div style="background: rgba(217,130,43,0.12); border:1px solid var(--warning); color:var(--warning); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6; margin-top:12px;">⚠️ <strong>Ajustes automáticos:</strong><br>${relatorio.ajustesAutomaticos.join('<br>')}</div>`
         : '';
-    let funcoesHtml = Object.keys(relatorio.funcoesPorRole).map(role => `
-        <div class="banco-reserva-item"><strong>${role}</strong><span>${_nomeFuncaoFoco(role, relatorio.funcoesPorRole[role])}</span></div>
+    let funcoesHtml = _funcoesPorRoleParaExibicao(relatorio.funcoesPorRole).map(e => `
+        <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span></div>
     `).join('');
 
     box.innerHTML = `

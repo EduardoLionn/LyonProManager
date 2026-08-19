@@ -234,6 +234,20 @@ function grupoFuncaoDoRole(role) {
     return GRUPO_POR_ROLE[role] || null;
 }
 
+// Grupos onde o lado (D/E) é só geometria — a função escolhida NUNCA depende de qual sigla
+// específica é (VOLD e VOLE sempre dão a mesma função pro mesmo jogador, por exemplo). Nesses
+// grupos, ao exibir função repetida em mais de uma sigla, usa-se este rótulo genérico em vez de
+// listar cada sigla separada — evita a repetição sem sentido de "VOLD" e "VOLE" dizendo a mesma
+// coisa. Lateral/Ponta/Meia-Lateral ficam de fora de propósito: ali o lado muda a elegibilidade
+// de verdade (um lateral-direito não cobre a ala esquerda), então continuam com a sigla exata.
+const ROTULO_GENERICO_POR_GRUPO = {
+    zagueiro: 'ZAG',
+    volante: 'VOL',
+    meio_campo_central: 'MC',
+    meia_atacante: 'MEI',
+    atacante: 'ATA'
+};
+
 function _semAcento(txt) {
     return String(txt || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
