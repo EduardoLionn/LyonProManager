@@ -512,8 +512,6 @@ ${textoRegrasCompatibilidadePosicional()}
                         <div class="plano-tatico-item"><span>Estilo de armação</span><strong>${est.nome}</strong></div>
                         <div class="plano-tatico-item"><span>Abordagem defensiva</span><strong>${t.abordagemDefensiva} — ${faixa.nome}</strong></div>
                     </div>
-                    ${sug.justificativaTatica ? `<p style="font-size:13px; color:var(--text-muted); line-height:1.6; margin:0;">${sug.justificativaTatica}</p>` : ''}
-                    ${(sug.ajustesTaticos && sug.ajustesTaticos.length) ? `<p style="font-size:12px; color:var(--warning); line-height:1.6; margin:8px 0 0 0;">⚠️ Corrigi o que o plano tinha de inválido pelas regras do jogo: ${sug.ajustesTaticos.join(' ')}</p>` : ''}
                     ${sug.alertaRotacao ? `<p style="font-size:13px; color:var(--warning); line-height:1.6; margin:8px 0 0 0;">${sug.alertaRotacao}</p>` : ''}
                     ${(sug.rotacoesAutomaticas && sug.rotacoesAutomaticas.length) ? `<p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin:6px 0 0 0;">🔁 Rotação forçada por fadiga: ${sug.rotacoesAutomaticas.join('; ')}</p>` : ''}
 
