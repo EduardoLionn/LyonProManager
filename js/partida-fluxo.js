@@ -325,6 +325,10 @@ function usarSugestaoDoAuxiliar() {
     // manteve como o Auxiliar sugeriu, e nada em cima de quem foi trocado manualmente.
     criada.escalacaoSugeridaAuxiliar = JSON.parse(JSON.stringify(criada.titulares));
 
+    // A função de cada posição que o Auxiliar decidiu PARA ESTE ADVERSÁRIO específico (pode
+    // divergir do cálculo genérico por especialidade — ex: foco de Defesa contra um time de posse).
+    if (sug.funcoesPorRole) criada.funcoesPorRoleSugeridas = JSON.parse(JSON.stringify(sug.funcoesPorRole));
+
     salvarDados();
     renderizarAbaSalvarPartida();
 }

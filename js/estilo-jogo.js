@@ -334,11 +334,28 @@ function aplicarRelatorioTaticoNoSave(relatorio) {
 // =====================================================================================
 
 let _estiloJogoSelecionado = {}; // prefixo -> id do preset, ou null quando "Personalizado" está ativo
+let _estiloJogoModoEdicao = {}; // prefixo -> true quando o treinador pediu pra alterar uma config já salva
+
+// No Perfil do Treinador, uma vez que o estilo já foi salvo no save, não faz sentido
+// mostrar o formulário inteiro de novo toda vez que a aba é aberta — só o resumo do que
+// já está valendo, com um botão pra entrar em modo de edição. No assistente de Início de
+// Jogo não existe save ainda, então lá o formulário completo é sempre o único estado.
+function _configuracaoJaSalva(prefixo) {
+    if (prefixo !== 'perfil-') return null;
+    let t = db[currentSave] && db[currentSave].taticas;
+    return (t && t.estiloJogoSelecionado) ? t : null;
+}
 
 function renderizarSeletorEstiloJogo(prefixo) {
     let container = document.getElementById(prefixo + 'estilo-jogo-container');
     if (!container) return;
     delete _estiloJogoSelecionado[prefixo]; // o HTML é reconstruído do zero — nenhum cartão fica marcado como ativo
+
+    let salva = _configuracaoJaSalva(prefixo);
+    if (salva && !_estiloJogoModoEdicao[prefixo]) {
+        renderizarResumoEstiloJogoSalvo(prefixo, container, salva);
+        return;
+    }
 
     let optionsFormacoes = listaFormacoesDisponiveis().map(f => `<option value="${f}">${f}</option>`).join('');
     let seletoresFormacao = [1, 2, 3, 4].map(i => `
@@ -358,6 +375,9 @@ function renderizarSeletorEstiloJogo(prefixo) {
             <span class="tatica-card-desc">Descreva o estilo com suas palavras — o Auxiliar traduz pras opções do jogo.</span>
         </button>`;
 
+    let rotuloBotao = prefixo === 'perfil-' ? '💾 Salvar Configuração' : '✅ Aplicar Configuração';
+    let botaoCancelar = salva ? `<button type="button" onclick="alternarEdicaoEstiloJogo('${prefixo}', false)" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border); color:var(--text-muted); padding:8px;">Cancelar</button>` : '';
+
     container.innerHTML = `
         <div class="grid-2">${seletoresFormacao}</div>
         <p class="tatica-ajuda" style="margin-top:14px;">Estilo de jogo</p>
@@ -366,10 +386,56 @@ function renderizarSeletorEstiloJogo(prefixo) {
             <label>Descreva o estilo que você quer</label>
             <textarea id="${prefixo}estilo-texto-livre" rows="2" placeholder="Ex: quero jogar recuado mas com muita posse quando recuperar a bola" style="width:100%; background:var(--bg-dark);"></textarea>
         </div>
-        <button type="button" onclick="gerarConfiguracaoEstiloJogo('${prefixo}')" style="width:100%; margin-top:14px; background:var(--primary); color:black; padding:12px; font-weight:bold;">🪄 Gerar Configuração Tática</button>
+        <button type="button" onclick="gerarConfiguracaoEstiloJogo('${prefixo}')" style="width:100%; margin-top:14px; background:var(--primary); color:black; padding:12px; font-weight:bold;">${rotuloBotao}</button>
+        ${botaoCancelar}
         <div id="${prefixo}estilo-loader" style="display:none; font-size:13px; color:var(--warning); font-weight:bold; margin-top:10px;"></div>
         <div id="${prefixo}estilo-resultado" style="margin-top:16px;"></div>
     `;
+
+    // Editando uma config já existente: pré-preenche o formulário com o que já está salvo,
+    // em vez de forçar o treinador a escolher tudo de novo do zero.
+    if (salva) {
+        (salva.formacoesPreferidas || []).forEach((f, i) => {
+            let el = document.getElementById(`${prefixo}estilo-formacao-${i + 1}`);
+            if (el) el.value = f;
+        });
+        let origem = salva.estiloJogoSelecionado;
+        if (origem.tipo === 'preset') {
+            let preset = PLAYSTYLE_PRESETS.find(p => p.nome === origem.rotulo);
+            if (preset) escolherPresetEstiloJogo(prefixo, preset.id);
+        } else {
+            escolherPresetEstiloJogo(prefixo, null);
+            let txt = document.getElementById(`${prefixo}estilo-texto-livre`);
+            if (txt) txt.value = origem.rotulo;
+        }
+    }
+}
+
+function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
+    let pre = predefinicaoPorId(t.predefinicao);
+    let est = estiloArmacaoPorId(t.estiloArmacao);
+    let faixa = faixaAbordagem(t.abordagemDefensiva);
+    let origem = t.estiloJogoSelecionado;
+    let rotuloOrigem = origem.tipo === 'preset' ? origem.rotulo : `Personalizado: "${origem.rotulo}"`;
+    let formacoesTxt = (t.formacoesPreferidas && t.formacoesPreferidas.length) ? t.formacoesPreferidas.join(' → ') : t.esquema;
+    let funcoesHtml = Object.keys(t.funcoesPorRoleSugeridas || {}).map(role => `
+        <div class="banco-reserva-item"><strong>${role}</strong><span>${_nomeFuncaoFoco(role, t.funcoesPorRoleSugeridas[role])}</span></div>
+    `).join('');
+
+    container.innerHTML = `
+        <div class="tatica-resumo">
+            <strong>📋 Estilo de Jogo: ${rotuloOrigem}</strong>
+            <span>${pre.emoji} ${pre.nome} &nbsp;•&nbsp; ${t.esquema} &nbsp;•&nbsp; ${est.nome} &nbsp;•&nbsp; ${t.abordagemDefensiva}/100 (${faixa.nome})</span>
+        </div>
+        <p class="tatica-ajuda" style="margin-top:10px;">Formações preferidas (ordem de prioridade): ${formacoesTxt}</p>
+        ${funcoesHtml ? `<p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo</p><div class="banco-reservas-grid">${funcoesHtml}</div>` : ''}
+        <button type="button" onclick="alternarEdicaoEstiloJogo('${prefixo}', true)" style="width:100%; margin-top:14px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:10px; font-weight:bold;">✏️ Alterar Configuração</button>
+    `;
+}
+
+function alternarEdicaoEstiloJogo(prefixo, ligar) {
+    _estiloJogoModoEdicao[prefixo] = !!ligar;
+    renderizarSeletorEstiloJogo(prefixo);
 }
 
 function escolherPresetEstiloJogo(prefixo, presetId) {
@@ -419,23 +485,27 @@ async function gerarConfiguracaoEstiloJogo(prefixo) {
     if (prefixo === 'perfil-') {
         aplicarRelatorioTaticoNoSave(relatorio);
         if (typeof renderizarPainelTaticas === 'function') renderizarPainelTaticas();
-    } else {
-        // Assistente de Início de Jogo: ainda não existe save pra gravar — só preenche os
-        // mesmos <select> manuais que wizardFinalizar() já lê ao concluir o assistente.
-        let selPre = document.getElementById('wiz-tatica-predefinicao');
-        let selEst = document.getElementById('wiz-tatica-estilo-armacao');
-        let selEsq = document.getElementById('wiz-tatica-esquema');
-        let selEsqAlt = document.getElementById('wiz-tatica-esquema-alt');
-        if (selPre) selPre.value = relatorio.predefinicao;
-        if (selEst) selEst.value = relatorio.estiloArmacao;
-        if (selEsq) selEsq.value = relatorio.esquemaEscolhido;
-        if (selEsqAlt) selEsqAlt.value = (relatorio.esquemaPreteridas[0] && relatorio.esquemaPreteridas[0].formacao) || relatorio.esquemaEscolhido;
-        let elAbordagem = document.getElementById('wiz-tatica-abordagem');
-        if (elAbordagem) elAbordagem.value = relatorio.abordagemDefensiva;
-        if (typeof wizardAtualizarRegraTatica === 'function') wizardAtualizarRegraTatica();
-        // wizardFinalizar() lê isso pra gravar formacoesPreferidas/estiloJogoSelecionado/funcoesPorRoleSugeridas junto do resto.
-        window._wizardRelatorioEstiloJogo = relatorio;
+        // Salvo — volta pro resumo colapsado em vez de deixar o formulário inteiro aberto.
+        _estiloJogoModoEdicao[prefixo] = false;
+        renderizarSeletorEstiloJogo(prefixo);
+        return;
     }
+
+    // Assistente de Início de Jogo: ainda não existe save pra gravar — só preenche os
+    // mesmos <select> manuais que wizardFinalizar() já lê ao concluir o assistente.
+    let selPre = document.getElementById('wiz-tatica-predefinicao');
+    let selEst = document.getElementById('wiz-tatica-estilo-armacao');
+    let selEsq = document.getElementById('wiz-tatica-esquema');
+    let selEsqAlt = document.getElementById('wiz-tatica-esquema-alt');
+    if (selPre) selPre.value = relatorio.predefinicao;
+    if (selEst) selEst.value = relatorio.estiloArmacao;
+    if (selEsq) selEsq.value = relatorio.esquemaEscolhido;
+    if (selEsqAlt) selEsqAlt.value = (relatorio.esquemaPreteridas[0] && relatorio.esquemaPreteridas[0].formacao) || relatorio.esquemaEscolhido;
+    let elAbordagem = document.getElementById('wiz-tatica-abordagem');
+    if (elAbordagem) elAbordagem.value = relatorio.abordagemDefensiva;
+    if (typeof wizardAtualizarRegraTatica === 'function') wizardAtualizarRegraTatica();
+    // wizardFinalizar() lê isso pra gravar formacoesPreferidas/estiloJogoSelecionado/funcoesPorRoleSugeridas junto do resto.
+    window._wizardRelatorioEstiloJogo = relatorio;
 
     renderizarResultadoEstiloJogo(prefixo, relatorio);
 }
