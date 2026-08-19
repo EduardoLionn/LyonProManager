@@ -378,11 +378,7 @@ function toggleChatDiretoria() {
     }
 }
 
-   function carregarPreferenciasTaticas() {
-            if (typeof renderizarPainelTaticas === 'function') renderizarPainelTaticas();
-        }
-
-        function carregarPerfilTreinador() {
+   function carregarPerfilTreinador() {
             document.getElementById('perfil-nome-tecnico').value = db[currentSave].nomeTecnico || '';
             document.getElementById('perfil-nome-diretor').value = db[currentSave].nomeDiretor || '';
             document.getElementById('perfil-nome-auxiliar').value = db[currentSave].nomeAuxiliar || '';
@@ -468,7 +464,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-historico') renderizarHistorico();
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); checarNovidadesIA('diretoria'); }
             if(abaId === 'tab-medico') { atualizarDepartamentoMedicoUI(); }
-            if(abaId === 'tab-perfil-treinador') { carregarPerfilTreinador(); carregarPreferenciasTaticas(); if (typeof renderizarSeletorEstiloJogo === 'function') renderizarSeletorEstiloJogo('perfil-'); }
+            if(abaId === 'tab-perfil-treinador') { carregarPerfilTreinador(); if (typeof renderizarSeletorEstiloJogo === 'function') renderizarSeletorEstiloJogo('perfil-'); }
             if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarSugestaoAuxiliar(); renderizarChat('auxiliar'); checarNovidadesIA('auxiliar'); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
             if(abaId === 'tab-convocacao') { renderizarConvocacaoUI(); }
@@ -565,7 +561,7 @@ function toggleChatDiretoria() {
             if (typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
             if (typeof renderizarLiderancaUI === 'function' && currentSave === 'clube') renderizarLiderancaUI();
             preencherDatalistJogadores(); document.getElementById('jog-nome-input').value = '';
-            atualizarFiltroTemporadas(); carregarPreferenciasTaticas(); mudarAba('tab-dashboard');
+            atualizarFiltroTemporadas(); mudarAba('tab-dashboard');
         }
 
 
