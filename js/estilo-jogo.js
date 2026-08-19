@@ -112,6 +112,91 @@ const PLAYSTYLE_PRESETS = [
             atacante: [{ funcao: 'pivo', foco: 'equilibrado' }, { funcao: 'oportunista', foco: 'ataque' }]
         },
         ajustes: ['A predefinição "Ligação direta" só permite abordagem defensiva na faixa Equilibrada — fixei em 50/100 (a opção "Recuada" não é selecionável junto com ela no jogo).']
+    },
+    {
+        id: 'transicao-letal', nome: 'Transição Ofensiva Letal', emoji: '🎯', apelido: 'Fast Counter',
+        contexto: 'Não se importa em ceder a bola — mantém um bloco médio, atrai o adversário e destrói a defesa rival em segundos com a velocidade das pontas ao roubar a bola.',
+        predefinicao: 'contra-ataque', estiloArmacao: 'contra-ataque', abordagemDefensiva: 50,
+        formacoesIdeais: ['4-4-2', '4-2-3-1'],
+        funcoesPorGrupo: {
+            zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+            lateral: [{ funcao: 'ala', foco: 'equilibrado' }],
+            volante: [{ funcao: 'contencao', foco: 'deslocamento' }],
+            meio_campo_central: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
+            meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'equilibrado' }],
+            ponta: [{ funcao: 'corta-pra-dentro', foco: 'deslocamento' }],
+            meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
+            atacante: [{ funcao: 'oportunista', foco: 'ataque' }]
+        },
+        ajustes: ['Pontas na função Meia-Lateral (MD/ME): "Corta pra Dentro" não tem foco Deslocamento nesse grupo — usei Equilibrado, o mais próximo do "explorar a lacuna deixada" pedido. Já como Ponta clássica (PD/PE) o foco Deslocamento existe normalmente.']
+    },
+    {
+        id: 'futebol-total', nome: 'Futebol Total', emoji: '🌀', apelido: 'Total Football',
+        contexto: 'Inteligência espacial e trocas constantes de posição — se o lateral sobe pelo meio, o volante cobre a lateral. Todo mundo ataca, todo mundo defende.',
+        predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 70,
+        formacoesIdeais: ['4-3-3', '4-2-3-1'],
+        funcoesPorGrupo: {
+            goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+            zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
+            lateral: [{ funcao: 'ala-invertido', foco: 'armacao' }],
+            volante: [{ funcao: 'armador-recuado', foco: 'armacao' }],
+            meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+            meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
+            meia_lateral: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+            ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+            atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
+        },
+        ajustes: ['A predefinição "Posse de bola" trava o estilo de armação em Passe Curto — mantém a base de circulação rápida em toques curtos que sustenta as trocas de posição do Futebol Total.']
+    },
+    {
+        id: 'pressao-individual', nome: 'Pressão Alta Individual', emoji: '🐺', apelido: 'Man-to-Man High Press',
+        contexto: 'Marcação homem a homem no campo inteiro, sufocando a saída de bola do goleiro rival pra forçar o erro perto do gol adversário. Estilo de risco altíssimo.',
+        predefinicao: 'pressao-alta', estiloArmacao: 'equilibrado', abordagemDefensiva: 95,
+        formacoesIdeais: ['3-4-1-2', '4-1-4-1'],
+        funcoesPorGrupo: {
+            goleiro: [{ funcao: 'goleiro-libero', foco: 'equilibrado' }],
+            zagueiro: [{ funcao: 'marcador', foco: 'combatividade' }],
+            lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }],
+            volante: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
+            meio_campo_central: [{ funcao: 'box-to-box', foco: 'roubada-de-bola' }],
+            meia_lateral: [{ funcao: 'meia-aberto', foco: 'apoio' }],
+            meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
+            atacante: [{ funcao: 'centroavante', foco: 'apoio' }]
+        },
+        ajustes: []
+    },
+    {
+        id: 'sarriball', nome: 'Passe Vertical Rápido', emoji: '🧭', apelido: 'Sarriball',
+        contexto: 'Alta posse de bola jogada a um ou dois toques — não é posse pra descansar, é posse vertical pra furar linhas o mais rápido possível usando triângulos curtos.',
+        predefinicao: 'padrao', estiloArmacao: 'passe-curto', abordagemDefensiva: 70,
+        formacoesIdeais: ['4-3-3', '4-2-3-1'],
+        funcoesPorGrupo: {
+            zagueiro: [{ funcao: 'sai-jogando', foco: 'defesa' }],
+            lateral: [{ funcao: 'lateral', foco: 'equilibrado' }],
+            volante: [{ funcao: 'armador-recuado', foco: 'armacao' }],
+            meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
+            meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'ataque' }],
+            meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+            ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+            atacante: [{ funcao: 'oportunista', foco: 'versatil' }]
+        },
+        ajustes: []
+    },
+    {
+        id: 'estacionar-onibus', nome: 'Estacionar o Ônibus', emoji: '🚌', apelido: 'Park the Bus',
+        contexto: 'Pra segurar resultado em mata-mata, ou quando o time é muito inferior ao adversário: uma barreira intransponível dentro e na borda da própria área.',
+        predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 25,
+        formacoesIdeais: ['3-5-2', '4-2-3-1'],
+        funcoesPorGrupo: {
+            goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+            zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+            lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+            volante: [{ funcao: 'zaga', foco: 'defesa' }],
+            meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+            meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+            atacante: [{ funcao: 'pivo', foco: 'com-abertura' }, { funcao: 'oportunista', foco: 'ataque' }]
+        },
+        ajustes: ['Volante (VOL 1 e 2): função "Zaga" — os volantes literalmente se enfiam entre os zagueiros pra formar a linha de 5/6, exatamente como pedido.', 'Atacante: com 2 pontas de ataque na formação, o 1º slot vira "Pivô" (segura a bola sozinho) e o 2º vira "Oportunista" (pronto pro rebote/contra-ataque).']
     }
 ];
 
