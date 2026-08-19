@@ -148,6 +148,32 @@ function completarGoleiroReserva(titularesNomes, banco) {
     return { banco: novo.slice(0, 9), adicionado: goleiro.nome };
 }
 
+// Mesma regra de ouro do banco automático (sempre 1 goleiro reserva), mas pro formato que o
+// plano de partida da IA usa: reservas como {nome, posicao, papel}, não só nomes. A IA às vezes
+// esquece de incluir um goleiro no banco — isso corrige isso sem depender dela lembrar.
+function garantirGoleiroNoBanco(reservas, escalacao) {
+    let lista = Array.isArray(reservas) ? reservas.filter(r => r && r.nome) : [];
+    if (!db[currentSave]) return lista;
+
+    let jaTemGoleiro = lista.some(r => {
+        let p = db[currentSave].plantel.find(x => x.nome === r.nome);
+        return p && String(p.posicao).split('/')[0] === 'Goleiro';
+    });
+    if (jaTemGoleiro) return lista;
+
+    let titularesNomes = new Set(Object.values(escalacao || {}).map(j => j && j.nome).filter(Boolean));
+    let nomesNoBanco = new Set(lista.map(r => r.nome));
+    let elenco = (typeof _plantelDisponivelParaEscalar === 'function') ? _plantelDisponivelParaEscalar() : db[currentSave].plantel;
+    let goleiro = elenco
+        .filter(p => String(p.posicao).split('/')[0] === 'Goleiro' && !titularesNomes.has(p.nome) && !nomesNoBanco.has(p.nome))
+        .sort((a, b) => b.ovr - a.ovr)[0];
+    if (!goleiro) return lista;
+
+    let novo = lista.slice();
+    novo.unshift({ nome: goleiro.nome, posicao: goleiro.posicao, papel: 'Goleiro reserva' });
+    return novo.slice(0, 9);
+}
+
 // -------------------------------------------------------------------------------------
 // LEITURA DA ESCALAÇÃO POR PRINT
 // -------------------------------------------------------------------------------------
