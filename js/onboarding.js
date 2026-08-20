@@ -57,8 +57,8 @@ function menuNovoJogo() {
     db = dbPadrao();
     saveAtualId = null;
     wizardIsNovoSaveCompleto = true;
-    let sidebar = document.querySelector('.sidebar');
-    if (sidebar) sidebar.style.display = 'flex';
+    // A barra lateral fica escondida durante todo o assistente — só volta a aparecer quando
+    // wizardFinalizar() chama ajustarInterfaceSave() ao concluir a criação do save.
     document.getElementById('wizard-tela-hero').style.display = 'none';
     document.getElementById('menu-carregar-save-lista').style.display = 'none';
     wizardIniciar();
