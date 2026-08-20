@@ -218,6 +218,7 @@ function wizardValidarEtapaAtual() {
     if (etapaId === 'perfil') return wizardValidarPerfil();
     if (etapaId === 'liga') return wizardValidarLiga();
     if (etapaId === 'clube') return wizardValidarClube();
+    if (etapaId === 'tatica') return wizardValidarTatica();
     return true;
 }
 
@@ -338,63 +339,22 @@ function wizardRenderStepDiretoria() {
 }
 
 // --- ETAPA: TÁTICA ---
-// As opções vêm do modelo tático (js/taticas.js), a mesma fonte que o Perfil do Treinador
-// e o Auxiliar usam — assim o assistente nunca oferece algo que o resto do app não conhece.
+// A única coisa que o treinador escolhe aqui é o Estilo de Jogo (até 4 formações preferidas +
+// preset ou texto livre) — o motor em js/estilo-jogo.js traduz isso na configuração completa.
+// Sem escolhas manuais soltas: ao "Iniciar Partida" o resto do jogo tem que refletir exatamente
+// o que o Auxiliar decidiu a partir do Estilo de Jogo, não um valor mexido à parte no assistente.
 function wizardRenderStepTatica() {
-    let t = (typeof taticaDoSave === 'function') ? taticaDoSave() : null;
-    if (!t) return;
-
-    let selPre = document.getElementById('wiz-tatica-predefinicao');
-    let selEst = document.getElementById('wiz-tatica-estilo-armacao');
-    let selEsq = document.getElementById('wiz-tatica-esquema');
-    let selEsqAlt = document.getElementById('wiz-tatica-esquema-alt');
-    if (!selPre || !selEst || !selEsq || !selEsqAlt) return;
-
-    selPre.innerHTML = PREDEFINICOES_TATICAS.map(p => `<option value="${p.id}">${p.emoji} ${p.nome}</option>`).join('');
-    selEst.innerHTML = ESTILOS_ARMACAO.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
-    let optsFormacoes = listaFormacoesDisponiveis().map(f => `<option value="${f}">${f}</option>`).join('');
-    selEsq.innerHTML = optsFormacoes;
-    selEsqAlt.innerHTML = optsFormacoes;
-
-    selPre.value = t.predefinicao;
-    selEst.value = t.estiloArmacao;
-    selEsq.value = t.esquema;
-    selEsqAlt.value = t.esquemaAlternativo;
-    document.getElementById('wiz-tatica-abordagem').value = t.abordagemDefensiva;
-
-    wizardAtualizarRegraTatica();
     if (typeof renderizarSeletorEstiloJogo === 'function') renderizarSeletorEstiloJogo('wiz-');
 }
 
-// Mostra a trava da predefinição escolhida e já corrige o que estiver fora da regra,
-// pra que o assistente nunca termine com uma combinação impossível no jogo.
-function wizardAtualizarRegraTatica() {
-    let selPre = document.getElementById('wiz-tatica-predefinicao');
-    if (!selPre || typeof corrigirTatica !== 'function') return;
-
-    let bruta = {
-        predefinicao: selPre.value,
-        estiloArmacao: document.getElementById('wiz-tatica-estilo-armacao').value,
-        esquema: document.getElementById('wiz-tatica-esquema').value,
-        esquemaAlternativo: document.getElementById('wiz-tatica-esquema-alt').value,
-        abordagemDefensiva: Number(document.getElementById('wiz-tatica-abordagem').value)
-    };
-    let { tatica, ajustes } = corrigirTatica(bruta);
-
-    document.getElementById('wiz-tatica-estilo-armacao').value = tatica.estiloArmacao;
-    document.getElementById('wiz-tatica-abordagem').value = tatica.abordagemDefensiva;
-
-    let faixa = faixaAbordagem(tatica.abordagemDefensiva);
-    let elValor = document.getElementById('wiz-tatica-abordagem-valor');
-    if (elValor) { elValor.innerText = `${tatica.abordagemDefensiva} — ${faixa.nome}`; elValor.style.color = faixa.cor; }
-
-    let elRegra = document.getElementById('wiz-tatica-regra');
-    if (elRegra) {
-        let regra = textoRegraPredefinicao(tatica.predefinicao);
-        elRegra.innerHTML = ajustes.length
-            ? `⚠️ ${regra}<br>Ajustado automaticamente: ${ajustes.join(' ')}`
-            : `ℹ️ ${regra}`;
+// Bloqueia avançar sem ter gerado a configuração tática pelo menos uma vez — sem isso,
+// db[currentSave].taticas ficaria incompleto no fim do assistente.
+function wizardValidarTatica() {
+    if (!window._wizardRelatorioEstiloJogo) {
+        alert('Escolha as formações preferidas e um estilo de jogo, depois clique no botão de aplicar/salvar a configuração antes de continuar.');
+        return false;
     }
+    return true;
 }
 
 // --- ETAPA: ELENCO INICIAL (apenas modo Clube) ---
@@ -455,7 +415,7 @@ function wizardRenderResumo() {
     let titulos = document.getElementById('setup-dir-titulos').value || 0;
     let posicao = document.getElementById('setup-dir-posicao').value || '-';
     let posicaoCopa = document.getElementById('setup-dir-posicao-copa').value || '-';
-    let formacaoPrimaria = document.getElementById('wiz-tatica-esquema') ? document.getElementById('wiz-tatica-esquema').value : '-';
+    let formacaoPrimaria = (window._wizardRelatorioEstiloJogo && window._wizardRelatorioEstiloJogo.esquemaEscolhido) || '-';
 
     let itens = [
         ['Save', saveName],
@@ -500,25 +460,22 @@ async function wizardFinalizar() {
     db[currentSave].liga = liga;
     db[currentSave].temporadaAtual = temporada;
 
-    if (document.getElementById('wiz-tatica-predefinicao') && typeof corrigirTatica === 'function') {
+    // wizardValidarTatica() já garante que isto existe antes de deixar chegar aqui — a tática
+    // inteira vem do Estilo de Jogo, sem escolha manual solta que pudesse divergir do que o
+    // Auxiliar aplica depois em campo.
+    if (window._wizardRelatorioEstiloJogo && typeof corrigirTatica === 'function') {
+        let r = window._wizardRelatorioEstiloJogo;
         db[currentSave].taticas = corrigirTatica({
-            predefinicao: document.getElementById('wiz-tatica-predefinicao').value,
-            estiloArmacao: document.getElementById('wiz-tatica-estilo-armacao').value,
-            esquema: document.getElementById('wiz-tatica-esquema').value,
-            esquemaAlternativo: document.getElementById('wiz-tatica-esquema-alt').value,
-            abordagemDefensiva: Number(document.getElementById('wiz-tatica-abordagem').value)
+            predefinicao: r.predefinicao,
+            estiloArmacao: r.estiloArmacao,
+            esquema: r.esquemaEscolhido,
+            esquemaAlternativo: (r.formacoesPreferidas && r.formacoesPreferidas[1]) || r.esquemaEscolhido,
+            abordagemDefensiva: r.abordagemDefensiva
         }).tatica;
-
-        // Se o treinador gerou a tática pelo seletor de Estilo de Jogo, guarda também as
-        // formações priorizadas e a função de cada posição — o mesmo formato que o Perfil
-        // do Treinador grava quando usado depois do jogo iniciado.
-        if (window._wizardRelatorioEstiloJogo) {
-            let r = window._wizardRelatorioEstiloJogo;
-            db[currentSave].taticas.formacoesPreferidas = r.formacoesPreferidas || [];
-            db[currentSave].taticas.estiloJogoSelecionado = r.origem;
-            db[currentSave].taticas.funcoesPorRoleSugeridas = r.funcoesPorRole;
-            window._wizardRelatorioEstiloJogo = null;
-        }
+        db[currentSave].taticas.formacoesPreferidas = r.formacoesPreferidas || [];
+        db[currentSave].taticas.estiloJogoSelecionado = r.origem;
+        db[currentSave].taticas.funcoesPorRoleSugeridas = r.funcoesPorRole;
+        window._wizardRelatorioEstiloJogo = null;
     }
 
     adicionarNoticiaAutomatica(
@@ -546,7 +503,7 @@ async function wizardFinalizar() {
     // Mensagens automáticas de boas-vindas do Diretor e do Auxiliar (texto fixo, sem custo de IA)
     let exibDiretor = nomeDiretor || 'A Diretoria';
     let exibAuxiliar = nomeAuxiliar || 'O Auxiliar Técnico';
-    let formacaoEscolhida = (document.getElementById('wiz-tatica-esquema') && document.getElementById('wiz-tatica-esquema').value) || '4-2-3-1';
+    let formacaoEscolhida = (db[currentSave].taticas && db[currentSave].taticas.esquema) || '4-2-3-1';
     db[currentSave].chatHistory.diretoria.push({
         role: 'ai',
         text: `Seja muito bem-vindo(a) ao ${nome}, ${nomeTecnico}! Eu sou ${exibDiretor}${nomeDiretor ? '' : ', a diretoria do clube'}. A partir de agora vou acompanhar de perto sua gestão — os objetivos da temporada já estão definidos, dá uma olhada aí embaixo. Conte comigo pra o que precisar.`

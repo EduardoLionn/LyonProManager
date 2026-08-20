@@ -576,20 +576,9 @@ async function gerarConfiguracaoEstiloJogo(prefixo) {
         return;
     }
 
-    // Assistente de Início de Jogo: ainda não existe save pra gravar — só preenche os
-    // mesmos <select> manuais que wizardFinalizar() já lê ao concluir o assistente.
-    let selPre = document.getElementById('wiz-tatica-predefinicao');
-    let selEst = document.getElementById('wiz-tatica-estilo-armacao');
-    let selEsq = document.getElementById('wiz-tatica-esquema');
-    let selEsqAlt = document.getElementById('wiz-tatica-esquema-alt');
-    if (selPre) selPre.value = relatorio.predefinicao;
-    if (selEst) selEst.value = relatorio.estiloArmacao;
-    if (selEsq) selEsq.value = relatorio.esquemaEscolhido;
-    if (selEsqAlt) selEsqAlt.value = (relatorio.esquemaPreteridas[0] && relatorio.esquemaPreteridas[0].formacao) || relatorio.esquemaEscolhido;
-    let elAbordagem = document.getElementById('wiz-tatica-abordagem');
-    if (elAbordagem) elAbordagem.value = relatorio.abordagemDefensiva;
-    if (typeof wizardAtualizarRegraTatica === 'function') wizardAtualizarRegraTatica();
-    // wizardFinalizar() lê isso pra gravar formacoesPreferidas/estiloJogoSelecionado/funcoesPorRoleSugeridas junto do resto.
+    // Assistente de Início de Jogo: ainda não existe save pra gravar — wizardFinalizar() lê
+    // isto pra montar db[currentSave].taticas por completo (predefinição/esquema/estilo/
+    // abordagem/formações preferidas/função por posição) quando o treinador concluir o assistente.
     window._wizardRelatorioEstiloJogo = relatorio;
 
     renderizarResultadoEstiloJogo(prefixo, relatorio);

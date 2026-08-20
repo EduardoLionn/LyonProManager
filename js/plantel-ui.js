@@ -70,9 +70,9 @@
                     <td style="${getOvrClass(p.ovr)} font-weight:bold; font-size:16px;">${p.ovr}</td>
                     <td>${p.idade || '-'}</td>
                     <td style="display:flex; gap: 10px; align-items: center;">
-                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXPlantel('${p.nome}', ${idx})">📊 Raio-X</button>
-                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; border-color: var(--warning); color: var(--warning);" onclick="abrirModalEditarJogador('${p.nome}')">✏️ Editar</button>
-                        <select onchange="alterarStatus('${p.nome}', this.value)" style="padding:6px; font-size:13px; width: 120px;">
+                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXPlantel('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
+                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; border-color: var(--warning); color: var(--warning);" onclick="abrirModalEditarJogador('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar</button>
+                        <select onchange="alterarStatus('${p.nome.replace(/'/g, "\\'")}', this.value)" style="padding:6px; font-size:13px; width: 120px;">
                             ${optionsSelect}
                         </select>
                     </td>
@@ -161,11 +161,11 @@
            let tdValor = mostrarColunaValor ? `<td>€${(p.valor || 0).toFixed(1)}M</td>` : '';
 
             // NOVO: Botões extras para o mercado (Editar Valor e Excluir)
-            let btnEdit = mostrarColunaValor ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--warning); border-color:var(--warning);" onclick="editarValorTransferencia('${p.nome}')">✏️ Editar Valor</button>` : '';
-            let btnExc = `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--danger); border-color:var(--danger);" onclick="excluirJogadorTransferencia('${p.nome}')">🗑️ Excluir</button>`;
-            
+            let btnEdit = mostrarColunaValor ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--warning); border-color:var(--warning);" onclick="editarValorTransferencia('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar Valor</button>` : '';
+            let btnExc = `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--danger); border-color:var(--danger);" onclick="excluirJogadorTransferencia('${p.nome.replace(/'/g, "\\'")}')">🗑️ Excluir</button>`;
+
             // NOVO: Botão de Chamar de Volta para quem está Emprestado fora
-            let btnChamarVolta = (status === 'Emprestado') ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--primary); border-color:var(--primary);" onclick="alterarStatus('${p.nome}', 'ChamarDeVolta')">🔙 Chamar de Volta</button>` : '';
+            let btnChamarVolta = (status === 'Emprestado') ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--primary); border-color:var(--primary);" onclick="alterarStatus('${p.nome.replace(/'/g, "\\'")}', 'ChamarDeVolta')">🔙 Chamar de Volta</button>` : '';
 
             tbody.innerHTML += `
             <tr>
@@ -175,7 +175,7 @@
                 <td>${p.idade || '-'}</td>
                 ${tdValor}
                 <td style="display: flex; gap: 5px; flex-wrap: wrap;">
-                    <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXMercado('${p.nome}', ${idx})">📊 Raio-X</button>
+                    <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXMercado('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
                     ${btnEdit}
                     ${btnChamarVolta}
                     ${btnExc}
@@ -237,17 +237,17 @@
                     else { tier = 'Lowest'; upLimit = 6.1; downLimit = 5.0; }
 
                     if(media >= upLimit) { 
-                        let btn = `<button style="padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome}', 1)">+1 OVR</button>`; 
+                        let btn = `<button style="padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome.replace(/'/g, "\\'")}', 1)">+1 OVR</button>`;
                         tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong><br>${badgeMerecido}</td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
                         aguardandoCount++;
                     }
                     else if(media <= downLimit) { 
-                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome}', -1)">-1 OVR</button>`; 
+                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome.replace(/'/g, "\\'")}', -1)">-1 OVR</button>`;
                         tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong><br>${badgeMerecido}</td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
                         aguardandoCount++;
                     }
                     else if(media <= downLimit) { 
-                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome}', -1)">-1 OVR</button>`; 
+                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome.replace(/'/g, "\\'")}', -1)">-1 OVR</button>`;
                         tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
                         aguardandoCount++;
                     }

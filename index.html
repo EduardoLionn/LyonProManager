@@ -582,33 +582,8 @@
             <!-- ETAPA: TÁTICA -->
             <div id="wizard-step-tatica" class="wizard-card wizard-step" style="display:none;">
                 <h2>📋 Escolhas Táticas</h2>
-                <p class="wizard-subtitle">Escolha até 4 formações (em ordem de prioridade) e um estilo de jogo — o Auxiliar Técnico usa isso pra montar as escolhas táticas completas abaixo. Dá pra mudar formações e estilo depois no Perfil do Treinador.</p>
+                <p class="wizard-subtitle">Escolha até 4 formações (em ordem de prioridade) e um estilo de jogo — é só isso que você define. O Auxiliar Técnico usa essa base pra montar a predefinição, o esquema, o estilo de armação, a abordagem defensiva e a função de cada jogador em campo, adaptando tudo conforme o adversário de cada partida.</p>
                 <div id="wiz-estilo-jogo-container"></div>
-                <p class="wizard-subtitle" style="margin-top:20px;">Ou configure manualmente as mesmas quatro escolhas que existem no jogo:</p>
-                <div class="grid-2">
-                    <div class="linha-form">
-                        <label>Predefinição Tática</label>
-                        <select id="wiz-tatica-predefinicao" onchange="wizardAtualizarRegraTatica()"></select>
-                    </div>
-                    <div class="linha-form">
-                        <label>Estilo de Armação</label>
-                        <select id="wiz-tatica-estilo-armacao"></select>
-                    </div>
-                    <div class="linha-form">
-                        <label>Esquema Principal</label>
-                        <select id="wiz-tatica-esquema"></select>
-                    </div>
-                    <div class="linha-form">
-                        <label>Esquema Alternativo</label>
-                        <select id="wiz-tatica-esquema-alt"></select>
-                    </div>
-                </div>
-                <div class="linha-form" style="margin-top:10px;">
-                    <label>Abordagem Defensiva (0 a 100)</label>
-                    <input type="range" min="0" max="100" step="1" id="wiz-tatica-abordagem" value="50" class="tatica-slider" oninput="wizardAtualizarRegraTatica()">
-                    <div id="wiz-tatica-abordagem-valor" style="font-size:14px; font-weight:bold; margin-top:6px;">50 — Equilibrada</div>
-                </div>
-                <p id="wiz-tatica-regra" style="font-size:12px; color:var(--warning); margin-top:12px; line-height:1.6;"></p>
             </div>
 
             <!-- ETAPA: ELENCO INICIAL -->
