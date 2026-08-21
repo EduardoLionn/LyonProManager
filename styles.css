@@ -813,3 +813,169 @@
 .plano-tatico-item { background:var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
 .plano-tatico-item span { display:block; font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:bold; margin-bottom:4px; }
 .plano-tatico-item strong { font-size:14px; color:var(--primary); font-family:var(--font-display); letter-spacing:0.3px; }
+
+/* =====================================================================================
+   CAMADA DE ILUMINAÇÃO E ACABAMENTO
+   Passe visual global inspirado na tela de login: luz ambiente ao fundo, superfícies com
+   volume (brilho na aresta de cima + sombra funda embaixo) e brilhos dourados/azuis nos
+   elementos ativos.
+
+   Fica por último no arquivo de propósito: assim reforça o visual das regras acima sem
+   precisar reescrevê-las. Mexe só em cor, gradiente, sombra e transição — nada de layout
+   (display, grid, largura, posição), pra não alterar nenhum comportamento já testado.
+   ===================================================================================== */
+
+:root {
+    --glow-primary: rgba(232, 184, 75, 0.45);
+    --glow-accent: rgba(75, 159, 226, 0.40);
+    /* Luz batendo na aresta superior da superfície — é o que dá a sensação de volume */
+    --rim-luz: rgba(255, 255, 255, 0.07);
+    --brilho-superficie: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 55%);
+    --sombra-card: 0 16px 38px -20px rgba(0, 0, 0, 0.85);
+    --sombra-flutuante: 0 30px 70px -24px rgba(0, 0, 0, 0.92);
+}
+
+/* --- Luz ambiente por trás de tudo (dourado no alto à esquerda, azul embaixo à direita) --- */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+        radial-gradient(1100px 620px at 6% -10%, rgba(232, 184, 75, 0.06), transparent 62%),
+        radial-gradient(900px 640px at 104% 108%, rgba(75, 159, 226, 0.055), transparent 62%);
+    background-repeat: no-repeat;
+}
+
+/* --- Barra lateral: degradê vertical + fio de luz na borda direita --- */
+.sidebar {
+    background-image:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 240px),
+        linear-gradient(180deg, #1A2620 0%, var(--sidebar-bg) 42%, #0F1613 100%);
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.035), 8px 0 30px -14px rgba(0,0,0,0.85);
+}
+.sidebar h1 { text-shadow: 0 0 24px rgba(232, 184, 75, 0.45), 0 0 5px rgba(232, 184, 75, 0.3); }
+.nav-btn.active {
+    background: linear-gradient(90deg, rgba(232,184,75,0.18), rgba(232,184,75,0.03) 72%, transparent);
+    box-shadow: inset 0 0 26px -8px rgba(232,184,75,0.3);
+}
+
+/* --- Títulos com um respiro de luz --- */
+h2, h3 { text-shadow: 0 0 20px rgba(232, 184, 75, 0.18); }
+
+/* --- Painéis: a superfície-base de quase toda a interface --- */
+.panel {
+    border-radius: 12px;
+    background-image: var(--brilho-superficie);
+    box-shadow: inset 0 1px 0 var(--rim-luz), var(--sombra-card);
+}
+
+/* --- Cards em geral: mesmo tratamento, sombra mais curta (ficam agrupados) --- */
+.stat-card, .kpi-card, .match-card, .tweet-card, .noticia-box, .msg-item, .historico-partida-card,
+.save-card, .pick-card, .club-card, .tatica-card, .banco-reserva-item, .plano-tatico-item,
+.wizard-resumo-item, .feed-cabecalho, .historico-nota-item, .trocar-jogador-opcao {
+    background-image: var(--brilho-superficie);
+    box-shadow: inset 0 1px 0 var(--rim-luz), 0 10px 24px -18px rgba(0,0,0,0.85);
+}
+.stat-card, .kpi-card { transition: 0.2s; }
+.stat-card:hover, .kpi-card:hover {
+    box-shadow: inset 0 1px 0 var(--rim-luz), 0 14px 30px -18px rgba(0,0,0,0.9), 0 0 22px -14px var(--glow-primary);
+}
+.trofeu-item { box-shadow: inset 0 1px 0 var(--rim-luz), 0 12px 30px -18px rgba(255, 215, 0, 0.4); }
+.trofeu-item:hover { box-shadow: inset 0 1px 0 var(--rim-luz), 0 16px 36px -14px rgba(255, 215, 0, 0.55); }
+
+/* --- Seleção acesa: o item escolhido "liga" com um halo dourado --- */
+.pick-card.selected, .club-card.selected, .tatica-card-ativo, .historico-nota-item.mvp {
+    box-shadow: inset 0 1px 0 var(--rim-luz), 0 0 0 1px var(--primary), 0 10px 28px -14px var(--glow-primary);
+}
+
+/* --- Botões: leve reflexo no topo (some sozinho nos botões de fundo próprio) --- */
+button { background-image: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 62%); }
+.btn-filtro.active, .graf-tab.active, .btn-ssc-confirmar {
+    box-shadow: 0 8px 22px -12px var(--glow-primary);
+}
+.btn-salvar, .btn-backup { box-shadow: 0 8px 22px -12px var(--glow-accent); }
+
+/* --- Campos de texto: fundo levemente afundado, foco com anel de luz --- */
+input, select, textarea, .chat-input-row textarea, .reply-box textarea {
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.35);
+}
+input:focus, select:focus, textarea:focus,
+.chat-input-row textarea:focus, .reply-box textarea:focus {
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25), 0 0 0 3px rgba(232, 184, 75, 0.14), 0 0 22px -6px var(--glow-primary);
+}
+
+/* --- Tabelas: cabeçalho com brilho e sublinhado aceso na coluna que ordena --- */
+th { background-image: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)); }
+.th-sortable { transition: 0.15s; }
+.th-sortable:hover { box-shadow: inset 0 -2px 0 var(--primary); }
+.badge { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); }
+
+/* --- Balões de conversa --- */
+.msg-ai { background-image: var(--brilho-superficie); box-shadow: inset 0 1px 0 var(--rim-luz), 0 8px 18px -14px rgba(0,0,0,0.85); }
+.msg-user {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.17), rgba(255,255,255,0) 60%);
+    box-shadow: 0 8px 20px -12px var(--glow-accent);
+}
+
+/* --- Notificações: contador e balão da Central de Mensagens acesos --- */
+.badge-nav { box-shadow: 0 0 14px -2px rgba(226, 75, 75, 0.75); }
+.toast-msg {
+    background-image: var(--brilho-superficie);
+    box-shadow: inset 0 1px 0 var(--rim-luz), 0 16px 36px -16px rgba(0,0,0,0.88), 0 0 30px -18px var(--glow-primary);
+}
+
+/* --- Barras de progresso (moral da torcida, condição física) --- */
+.termometro-bar, .stamina-bar { box-shadow: inset 0 1px 3px rgba(0,0,0,0.55); }
+.termometro-fill, .stamina-fill { box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
+.forma-dot { box-shadow: 0 2px 6px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.4); }
+
+/* --- Janelas modais: fundo desfocado dá profundidade e separa do conteúdo --- */
+#setup-screen, #modal-evento, #modal-troca-liga, #modal-setup-diretoria, #modal-editar-jogador {
+    background: rgba(9, 13, 11, 0.72);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+}
+.modal-troca-overlay { backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+.setup-box, .evento-box, .modal-moderno-box, .wizard-card {
+    background-image: var(--brilho-superficie);
+    box-shadow: inset 0 1px 0 var(--rim-luz), var(--sombra-flutuante), 0 0 60px -22px var(--glow-primary);
+}
+
+/* --- Tela de login: a referência do visual, com aura pulsando bem devagar atrás da caixa --- */
+.auth-overlay {
+    background-image:
+        radial-gradient(820px 560px at 50% -6%, rgba(232, 184, 75, 0.13), transparent 62%),
+        radial-gradient(700px 520px at 50% 106%, rgba(75, 159, 226, 0.09), transparent 62%);
+}
+.auth-overlay::before {
+    content: '';
+    position: absolute; top: 50%; left: 50%;
+    width: min(720px, 135vw); height: min(720px, 135vw);
+    transform: translate(-50%, -50%);
+    /* Paradas intermediárias suavizam a queda da luz — com um só ponto o círculo da aura
+       chega a ficar visível como uma borda no fundo escuro. */
+    background: radial-gradient(circle, rgba(232, 184, 75, 0.12) 0%, rgba(232, 184, 75, 0.05) 38%, rgba(232, 184, 75, 0.015) 58%, transparent 74%);
+    pointer-events: none;
+    animation: auraRespira 7s ease-in-out infinite;
+}
+.auth-box {
+    position: relative; /* mantém a caixa acima da aura desenhada no ::before do overlay */
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 45%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), var(--sombra-flutuante), 0 0 70px -20px rgba(232, 184, 75, 0.4);
+}
+@keyframes auraRespira {
+    0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.07); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .auth-overlay::before { animation: none; }
+}
+
+/* --- Barras de rolagem discretas (o padrão do navegador destoa do tema escuro) --- */
+* { scrollbar-width: thin; scrollbar-color: #33473D transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: #33473D; border-radius: 10px;
+    border: 2px solid transparent; background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #445D50; background-clip: padding-box; }
