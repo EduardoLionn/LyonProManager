@@ -99,11 +99,11 @@
         let ordemAtualMercado = { coluna: 'nome', ascendente: true };
 
    function ordenarTransferencias(coluna) {
-       if (ordemAtualMercado.coluna === coluna) { 
-           ordemAtualMercado.ascendente = !ordemAtualMercado.ascendente; 
-       } else { 
-           ordemAtualMercado.coluna = coluna; 
-           ordemAtualMercado.ascendente = true; 
+       if (ordemAtualMercado.coluna === coluna) {
+           ordemAtualMercado.ascendente = !ordemAtualMercado.ascendente;
+       } else {
+           ordemAtualMercado.coluna = coluna;
+           ordemAtualMercado.ascendente = coluna === 'nome' ? true : false;
        }
        filtrarMercado(statusFiltroMercado);
    }
@@ -112,23 +112,23 @@
        if(currentSave !== 'clube') return;
        statusFiltroMercado = status;
        if(btn) { document.querySelectorAll('#tab-mercado .btn-filtro').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
-       
-       let containerFiltros = document.getElementById('container-botoes-filtro-transf');
-       if (containerFiltros) {
-           containerFiltros.style.display = (status === 'Vendido' || status === 'Comprado') ? 'flex' : 'none';
-       }
 
        let thead = document.querySelector('#tabela-mercado thead');
-       let tbody = document.querySelector('#tabela-mercado tbody'); 
+       let tbody = document.querySelector('#tabela-mercado tbody');
        tbody.innerHTML = '';
-       
+
        let mostrarColunaValor = (status === 'Vendido' || status === 'Comprado');
-       
-       if (mostrarColunaValor) {
-           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Idade</th><th>Valor (€M)</th><th>Ações / Raio-X</th></tr>`;
-       } else {
-           thead.innerHTML = `<tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Idade</th><th>Ações / Raio-X</th></tr>`;
-       }
+
+       // Cabeçalho clicável (igual à tabela do Elenco) — clicar na coluna ordena por ela,
+       // sem precisar de uma fileira extra de botões "Ordenar por".
+       let colValor = mostrarColunaValor ? `<th class="th-sortable" onclick="ordenarTransferencias('valor')">Valor (€M) ↕️</th>` : '';
+       thead.innerHTML = `<tr><th>Status</th>
+           <th class="th-sortable" onclick="ordenarTransferencias('posicao')">Posição ↕️</th>
+           <th class="th-sortable" onclick="ordenarTransferencias('nome')">Nome ↕️</th>
+           <th class="th-sortable" onclick="ordenarTransferencias('ovr')">OVR ↕️</th>
+           <th class="th-sortable" onclick="ordenarTransferencias('idade')">Idade ↕️</th>
+           ${colValor}
+           <th>Ações / Raio-X</th></tr>`;
        
        let achou = false;
        let jogadoresFiltrados = db.clube.plantel.filter(p => {

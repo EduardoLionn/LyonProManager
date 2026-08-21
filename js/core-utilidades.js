@@ -559,6 +559,15 @@ function toggleChatDiretoria() {
             // sem esta chamada ele só era atualizado ao abrir o Feed Social.
             if (typeof renderizarTermometroUI === 'function') renderizarTermometroUI();
             if (typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
+            // O comentário espontâneo da Diretoria/Auxiliar sobre novidades do clube (checarNovidadesIA)
+            // antes só rodava quando o treinador abria a aba correspondente — ou seja, só descobria
+            // que tinha mensagem nova DEPOIS de já ter clicado lá, o que não notificava nada de verdade.
+            // Agora roda aqui, ao abrir o save, pra badge/som/toast da Central de Mensagens disparar
+            // na hora — a função já se protege sozinha contra gerar a mesma mensagem duas vezes.
+            if (typeof checarNovidadesIA === 'function') {
+                if (currentSave === 'clube') checarNovidadesIA('diretoria');
+                checarNovidadesIA('auxiliar');
+            }
             if (typeof renderizarLiderancaUI === 'function' && currentSave === 'clube') renderizarLiderancaUI();
             preencherDatalistJogadores(); document.getElementById('jog-nome-input').value = '';
             atualizarFiltroTemporadas(); mudarAba('tab-dashboard');
