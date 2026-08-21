@@ -1331,15 +1331,8 @@
        <button class="btn-filtro" onclick="filtrarMercado('EmprestadoIn', this)">🔵 Emprestados (Chegando)</button>
    </div>
    
-   <div class="filtros-plantel" id="container-botoes-filtro-transf" style="flex-wrap: wrap; margin-top: 5px; display: none;">
-       <span style="align-self: center; font-size: 12px; color: var(--text-muted); margin-right: 5px;">Ordenar por:</span>
-       <button class="btn-filtro" onclick="ordenarTransferencias('nome')">Nome ↕️</button>
-       <button class="btn-filtro" onclick="ordenarTransferencias('posicao')">Posição ↕️</button>
-       <button class="btn-filtro" onclick="ordenarTransferencias('ovr')">OVR ↕️</button>
-       <button class="btn-filtro" onclick="ordenarTransferencias('valor')">Valor ↕️</button>
-   </div>
                 <table id="tabela-mercado">
-                    <thead><tr><th>Status</th><th>Posição</th><th>Nome</th><th>OVR</th><th>Ações / Raio-X</th></tr></thead>
+                    <thead><tr><th>Status</th><th class="th-sortable" onclick="ordenarTransferencias('posicao')">Posição ↕️</th><th class="th-sortable" onclick="ordenarTransferencias('nome')">Nome ↕️</th><th class="th-sortable" onclick="ordenarTransferencias('ovr')">OVR ↕️</th><th class="th-sortable" onclick="ordenarTransferencias('idade')">Idade ↕️</th><th>Ações / Raio-X</th></tr></thead>
                     <tbody></tbody>
                 </table>
         </div>
