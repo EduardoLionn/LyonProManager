@@ -2029,9 +2029,6 @@ ${textoRegrasCompatibilidadePosicional()}
 async function apagarChat(tipo) {
             if (await confirmarModerno(`Tem certeza que deseja apagar o histórico desta conversa?`, "Apagar Conversa", { perigo: true, textoConfirmar: "Apagar" })) {
                 db[currentSave].chatHistory[tipo] = [];
-                // Se for diretoria ou auxiliar, reseta também o contador de notícias lidas para reavaliar se precisar
-                if (tipo === 'diretoria') db[currentSave].chatHistory.noticiasLidasDir = 0;
-                if (tipo === 'auxiliar') db[currentSave].chatHistory.noticiasLidasAux = 0;
                 salvarDados();
                 renderizarChat(tipo);
             }

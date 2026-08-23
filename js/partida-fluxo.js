@@ -572,22 +572,17 @@ function renderizarAbaSalvarPartida() {
     if (typeof renderizarCampinhoLimpo === 'function') renderizarCampinhoLimpo();
 }
 
-// Atalho do botão da partida em andamento: leva pro chat do Auxiliar e já pergunta como está o
-// jogo. Antes só preenchia a caixa de texto e deixava pro treinador clicar em "Conversar" — na
-// prática isso ocupava a caixa com um texto que ele tinha que apagar toda vez que queria escrever
-// a própria mensagem em vez da pergunta padrão. Agora a pergunta é enviada direto e a caixa volta
-// vazia (mesmo comportamento de sempre do enviarChat), pronta pro treinador digitar o que quiser.
+// Atalho do botão da partida em andamento: leva pro chat do Auxiliar e deixa pronto pro
+// treinador escrever. Antes preenchia uma pergunta genérica e enviava na hora — o Auxiliar
+// então respondia (às vezes sugerindo substituição) sem o treinador ter dito nada de verdade
+// sobre o jogo. Agora só abre e foca a caixa: o treinador escreve o que quiser e/ou anexa um
+// print (📸) e só sai alguma coisa quando ELE clicar em "Conversar".
 function pedirSugestaoAoVivo() {
     mudarAba('tab-auxiliar');
     let painel = document.getElementById('panel-chat-auxiliar');
     if (painel && painel.style.display === 'none' && typeof toggleChatAuxiliar === 'function') toggleChatAuxiliar();
     let input = document.getElementById('input-auxiliar');
-    if (!input) return;
-    // Se o treinador já estava no meio de escrever a própria mensagem, não atropela: só foca a
-    // caixa pra ele continuar e enviar quando quiser.
-    if (input.value.trim()) { input.focus(); return; }
-    input.value = 'Como está o jogo até aqui na sua leitura? Precisa mexer em alguma coisa? (anexe um print se quiser uma análise mais precisa)';
-    if (typeof enviarChat === 'function') enviarChat('auxiliar');
+    if (input) input.focus();
 }
 
 // -------------------------------------------------------------------------------------
