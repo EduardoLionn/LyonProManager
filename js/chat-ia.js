@@ -35,6 +35,75 @@
             renderizarPreviewImagensAuxiliar();
         }
 
+        // =====================================================================================
+        // LEITURA DEFENSIVA DA RESPOSTA DA IA
+        // =====================================================================================
+        // A IA devolve texto livre com um JSON no meio, e nem sempre do jeito combinado: às vezes
+        // embrulha em ```json, às vezes escreve um comentário depois (que pode conter chaves), às
+        // vezes o Worker devolve erro e nem existe "candidates", às vezes o filtro de conteúdo
+        // bloqueia e vem um candidato vazio. Antes, qualquer um desses casos estourava e o chat
+        // dizia "Conexão interrompida" — escondendo o motivo real e jogando a resposta fora.
+
+        // Puxa o texto da resposta sem confiar no formato. Quando não dá, lança um erro que EXPLICA
+        // o que houve, pra mensagem chegar ao treinador em vez de virar "sem conexão".
+        function textoDaRespostaIA(data) {
+            if (!data || typeof data !== 'object') throw new Error('A IA não respondeu nada.');
+            if (data.error) throw new Error(`A IA recusou a consulta (${data.error.message || data.error.code || 'erro desconhecido'}).`);
+
+            let candidato = Array.isArray(data.candidates) ? data.candidates[0] : null;
+            if (!candidato) throw new Error('A IA respondeu sem conteúdo nenhum. Tente mandar de novo.');
+
+            let partes = (candidato.content && Array.isArray(candidato.content.parts)) ? candidato.content.parts : [];
+            let texto = partes.map(p => (p && typeof p.text === 'string') ? p.text : '').join('').trim();
+            if (texto) return texto;
+
+            // finishReason costuma dizer o porquê: SAFETY (filtro), MAX_TOKENS (cortou), etc.
+            let motivo = candidato.finishReason;
+            if (motivo === 'SAFETY') throw new Error('A IA bloqueou essa resposta por filtro de conteúdo. Tente reescrever a mensagem.');
+            if (motivo === 'MAX_TOKENS') throw new Error('A resposta da IA ficou longa demais e foi cortada. Tente uma pergunta mais curta.');
+            throw new Error(`A IA respondeu vazio${motivo ? ` (${motivo})` : ''}. Tente mandar de novo.`);
+        }
+
+        // Acha o primeiro objeto JSON COMPLETO do texto, contando chaves e ignorando as que estão
+        // dentro de strings. O jeito antigo (uma regex gulosa do primeiro "{" até o ÚLTIMO "}")
+        // grudava o JSON com qualquer comentário que viesse depois e o JSON.parse estourava —
+        // exatamente o que acontece quando a IA escreve algo como:
+        //   {"mensagem": "..."}  Obs: o formato {jogadorSai, jogadorEntra} não se aplica agora.
+        // Isso ficou muito mais frequente com o time em campo, porque aí o prompt pede os objetos
+        // de sugestão de substituição/formação e a IA tende a comentá-los fora do JSON.
+        function extrairJsonDaResposta(rawText) {
+            if (typeof rawText !== 'string') return null;
+            let texto = rawText.replace(/```(?:json)?/gi, ''); // tira a cerca de markdown
+
+            let inicio = texto.indexOf('{');
+            while (inicio !== -1) {
+                let profundidade = 0, dentroDeString = false, escapando = false;
+                for (let i = inicio; i < texto.length; i++) {
+                    let c = texto[i];
+                    if (escapando) { escapando = false; continue; }
+                    if (c === '\\') { escapando = true; continue; }
+                    if (c === '"') { dentroDeString = !dentroDeString; continue; }
+                    if (dentroDeString) continue;
+                    if (c === '{') profundidade++;
+                    else if (c === '}' && --profundidade === 0) {
+                        try { return JSON.parse(texto.slice(inicio, i + 1)); } catch (e) { break; }
+                    }
+                }
+                inicio = texto.indexOf('{', inicio + 1); // esse não fechou ou não era válido: tenta o próximo
+            }
+            return null;
+        }
+
+        // Traduz a falha da chamada à IA numa frase útil. chamarIA() já lança textos explicativos
+        // (sessão expirada, limite de consultas) — o que não pode é trocá-los por "sem conexão".
+        function mensagemErroIA(e) {
+            let msg = (e && e.message) ? e.message : String(e || '');
+            if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+                return 'Sem conexão com o servidor da IA agora. Confira a internet e tente de novo.';
+            }
+            return msg || 'Não foi possível falar com a IA agora. Tente de novo.';
+        }
+
         async function enviarChat(tipo) {
             let inputEl = document.getElementById(`input-${tipo}`);
             let texto = inputEl.value.trim();
@@ -52,7 +121,7 @@
 
             try {
                 let contexto = gerarResumoContexto();
-                let historicoChat = history.map(h => `${h.role === 'user' ? 'Treinador' : tipo}: ${h.text}`).join('\n');
+                let historicoChat = history.map(h => `${h.role === 'user' ? 'Treinador' : tipo}: ${h.text || ''}`).join('\n');
 
                 let promptFull = "";
 
@@ -136,12 +205,20 @@
                 let parts = [{ text: promptFull }];
                 imagensAnexadas.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } }));
 
-                const data = await chamarIA({ contents: [{ parts: parts }] });
-                let rawText = data.candidates[0].content.parts[0].text;
-                let jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                
-                if (jsonMatch) {
-                    let res = JSON.parse(jsonMatch[0]);
+                // A conversa COM a IA fica no seu próprio try: assim uma falha de rede/cota não é
+                // confundida com um erro nosso ao montar ou processar a resposta (e vice-versa).
+                let rawText;
+                try {
+                    const data = await chamarIA({ contents: [{ parts: parts }] });
+                    rawText = textoDaRespostaIA(data);
+                } catch (e) {
+                    history.push({ role: 'ai', text: '⚠️ ' + mensagemErroIA(e) });
+                    db[currentSave].chatHistory[tipo] = history; salvarDados(); renderizarChat(tipo);
+                    return;
+                }
+
+                let res = extrairJsonDaResposta(rawText);
+                if (res) {
                     let sugestaoSub = null;
                     if (tipo === 'auxiliar' && res.sugestaoSubstituicao && res.sugestaoSubstituicao.jogadorSai && res.sugestaoSubstituicao.jogadorEntra) {
                         sugestaoSub = { jogadorSai: res.sugestaoSubstituicao.jogadorSai, jogadorEntra: res.sugestaoSubstituicao.jogadorEntra, instrucao: res.sugestaoSubstituicao.instrucao || '', status: 'pendente' };
@@ -151,10 +228,14 @@
                         && (formacoesPreferidasChat || []).includes(res.sugestaoFormacao.novaFormacao)) {
                         sugestaoFormacao = { novaFormacao: res.sugestaoFormacao.novaFormacao, motivo: res.sugestaoFormacao.motivo || '', status: 'pendente' };
                     }
-                    history.push({ role: 'ai', text: res.mensagem, sugestaoSub: sugestaoSub, sugestaoFormacao: sugestaoFormacao });
+                    // Sem texto, a mensagem entraria no histórico com text undefined — e aí
+                    // renderizarChat quebrava em TODA renderização seguinte, deixando o chat
+                    // inutilizável pro resto do save. Se a IA esqueceu o campo, usa o texto cru.
+                    let textoMensagem = (typeof res.mensagem === 'string' && res.mensagem.trim()) ? res.mensagem : rawText;
+                    history.push({ role: 'ai', text: textoMensagem, sugestaoSub: sugestaoSub, sugestaoFormacao: sugestaoFormacao });
 
-                    if(quickContainer && res.opcoes_resposta) {
-                        quickContainer.innerHTML = res.opcoes_resposta.map(op => `<button class="btn-quick" onclick="usarQuickReply('${op.replace(/'/g, "\\'")}', 'input-${tipo}', 'enviarChat${tipo.charAt(0).toUpperCase() + tipo.slice(1)}')">${op}</button>`).join('');
+                    if(quickContainer && Array.isArray(res.opcoes_resposta)) {
+                        quickContainer.innerHTML = res.opcoes_resposta.map(op => String(op)).map(op => `<button class="btn-quick" onclick="usarQuickReply('${op.replace(/'/g, "\\'")}', 'input-${tipo}', 'enviarChat${tipo.charAt(0).toUpperCase() + tipo.slice(1)}')">${op}</button>`).join('');
                     }
 
                     // --- PROCESSAMENTO EXCLUSIVO DA DIRETORIA ---
@@ -192,12 +273,21 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     // Registra a conversa como um "ajuste" da partida em andamento, pro resumo pós-jogo
                     if (tipo === 'auxiliar' && db[currentSave].partidaAuxiliar && db[currentSave].partidaAuxiliar.status === 'em_andamento') {
                         if (!db[currentSave].partidaAuxiliar.ajustesFeitos) db[currentSave].partidaAuxiliar.ajustesFeitos = [];
-                        db[currentSave].partidaAuxiliar.ajustesFeitos.push({ pergunta: texto, resposta: res.mensagem, teveImagem: imagensAnexadas.length > 0, quando: Date.now() });
+                        db[currentSave].partidaAuxiliar.ajustesFeitos.push({ pergunta: texto, resposta: textoMensagem, teveImagem: imagensAnexadas.length > 0, quando: Date.now() });
                     }
+                } else {
+                    // A IA respondeu, só que fora do formato combinado. Mostrar o texto dela é
+                    // melhor do que descartar a resposta inteira e alegar queda de conexão.
+                    history.push({ role: 'ai', text: rawText });
                 }
                 db[currentSave].chatHistory[tipo] = history; salvarDados(); renderizarChat(tipo);
             } catch(e) {
-                history.push({ role: 'ai', text: "Sem resposta no momento. Conexão interrompida." }); renderizarChat(tipo);
+                // Se caiu aqui, a falha foi NOSSA (montar o prompt, processar a resposta, salvar) —
+                // não da conexão. Diz o que houve em vez de culpar a internet do treinador.
+                console.error('Erro ao processar a conversa do chat:', e);
+                history.push({ role: 'ai', text: '⚠️ Não consegui processar essa resposta. Detalhe: ' + ((e && e.message) ? e.message : e) });
+                try { db[currentSave].chatHistory[tipo] = history; salvarDados(); } catch (e2) { console.error('Falha ao salvar o chat:', e2); }
+                renderizarChat(tipo);
             }
         }
 
@@ -207,10 +297,15 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let history = db[currentSave].chatHistory[tipo] || [];
 
             log.innerHTML = history.map((h, idx) => {
-                let btnOuvir = h.role === 'ai' ? `<button class="btn-audio" onclick="lerTexto('${h.text.replace(/'/g, "\\'")}')">🔊</button>` : '';
+                // Nunca confiar que h.text é string: uma resposta antiga da IA sem o campo
+                // "mensagem" gravou text undefined no save, e o .replace abaixo estourava em toda
+                // renderização — o chat ficava travado pra sempre, mesmo recarregando a página.
+                // Tratar aqui conserta os saves que já foram atingidos por isso.
+                let texto = (typeof h.text === 'string') ? h.text : (h.text == null ? '' : String(h.text));
+                let btnOuvir = (h.role === 'ai' && texto) ? `<button class="btn-audio" onclick="lerTexto('${texto.replace(/'/g, "\\'")}')">🔊</button>` : '';
                 let cardSub = (tipo === 'auxiliar' && h.sugestaoSub) ? renderizarCardSugestaoSub(h.sugestaoSub, idx) : '';
                 let cardFormacao = (tipo === 'auxiliar' && h.sugestaoFormacao) ? renderizarCardSugestaoFormacao(h.sugestaoFormacao, idx) : '';
-                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${h.text}${btnOuvir}${cardSub}${cardFormacao}</div>`;
+                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${texto || '<i style="color:var(--text-muted)">(mensagem vazia)</i>'}${btnOuvir}${cardSub}${cardFormacao}</div>`;
             }).join('');
             log.scrollTop = log.scrollHeight;
         }
