@@ -140,6 +140,8 @@
                     else perfilDir = "CRISE! Você está rude, impaciente e ameaçadora. O clima é de profunda insatisfação e demissão iminente.";
 
                     promptFull = `Atue como ${nomeDiretorExibicao()}, o(a) Diretor(a) Executivo(a) do clube "${db[currentSave].nome}".\n${contexto}\nHistórico da Conversa:\n${historicoChat}\n
+        ${(typeof personalidadeDiretoriaTexto === 'function') ? personalidadeDiretoriaTexto() : ''}
+
         INSTRUÇÕES DA DIRETORIA E REGRAS DE NEGÓCIO:
         1. PERSONALIDADE ATUAL (Sua Nota de Prestígio é ${Math.round(notaDir)}/100): ${perfilDir}
         2. NEGOCIAÇÃO E LIMITE ANUAL ("PIRES NA MÃO"): O clube tem um limite máximo de 2 injeções financeiras extras por temporada (Já foram feitas ${db[currentSave].negociacoesDiretoria || 0} de 2). 
@@ -196,9 +198,12 @@
         🔄 MUDANÇA DE FORMAÇÃO: você também pode sugerir mudar a formação inteira do time (não gasta substituição, os mesmos 11 jogadores em campo só mudam de esquema). Se a leitura do jogo pedir isso claramente (ex: time sendo dominado no meio, precisa de mais gente na frente, etc), preencha "sugestaoFormacao" com uma formação DIFERENTE da atual (${partidaAtual.formacaoEscolhida}), escolhida EXATAMENTE entre as formações preferidas do treinador: ${formacoesPreferidasChat.join(', ')}. Nunca sugira uma formação fora dessa lista. Caso contrário deixe "sugestaoFormacao" como null. Não sugira isso à toa — é uma mudança grande.` : '';
 
                     promptFull = `Atue como ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}".\n${contexto}\n${escalacaoStr}\nHistórico da Conversa:\n${historicoChat}\n
+        ${(typeof personalidadeAuxiliarTexto === 'function') ? personalidadeAuxiliarTexto() : ''}
+
+        ${(typeof conceitosTaticosTexto === 'function') ? conceitosTaticosTexto() : ''}
+
         INSTRUÇÕES:
-        Responda à última mensagem do Treinador de forma coerente.
-        MUDE SUA PERSONALIDADE: Seja extremamente autêntico, cirúrgico e focado em TÁTICA. Dê respostas profundas sobre esquemas, movimentações e ajustes.
+        Responda à última mensagem do Treinador de forma coerente, usando a leitura por fases acima.
         ${blocoImagem}
         ${blocoSubstituicao}
 
@@ -517,7 +522,13 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let tagReserva = (p.ovr < ovrMedio && p.aparicoes < apMedia) ? " [RESERVA/JOVEM - pouco utilizado]" : "";
                 let habituaisStr = posicoesHabituaisTexto(p.nome, historicoPosicoes);
                 let tagHabitual = habituaisStr ? ` [Costuma jogar aqui neste time: ${habituaisStr}]` : "";
-                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${p.fadigaStr}${tagReserva}${tagHabitual}]`;
+                // Perfil (papel no grupo, fase, liderança) e números que importam na posição —
+                // é o que separa "OVR 74, nota 6.8" de uma leitura de gente do futebol.
+                let perfilStr = (typeof perfilJogadorIA === 'function') ? perfilJogadorIA(plantelAtivo.find(x => x.nome === p.nome)) : '';
+                let tagPerfil = perfilStr ? ` [Perfil: ${perfilStr}]` : "";
+                let numerosStr = (typeof estatisticasDetalhadasJogador === 'function') ? estatisticasDetalhadasJogador(p.nome) : '';
+                let tagNumeros = numerosStr ? ` [Números: ${numerosStr}]` : "";
+                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${p.fadigaStr}${tagReserva}${tagHabitual}${tagPerfil}${tagNumeros}]`;
             }).join(', ');
 
             return { texto: texto, formacoesPossiveisStr: JSON.stringify(FORMACOES_SIGLAS) };
@@ -1049,9 +1060,20 @@ ${textoRegrasCompatibilidadePosicional()}
             📸 IMAGENS ANEXADAS: ${imagemAdvEscalacao ? 'a imagem de escalação mostra o plantel/escalação provável do adversário (formação, jogadores, ratings, posição na liga, últimos resultados). ' : ''}${imagemAdvTatica ? 'a imagem de tática mostra as predefinições táticas do adversário.' : ''}
             Extraia dessas imagens: nome do time (se não foi informado manualmente), formação usada, nível aparente (ratings ATA/MED/DEF se visíveis) e qualquer coisa relevante pra montar um plano contra eles.` : `Não há prints anexados — use apenas o nome informado e seu conhecimento geral para montar um plano razoável.`;
 
+            // Retrospecto direto contra ESTE adversário: "não vencemos eles há 3 jogos" muda
+            // a preparação de uma partida de verdade, e a IA não tinha esse dado antes.
+            let retrospecto = (typeof retrospectoContraAdversario === 'function') ? retrospectoContraAdversario(nomeAdvManual) : '';
+
             let promptIA = `Você é ${nomeAuxiliarExibicao()}, o Analista de Desempenho e Estrategista do "${db[currentSave].nome}".
 
+            ${(typeof personalidadeAuxiliarTexto === 'function') ? personalidadeAuxiliarTexto() : ''}
+
+            ${(typeof conceitosTaticosTexto === 'function') ? conceitosTaticosTexto() : ''}
+
+            ${gerarResumoContexto()}
+
             🆚 ADVERSÁRIO DESTA PARTIDA: ${nomeAdvManual || 'a identificar pela imagem'}
+            ${retrospecto ? `📊 RETROSPECTO CONTRA ELES: ${retrospecto} Leve esse histórico em conta — se o time não vence esse adversário há tempo, algo no plano anterior não funcionou.` : ''}
             ${blocoImagens}
 
             MEU ELENCO: ${plantelInfo.texto}

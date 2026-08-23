@@ -279,7 +279,12 @@ function lerTexto(texto) {
             // --- NOVO: Boletim do Departamento Médico (lesões, suspensões e fadiga do elenco) ---
             let boletimMedico = (typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "";
 
-            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${Math.round(data.notaDiretoria)}/100 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr} | Departamento Médico: ${boletimMedico || "Sem novidades."}]`;
+            // O momento na competição e o clima do vestiário são metade do trabalho de um
+            // treinador de verdade — sem eles a IA falava do time olhando só OVR e placar.
+            let momento = (typeof contextoCompeticaoIA === 'function') ? contextoCompeticaoIA() : '';
+            let vestiario = (typeof contextoVestiarioIA === 'function') ? contextoVestiarioIA() : '';
+
+            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${Math.round(data.notaDiretoria)}/100 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr} | Departamento Médico: ${boletimMedico || "Sem novidades."}]${momento ? `\n[MOMENTO DO TIME NA TEMPORADA: ${momento}]` : ''}${vestiario ? `\n[CLIMA DO VESTIÁRIO: ${vestiario}]` : ''}`;
         }
 
         function toggleModoVideo() {
