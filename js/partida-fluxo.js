@@ -65,22 +65,62 @@ function _montarTitularesAutomaticos(formacao) {
     return { titulares, usados };
 }
 
-// Banco por relevância, sempre com um goleiro reserva e no máximo 9 nomes.
+// Agrupa a posição de carteirinha numa das 3 grandes linhas do time — só serve pra montar o
+// banco com profundidade realista (defesa/meio/ataque bem representados), não pra escalar
+// (isso é posicaoCompativelComRole, que é mais fino). Goleiro fica de fora: tem regra própria.
+function _linhaAmplaDaPosicao(posicao) {
+    let prefixo = String(posicao || '').split('/')[0];
+    if (prefixo === 'Zagueiro' || prefixo === 'Lateral') return 'DEF';
+    if (prefixo === 'Volante' || prefixo === 'MeioCampo') return 'MEI';
+    if (prefixo === 'Ponta' || prefixo === 'Atacante') return 'ATA';
+    return null;
+}
+
+// Banco com profundidade realista, sempre com um goleiro reserva e no máximo 9 nomes.
+// Um banco de verdade cobre o time inteiro — antes esta função só pegava os melhores OVRs
+// restantes na ordem em que apareciam no elenco, então times com elenco forte na zaga
+// acabavam com o banco inteiro de zagueiro e nenhuma opção de ataque. Agora as 8 vagas de
+// linha (fora o goleiro) são distribuídas em rodízio entre defesa/meio/ataque — sempre o
+// melhor OVR disponível DENTRO de cada linha — e uma linha sem mais opções simplesmente cede
+// a vaga às outras, sem deixar o banco mais curto que precisa.
 function _montarBancoAutomatico(usados) {
     let elenco = _plantelDisponivelParaEscalar();
     let restantes = elenco.filter(p => !usados.has(p.nome)).sort((a, b) => {
         if (_jogadorIndisponivel(a) !== _jogadorIndisponivel(b)) return _jogadorIndisponivel(a) ? 1 : -1;
         return b.ovr - a.ovr;
     });
+
     let banco = [];
     let goleiro = restantes.find(p => String(p.posicao).split('/')[0] === 'Goleiro');
-    if (goleiro) banco.push({ nome: goleiro.nome, posicao: goleiro.posicao, papel: 'Goleiro reserva' });
+    if (goleiro) banco.push(goleiro);
+
+    let jaNoBanco = new Set(banco.map(p => p.nome));
+    let porLinha = { DEF: [], MEI: [], ATA: [] };
     restantes.forEach(p => {
-        if (banco.length < 9 && !banco.some(b => b.nome === p.nome)) {
-            banco.push({ nome: p.nome, posicao: p.posicao, papel: '' });
-        }
+        let linha = _linhaAmplaDaPosicao(p.posicao);
+        if (linha && !jaNoBanco.has(p.nome)) porLinha[linha].push(p);
     });
-    return banco.slice(0, 9);
+
+    let ordemLinhas = ['DEF', 'MEI', 'ATA'];
+    let ponteiro = { DEF: 0, MEI: 0, ATA: 0 };
+    let seguiu = true;
+    while (banco.length < 9 && seguiu) {
+        seguiu = false;
+        for (let linha of ordemLinhas) {
+            if (banco.length >= 9) break;
+            let lista = porLinha[linha];
+            if (ponteiro[linha] < lista.length) {
+                banco.push(lista[ponteiro[linha]]);
+                ponteiro[linha]++;
+                seguiu = true;
+            }
+        }
+    }
+
+    return ordenarBancoPorPosicao(banco.map(p => ({
+        nome: p.nome, posicao: p.posicao,
+        papel: String(p.posicao).split('/')[0] === 'Goleiro' ? 'Goleiro reserva' : ''
+    })));
 }
 
 // Cria a partida em modo "montando" — a partir daqui tudo acontece no campinho.
@@ -172,6 +212,14 @@ function garantirGoleiroNoBanco(reservas, escalacao) {
     let novo = lista.slice();
     novo.unshift({ nome: goleiro.nome, posicao: goleiro.posicao, papel: 'Goleiro reserva' });
     return novo.slice(0, 9);
+}
+
+// Reordena qualquer lista de reservas do goleiro ao atacante (mesmo padrão da aba "Todos os
+// Jogadores" do seletor de troca). Aplicado tanto no banco automático quanto no banco que a IA
+// sugere — a IA pode devolver a ordem que quiser, mas a leitura na tela sempre sai organizada.
+function ordenarBancoPorPosicao(reservas) {
+    if (!Array.isArray(reservas)) return reservas;
+    return reservas.slice().sort((a, b) => (ordemPosicoes[a && a.posicao] || 8) - (ordemPosicoes[b && b.posicao] || 8));
 }
 
 // -------------------------------------------------------------------------------------
@@ -279,10 +327,10 @@ function aplicarEscalacaoLida(res, loader) {
 
     // O print corta o goleiro reserva — completa aqui
     let { banco: bancoFinal, adicionado } = completarGoleiroReserva(Object.values(titulares).map(t => t.nome), bancoNomes);
-    let banco = bancoFinal.filter(Boolean).map(nome => {
+    let banco = ordenarBancoPorPosicao(bancoFinal.filter(Boolean).map(nome => {
         let p = elenco.find(x => x.nome === nome);
         return { nome: nome, posicao: p ? p.posicao : '', papel: nome === adicionado ? 'Goleiro reserva (completado)' : '' };
-    });
+    }));
 
     // Se faltou alguém pra fechar os 11, completa pelo elenco em vez de deixar buraco
     let faltando = coords.filter(c => !titulares[c.role]);
@@ -326,10 +374,10 @@ function usarSugestaoDoAuxiliar() {
     if (campoAdv && !campoAdv.value.trim() && sug.adversarioNome) campoAdv.value = sug.adversarioNome;
 
     let elenco = _plantelDisponivelParaEscalar();
-    let banco = (sug.reservas || []).filter(r => r && r.nome).slice(0, 9).map(r => {
+    let banco = ordenarBancoPorPosicao((sug.reservas || []).filter(r => r && r.nome).slice(0, 9).map(r => {
         let p = elenco.find(x => x.nome === r.nome);
         return { nome: r.nome, posicao: p ? p.posicao : (r.posicao || ''), papel: r.papel || '' };
-    });
+    }));
 
     let criada = _criarPartidaEmMontagem({
         formacao: sug.tatica ? sug.tatica.esquema : null,
