@@ -408,6 +408,54 @@ async function cancelarPartidaEmAndamento() {
 // ORQUESTRAÇÃO DA ABA
 // -------------------------------------------------------------------------------------
 
+// Placar de confronto no topo da partida. Antes era uma caixa colorida com uma frase corrida
+// ("EM ANDAMENTO: Time vs Adversário") e a tática espremida numa linha separada por bolinhas —
+// ilegível e sem nada de dia de jogo. Agora: faixa de estado, os dois times frente a frente e
+// o pacote tático em fichas, cada escolha na sua.
+function montarPlacarConfronto(elemento, dados, partida, montando) {
+    elemento.className = 'matchday-header';
+    // O elemento nasce com estilos inline no HTML; zera pra classe assumir o visual.
+    elemento.style.background = '';
+    elemento.style.border = '';
+    elemento.style.padding = '';
+
+    let subsUsadas = (partida.substituicoes || []).length;
+    let faixa = montando
+        ? `<span class="matchday-estado">📋 Montando a escalação</span>
+           <span class="matchday-subs">Ainda dá pra mexer à vontade</span>`
+        : `<span class="matchday-estado"><span class="matchday-ponto-vivo"></span> Ao vivo</span>
+           <span class="matchday-subs ${subsUsadas >= 5 ? 'esgotado' : ''}">Substituições <strong>${subsUsadas}/5</strong></span>`;
+
+    // Cada escolha tática vira uma ficha própria — a formação em destaque, que é o que o
+    // treinador mais olha durante o jogo.
+    let t = partida.tatica;
+    let chips = [`<span class="matchday-chip matchday-chip-destaque">${partida.formacaoEscolhida || '—'}</span>`];
+    if (t && typeof predefinicaoPorId === 'function') {
+        let pre = predefinicaoPorId(t.predefinicao);
+        let est = (typeof estiloArmacaoPorId === 'function') ? estiloArmacaoPorId(t.estiloArmacao) : null;
+        let faixaDef = (typeof faixaAbordagem === 'function') ? faixaAbordagem(t.abordagemDefensiva) : null;
+        if (pre && pre.nome) chips.push(`<span class="matchday-chip"><span>Estilo</span> ${pre.nome}</span>`);
+        if (est && est.nome) chips.push(`<span class="matchday-chip"><span>Armação</span> ${est.nome}</span>`);
+        if (faixaDef && faixaDef.nome) chips.push(`<span class="matchday-chip"><span>Defesa</span> ${faixaDef.nome} (${t.abordagemDefensiva})</span>`);
+    }
+    if (partida.diretriz) chips.push(`<span class="matchday-chip"><span>Diretriz</span> ${partida.diretriz}</span>`);
+
+    elemento.innerHTML = `
+        <div class="matchday-faixa ${montando ? 'matchday-faixa-montando' : 'matchday-faixa-aovivo'}">${faixa}</div>
+        <div class="matchday-confronto">
+            <div class="matchday-time">
+                <span class="matchday-time-rotulo">Nosso time</span>
+                <span class="matchday-time-nome">${dados.nome || '—'}</span>
+            </div>
+            <span class="matchday-vs">VS</span>
+            <div class="matchday-time matchday-time-adv">
+                <span class="matchday-time-rotulo">Adversário</span>
+                <span class="matchday-time-nome">${partida.adversarioNome || '—'}</span>
+            </div>
+        </div>
+        <div class="matchday-tatica">${chips.join('')}</div>`;
+}
+
 function renderizarAbaSalvarPartida() {
     let d = db[currentSave];
     if (!d) return;
@@ -444,23 +492,7 @@ function renderizarAbaSalvarPartida() {
     resultado.style.display = montando ? 'none' : 'block';
 
     let banner = document.getElementById('partida-banner');
-    if (banner) {
-        let t = partida.tatica;
-        let descTatica = (t && typeof predefinicaoPorId === 'function')
-            ? `${predefinicaoPorId(t.predefinicao).nome} • ${partida.formacaoEscolhida} • ${estiloArmacaoPorId(t.estiloArmacao).nome} • ${t.abordagemDefensiva}/100 (${faixaAbordagem(t.abordagemDefensiva).nome})`
-            : partida.formacaoEscolhida;
-        if (montando) {
-            banner.style.background = 'rgba(232,184,75,0.1)';
-            banner.style.border = '1px solid var(--primary)';
-            banner.innerHTML = `📋 <strong>Montando a escalação</strong> — ${d.nome} vs <strong>${partida.adversarioNome}</strong>
-            <br><span style="font-size:12px; color:var(--text-muted);">Tática: ${descTatica}</span>`;
-        } else {
-            banner.style.background = 'rgba(226,75,75,0.1)';
-            banner.style.border = '1px solid var(--danger)';
-            banner.innerHTML = `🔴 <strong>EM ANDAMENTO:</strong> ${d.nome} vs <strong>${partida.adversarioNome}</strong>
-            <br><span style="font-size:12px; color:var(--text-muted);">Tática em campo: ${descTatica}</span>`;
-        }
-    }
+    if (banner) montarPlacarConfronto(banner, d, partida, montando);
 
     let dica = document.getElementById('partida-dica-campinho');
     if (dica) {

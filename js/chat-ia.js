@@ -688,7 +688,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     ${subs.length ? `<h4 style="margin:18px 0 8px 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Alterações (${subs.length}/5)</h4><div style="display:flex; flex-direction:column; gap:6px;">${subsHtml}</div>` : ''}
 
                     <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
-                        <button onclick="mudarAba('tab-salvar-partida')" style="flex:1; min-width:170px; background:var(--primary); color:black; padding:12px; font-size:14px;">💾 Ir pra Salvar Partida</button>
+                        <button onclick="mudarAba('tab-salvar-partida')" style="flex:1; min-width:170px; background:var(--primary); color:black; padding:12px; font-size:14px;">⚽ Ir pro Dia de Jogo</button>
                         ${!montando ? `<button onclick="pedirSugestaoAoVivo()" style="background:var(--accent); color:white;">🤖 Pedir sugestão</button>` : ''}
                     </div>
                 </div>`;
@@ -984,15 +984,28 @@ ${textoRegrasCompatibilidadePosicional()}
             if (boxBanco) {
                 if (partida && Array.isArray(partida.banco) && partida.banco.length > 0) {
                     boxBanco.style.display = 'block';
-                    boxBanco.innerHTML = `<h3 style="margin:0 0 12px 0; font-size:15px; color:var(--accent);">🪑 Banco de Reservas <span style="font-weight:normal; color:var(--text-muted); font-size:12px;">(clique pra trocar)</span></h3>
+                    let fora = partida.jogadoresForaDaPartida || [];
+                    let aoVivo = partida.status === 'em_andamento';
+                    let disponiveis = partida.banco.filter(r => r.nome && !fora.includes(r.nome)).length;
+
+                    boxBanco.innerHTML = `<div class="banco-cabecalho">
+                            <h3>🪑 Banco de Reservas</h3>
+                            <span class="banco-contagem">${disponiveis} de ${partida.banco.length} disponíveis · clique pra ${aoVivo ? 'declarar substituição' : 'trocar'}</span>
+                        </div>
                         <div class="banco-reservas-grid">
                             ${partida.banco.map((r, idx) => {
                                 let jogBD = db[currentSave].plantel.find(p => p.nome.toLowerCase().includes((r.nome || '').toLowerCase().trim()));
-                                let txtOvr = jogBD ? ` · OVR ${jogBD.ovr}` : '';
-                                return `<div class="banco-reserva-item" onclick="abrirSeletorTrocaBanco(${idx})">
-                                    <strong>${r.nome}</strong>
-                                    <span>${r.posicao || ''}${txtOvr}</span>
-                                    ${r.papel ? `<span class="banco-reserva-papel">${r.papel}</span>` : ''}
+                                // Quem já saiu da partida não volta mais (regra do futebol) — o banco
+                                // precisa mostrar isso, senão o treinador clica achando que é opção.
+                                let jaSaiu = fora.includes(r.nome);
+                                let posTxt = (jogBD ? jogBD.posicao : r.posicao) || '';
+                                return `<div class="banco-reserva-item ${jaSaiu ? 'indisponivel' : ''}" ${jaSaiu ? '' : `onclick="abrirSeletorTrocaBanco(${idx})"`}>
+                                    <div class="banco-reserva-ovr">${jogBD ? jogBD.ovr : '?'}</div>
+                                    <div class="banco-reserva-info">
+                                        <strong>${r.nome}</strong>
+                                        <span>${posTxt}</span>
+                                        ${jaSaiu ? `<span class="banco-reserva-papel" style="color:var(--danger);">Já saiu da partida</span>` : (r.papel ? `<span class="banco-reserva-papel">${r.papel}</span>` : '')}
+                                    </div>
                                 </div>`;
                             }).join('')}
                         </div>`;
