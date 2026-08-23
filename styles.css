@@ -979,3 +979,128 @@ th { background-image: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,
     border: 2px solid transparent; background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover { background: #445D50; background-clip: padding-box; }
+
+/* =====================================================================================
+   DASHBOARD REDESENHADO — FAIXA DO CLUBE + SITUAÇÃO DA TEMPORADA
+   O topo antes era um título solto, uma fileira de 5 números iguais e um card de forma.
+   Não contava história nenhuma: dava pra olhar e não saber se o time estava bem ou mal.
+   Agora o topo responde de cara as perguntas que um treinador faz ao abrir o jogo —
+   quem somos, como estamos, e o que os números dizem da temporada.
+   ===================================================================================== */
+
+.clube-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 24px;
+    padding: 20px 26px;
+    margin-bottom: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background-image:
+        linear-gradient(90deg, rgba(232,184,75,0.10), rgba(232,184,75,0) 55%),
+        var(--brilho-superficie),
+        linear-gradient(180deg, #1B2721, var(--panel-bg));
+    box-shadow: inset 0 1px 0 var(--rim-luz), var(--sombra-card);
+    /* Fio dourado na borda esquerda: dá a leitura de "identidade do clube" na faixa. */
+    border-left: 3px solid var(--primary);
+}
+.clube-hero-nome {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 30px;
+    line-height: 1.05;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 26px rgba(232,184,75,0.25);
+}
+.clube-hero-meta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+    margin-top: 7px; font-size: 13px; color: var(--text-muted);
+}
+.clube-hero-meta strong { color: var(--text-main); font-weight: 600; }
+.clube-hero-meta .hero-sep { opacity: 0.4; }
+
+/* Bloco da forma recente: rótulo, bolinhas e a frase do momento do time. */
+.clube-hero-forma { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+.clube-hero-forma-label {
+    font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.09em; font-weight: bold;
+}
+.clube-hero-momento { font-size: 12.5px; font-weight: 600; color: var(--text-main); }
+.clube-hero-momento.bom { color: #4CAF7A; }
+.clube-hero-momento.ruim { color: var(--danger); }
+.clube-hero-momento.neutro { color: var(--warning); }
+
+.btn-iniciar-partida {
+    padding: 14px 22px; font-size: 14px; font-weight: 700;
+    background: linear-gradient(180deg, var(--primary-hover), var(--primary));
+    color: #14150F; border: none; border-radius: 10px; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 10px 24px -12px var(--glow-primary);
+    white-space: nowrap;
+}
+
+/* --- Cartões de situação da temporada --- */
+.situacao-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.situacao-card {
+    background-image: var(--brilho-superficie);
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border); border-radius: 12px; padding: 15px 18px;
+    box-shadow: inset 0 1px 0 var(--rim-luz), var(--sombra-card);
+    display: flex; flex-direction: column; gap: 9px; min-width: 0;
+}
+.situacao-card-titulo {
+    font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.09em; font-weight: bold;
+}
+.situacao-card-numero {
+    font-family: var(--font-display); font-size: 30px; line-height: 1; color: white; letter-spacing: 0.02em;
+}
+.situacao-card-nota { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+
+/* Barra de aproveitamento: o número sozinho não diz se 48% é bom — a faixa colorida diz. */
+.barra-aproveitamento { height: 7px; border-radius: 4px; background: var(--bg-dark); overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.55); }
+.barra-aproveitamento-fill { height: 100%; border-radius: 4px; transition: width 0.5s, background 0.4s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
+
+/* Placar de gols: pró, contra e saldo lado a lado, como numa tabela de campeonato. */
+.gols-split { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.gols-split-item { display: flex; flex-direction: column; gap: 2px; }
+.gols-split-item span { font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; font-weight: bold; }
+.gols-split-item strong { font-family: var(--font-display); font-size: 22px; line-height: 1; }
+
+/* Casa x fora: duas barras comparáveis batem o olho melhor que dois números soltos. */
+.mando-linha { display: flex; align-items: center; gap: 9px; font-size: 11.5px; }
+.mando-linha-rotulo { width: 44px; color: var(--text-muted); flex: 0 0 auto; }
+.mando-linha-barra { flex: 1; height: 6px; border-radius: 3px; background: var(--bg-dark); overflow: hidden; min-width: 0; }
+.mando-linha-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+.mando-linha-valor { width: 34px; text-align: right; font-family: var(--font-display); color: var(--text-main); flex: 0 0 auto; }
+
+/* Título de seção com fio — separa "identidade + situação" de "análise detalhada". */
+.secao-titulo {
+    display: flex; align-items: center; gap: 12px; margin: 0 0 12px 0;
+}
+.secao-titulo h2 { margin: 0; font-size: 15px; color: var(--text-main); white-space: nowrap; }
+.secao-titulo::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+}
+/* Quando a seção tem controles à direita (filtros), o fio decorativo fica ENTRE o título e
+   os controles — sem isso ele sobraria depois deles e o alinhamento ficava torto. */
+.secao-titulo-com-acoes { justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+/* Ordem visual: título, fio esticando, controles. Sem os "order" o fio cairia depois dos
+   controles (é um ::after) e empurraria o título pro meio da linha. */
+.secao-titulo-com-acoes h2 { order: -2; }
+.secao-titulo-com-acoes::after { order: -1; min-width: 20px; }
+
+@media screen and (max-width: 1150px) {
+    .situacao-grid { grid-template-columns: 1fr 1fr; }
+}
+@media screen and (max-width: 900px) {
+    .clube-hero { grid-template-columns: 1fr; gap: 16px; padding: 18px; }
+    .clube-hero-nome { font-size: 24px; }
+    .btn-iniciar-partida { width: 100%; }
+}
+@media screen and (max-width: 560px) {
+    .situacao-grid { grid-template-columns: 1fr; }
+}
