@@ -1,3 +1,62 @@
+        // =====================================================================================
+        // FEED SOCIAL — VISUAL TIPO INSTAGRAM
+        // =====================================================================================
+        // Cada post ganha uma "capa" (gradiente + emoji temático) em vez de só texto corrido —
+        // não dá pra buscar foto de banco de imagens em tempo real (exigiria chave de API paga),
+        // então a capa é 100% CSS/gradiente, sem depender de internet. A categoria decide qual
+        // capa usar e é herdada do tipo de evento (vitória, derrota, contratação, lesão...).
+        const CATEGORIAS_POST_SOCIAL = {
+            vitoria:     { emoji: '🏆', label: 'Vitória',             grad: 'linear-gradient(155deg, #241a03 0%, #6b4e12 48%, #E8B84B 100%)' },
+            campeao:     { emoji: '🏆', label: 'Título',              grad: 'linear-gradient(155deg, #2b1e00 0%, #8a6412 45%, #F2C868 100%)' },
+            derrota:     { emoji: '🌧️', label: 'Derrota',             grad: 'linear-gradient(155deg, #04070a 0%, #131c26 55%, #33465a 100%)' },
+            empate:      { emoji: '⚖️', label: 'Empate',              grad: 'linear-gradient(155deg, #0e1317 0%, #223038 55%, #445a5f 100%)' },
+            contratacao: { emoji: '✍️', label: 'Contratação',         grad: 'linear-gradient(155deg, #061711 0%, #10422a 50%, #24b374 100%)' },
+            venda:       { emoji: '👋', label: 'Saída',                grad: 'linear-gradient(155deg, #060f17 0%, #123049 50%, #3a86c4 100%)' },
+            lesao:       { emoji: '🏥', label: 'Departamento Médico',  grad: 'linear-gradient(155deg, #190607 0%, #4a1214 50%, #E24B4B 100%)' },
+            capitao:     { emoji: '🎖️', label: 'Vestiário',           grad: 'linear-gradient(155deg, #221902 0%, #6b4e12 50%, #E8B84B 100%)' },
+            financeiro:  { emoji: '💰', label: 'Bastidores',           grad: 'linear-gradient(155deg, #041213 0%, #0f3a3d 50%, #33b6bd 100%)' },
+            corneta:     { emoji: '🔥', label: 'Repercussão',          grad: 'linear-gradient(155deg, #190800 0%, #5c1d05 50%, #D9822B 100%)' },
+            geral:       { emoji: '📰', label: 'Notícia',              grad: 'linear-gradient(155deg, #0D1512 0%, #182420 55%, #2A3B34 100%)' }
+        };
+
+        // Classifica um post pelo texto do título — mesma ideia do isMercado que já existia,
+        // só que cobrindo todas as categorias agora (não só mercado). Roda sobre QUALQUER post
+        // antigo/novo, então nenhum evento já disparado pelo app precisa ser reescrito.
+        function categoriaDoPost(titulo) {
+            let t = String(titulo || '').toUpperCase();
+            if (t.includes('CAMPEÃO') || t.includes('TROFÉU') || t.includes('TÍTULO')) return 'campeao';
+            if (/VIT[ÓO]RIA|GIGANTE|TÁTICA PERFEITA|DONOS DA BOLA|ATROPELO|HEROICO/.test(t)) return 'vitoria';
+            if (/DECEP[ÇC][ÃA]O|TROPE[ÇC]|ALERTA LIGADO|NOITE DESASTROSA|TORCIDA NA BRONCA/.test(t)) return 'derrota';
+            if (/TUDO IGUAL|TRANSPIRA[ÇC][ÃA]O|PARED[ÕO]ES|EMPATE/.test(t)) return 'empate';
+            if (t.includes('LESÃO') || t.includes('LESAO') || t.includes('BAIXA NO ELENCO') || t.includes('RECAÍDA') || t.includes('DM VAZIO') || t.includes('QUEBRA DE COMBINADO') || t.includes('DESCANSO PREVENTIVO') || t.includes('🏥')) return 'lesao';
+            if (t.includes('CAPITÃO') || t.includes('BRAÇADEIRA')) return 'capitao';
+            if (t.includes('VEND') || t.includes('NEGÓCIO FECHADO') || t.includes('VITRINE') || t.includes('RODAGEM') || t.includes('FIM DE EMPRÉSTIMO') || t.includes('DEVOLVIDO') || t.includes('ADEUS')) return 'venda';
+            if (t.includes('REFORÇO') || t.includes('HERE WE GO') || t.includes('ASSINA') || t.includes('RENOVOU') || t.includes('CONTRATO') || t.includes('LIVRE') || t.includes('CHUTEIRAS') || t.includes('DE VOLTA') || t.includes('SEGUE CONOSCO')) return 'contratacao';
+            if (t.includes('COFRES') || t.includes('VERBA') || t.includes('ACORDO') || t.includes('INVESTIMENTO') || t.includes('APERTO NO CAIXA') || t.includes('PATROCÍNIO')) return 'financeiro';
+            if (t.includes('POLÊMICA') || t.includes('COBRA') || t.includes('PRESSÃO')) return 'corneta';
+            return 'geral';
+        }
+
+        function heroDoPost(post) {
+            let cat = post.categoria && CATEGORIAS_POST_SOCIAL[post.categoria] ? post.categoria : categoriaDoPost(post.legenda || post.texto);
+            return CATEGORIAS_POST_SOCIAL[cat] || CATEGORIAS_POST_SOCIAL.geral;
+        }
+
+        // 25000 -> "25 mil" — número de curtidas fica mais Instagram e menos planilha.
+        function formatarLikesCompacto(n) {
+            n = Number(n) || 0;
+            if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1).replace('.', ',') + ' mil';
+            return String(n);
+        }
+
+        function toggleCaptionPost(id) {
+            let el = document.getElementById(`caption-texto-${id}`);
+            let btn = document.getElementById(`caption-vermais-${id}`);
+            if (!el || !btn) return;
+            let aberto = el.classList.toggle('insta-caption-aberta');
+            btn.innerText = aberto ? 'ver menos' : 'ver mais';
+        }
+
         function renderizarSocialFeed() {
             renderizarTermometroUI();
             let feed = db[currentSave].socialFeed || [];
@@ -13,49 +72,57 @@
 
             container.innerHTML = feedExibido.map(post => {
                 let divResposta = '';
-                let btnResponder = '';
                 let likedClass = post.curtidoPeloUser ? 'liked' : '';
                 let heartIcon = post.curtidoPeloUser ? '❤️' : '🤍';
-                
+                let hero = heroDoPost(post);
+
                 if (post.respostaUser) {
-                    let impTorcida = post.impactoTorcida > 0 ? `<span style="color:var(--primary);">Torcida: +${post.impactoTorcida}%</span>` : `<span style="color:var(--danger);">Torcida: ${post.impactoTorcida}%</span>`;
-                    let impDir = post.impactoDiretoria > 0 ? `<span style="color:var(--primary);">Diretoria: +${post.impactoDiretoria}</span>` : `<span style="color:var(--danger);">Diretoria: ${post.impactoDiretoria}</span>`;
-                    
+                    let impTorcida = post.impactoTorcida > 0 ? `<span style="color:var(--primary);">Torcida +${post.impactoTorcida}%</span>` : `<span style="color:var(--danger);">Torcida ${post.impactoTorcida}%</span>`;
+                    let impDir = post.impactoDiretoria > 0 ? `<span style="color:var(--primary);">Diretoria +${post.impactoDiretoria}</span>` : `<span style="color:var(--danger);">Diretoria ${post.impactoDiretoria}</span>`;
+
                     divResposta = `
-                    <div class="reply-history">
-                        <strong>🗣️ Sua Resposta:</strong> "${post.respostaUser}"
-                        <hr style="border-color: rgba(0, 163, 255, 0.2); margin: 8px 0;">
-                        <span style="font-size: 13px; color: var(--text-muted);">Reação da comunidade: <em>"${post.respostaComunidade}"</em></span>
-                        <div class="reply-impact">${impTorcida} | ${impDir}</div>
+                    <div class="insta-comentarios">
+                        <div class="insta-comentario"><span class="insta-comentario-avatar">🧑‍💼</span> <strong>Você</strong> ${post.respostaUser}</div>
+                        <div class="insta-comentario insta-comentario-comunidade"><span class="insta-comentario-avatar">💬</span> <strong>Comunidade</strong> ${post.respostaComunidade}</div>
+                        <div class="insta-impacto">${impTorcida} · ${impDir}</div>
                     </div>`;
-                } else {
-                    btnResponder = `<div class="tweet-action-btn" onclick="toggleReplyBox('${post.id}')">💬 Responder</div>`;
                 }
 
+                // Legenda curta em destaque + o texto completo (se existir) escondido atrás de
+                // "ver mais" — era um parágrafo inteiro sempre visível, cansativo de rolar.
+                let legenda = formatarTextoTweet(post.legenda || post.texto || '');
+                let detalheTxt = post.detalhe ? formatarTextoTweet(post.detalhe) : '';
+
                 return `
-                    <div class="tweet-card">
-                        <div class="tweet-avatar">${post.emoji_avatar || '👤'}</div>
-                        <div class="tweet-content">
-                            <div class="tweet-header">
-                                <span class="tweet-name">${post.perfil_nome}</span>
-                                <span class="tweet-handle">${post.arroba}</span>
+                    <div class="insta-card">
+                        <div class="insta-topo">
+                            <div class="insta-avatar">${post.emoji_avatar || '👤'}</div>
+                            <div class="insta-topo-nomes">
+                                <span class="insta-nome">${post.perfil_nome}</span>
+                                <span class="insta-arroba">${post.arroba}</span>
                             </div>
-                            <div class="tweet-text">${formatarTextoTweet(post.texto)}</div>
-                            <div class="tweet-actions">
-                                ${btnResponder}
-                                <div class="tweet-action-btn ${likedClass}" onclick="curtirPostSocial('${post.id}')">${heartIcon} Curtir</div>
-                                <div class="tweet-action-btn">🔄 ${Math.floor((post.likes || 100) / 3)}</div>
-                            </div>
-                            <div id="reply-box-${post.id}" class="reply-box">
-                                <!-- Botões Dinâmicos gerados pela IA para este post específico -->
-                                <div class="quick-replies" id="quick-social-${post.id}" style="margin-bottom: 10px;">
-                                    ${post.opcoesRapidas ? post.opcoesRapidas.map(op => `<button class="btn-quick" onclick="usarQuickSocial('${post.id}', '${op.replace(/'/g, "\\'")}')">${op}</button>`).join('') : ''}
-                                </div>
-                                <input type="text" id="input-reply-${post.id}" placeholder="Digite ou escolha uma opção rápida acima...">
-                                <button onclick="enviarRespostaSocial('${post.id}')">Enviar 🚀</button>
-                            </div>
-                            ${divResposta}
+                            <span class="insta-categoria-chip">${hero.emoji} ${hero.label}</span>
                         </div>
+                        <div class="insta-hero" style="background:${hero.grad}">
+                            <span class="insta-hero-emoji">${hero.emoji}</span>
+                        </div>
+                        <div class="insta-acoes">
+                            <span class="insta-icone ${likedClass}" onclick="curtirPostSocial('${post.id}')" title="Curtir">${heartIcon}</span>
+                            <span class="insta-icone" onclick="toggleReplyBox('${post.id}')" title="Comentar">💬</span>
+                            <span class="insta-icone-compartilhar">🔁 ${formatarLikesCompacto(Math.floor((post.likes || 100) / 3))}</span>
+                        </div>
+                        <div class="insta-curtidas">${formatarLikesCompacto(post.likes || 100)} curtidas${post.curtidoPeloUser ? ' · você curtiu' : ''}</div>
+                        <div class="insta-caption">
+                            <strong>${post.perfil_nome}</strong> ${legenda}${detalheTxt ? ` <span class="insta-detalhe-extra" id="caption-texto-${post.id}">${detalheTxt}</span> <span class="insta-vermais" id="caption-vermais-${post.id}" onclick="toggleCaptionPost('${post.id}')">ver mais</span>` : ''}
+                        </div>
+                        <div id="reply-box-${post.id}" class="reply-box insta-reply-box">
+                            <div class="quick-replies" id="quick-social-${post.id}" style="margin-bottom: 10px;">
+                                ${post.opcoesRapidas ? post.opcoesRapidas.map(op => `<button class="btn-quick" onclick="usarQuickSocial('${post.id}', '${op.replace(/'/g, "\\'")}')">${op}</button>`).join('') : ''}
+                            </div>
+                            <input type="text" id="input-reply-${post.id}" placeholder="Comente como o treinador...">
+                            <button onclick="enviarRespostaSocial('${post.id}')">Enviar 🚀</button>
+                        </div>
+                        ${divResposta}
                     </div>`;
             }).join('');
 
@@ -195,135 +262,112 @@
             salvarDados(); renderizarSocialFeed();
         }
 
+        // Antes gerava 3 posts genéricos (partida/mercado/corneta) TODA VEZ que uma partida
+        // terminava — em cima do post de resultado que adicionarNoticiaAutomatica já cria, virava
+        // um feed poluído de 4 postagens por jogo, a maioria dizendo a mesma coisa. O resultado em
+        // si já tem post garantido (ver salvarPartida); esta função agora só entra em cena depois
+        // de uma DERROTA, pra simular a torcida cornetando — e gera só 1 post, curto, tipo legenda
+        // de Instagram, não um parágrafo.
         async function gerarPostsSocial(contextoExtra = "Pós-Jogo") {
-            let btn = document.getElementById('btn-forcar-posts');
             let loader = document.getElementById('loader-social');
-            if(btn) btn.disabled = true;
             if(loader) loader.style.display = 'block';
 
             let resumoUltimos = db[currentSave].partidas.slice(-2).map(p => `${p.adversario} (${p.golsPro}x${p.golsContra})`).join(' | ');
-            let plantelBaixo = db[currentSave].plantel.filter(p => p.status === 'Ativo').slice(0, 5).map(p => `${p.nome} (OVR ${p.ovr})`).join(', ');
-            let historicoCurtidas = db[currentSave].historicoCurtidas || "Nenhum dado ainda.";
-
             let plantelAtivo = db[currentSave].plantel.filter(p => p.status === 'Ativo');
-            // Filtra apenas jogadores importantes (OVR >= 72 ou titulares) para a torcida cobrar
+            // Filtra apenas jogadores importantes (OVR >= 70) para a torcida cobrar
             let jogadoresRelevantes = plantelAtivo.filter(p => p.ovr >= 70).map(p => `${p.nome} (OVR ${p.ovr})`).join(', ');
 
-            let promptIA = `Você é o Algoritmo de Rede Social (Twitter/X) focada no time "${db[currentSave].nome}".
-            Contexto Atual: 
+            let promptIA = `Você é um torcedor influente do "${db[currentSave].nome}" cornetando o time nas redes sociais depois de um resultado ruim.
+            Contexto:
             - Evento Recente: ${contextoExtra}
             - Aprovação da Torcida: ${db[currentSave].aprovacaoTorcida}/100
             - Últimos Resultados: ${resumoUltimos || "Início de temporada"}
             - Elenco Atual (USE APENAS ESTES NOMES SE FOR CITAR ALGUM JOGADOR): ${jogadoresRelevantes || "Nenhum jogador relevante cadastrado ainda"}
 
-            Gere a "Timeline" de AGORA. Crie 3 postagens HIPER-REALISTAS e ÚNICAS:
-            1. Postagem sobre Partida / Desempenho.
-            2. Postagem sobre Transferência / Mercado / Diretoria.
-            3. Postagem de Corneta / Zoação da torcida.
+            Escreva UMA ÚNICA postagem CURTA (1 frase, no máximo 2) — é uma legenda de post tipo Instagram/Twitter, não um artigo. Sem textão.
 
             ⚠️ REGRA DE OURO SOBRE JOGADORES (MUITO IMPORTANTE): É PROIBIDO inventar ou citar qualquer jogador que não esteja EXATAMENTE na lista "Elenco Atual" acima. Se for pedir a venda de alguém (campo "pede_venda_jogador"), o nome TEM que ser copiado exatamente dessa lista. Se não houver ninguém adequado pra criticar, deixe "pede_venda_jogador" vazio.
 
-            ⚠️ REGRAS PARA AS RESPOSTAS RÁPIDAS (MUITO IMPORTANTE):
-            Para cada post gerado, crie um array "opcoesRapidas". EM VEZ DE FRASES, você deve gerar 3 "Posturas/Intenções" curtas com no máximo 3 palavras e 1 emoji.
-            Exemplos: ["🎯 Foco total", "🔥 Rebater Crítica", "🧘‍♂️ Calma e tempo", "💼 Decisão da Diretoria", "🙏 Agradecer apoio"].
+            ⚠️ Para "opcoesRapidas", gere 3 "Posturas/Intenções" curtas com no máximo 3 palavras e 1 emoji. Exemplos: ["🎯 Foco total", "🔥 Rebater Crítica", "🧘‍♂️ Calma e tempo"].
 
             Retorne EXATAMENTE este formato JSON PURO, sem formatação markdown:
             {
-              "posts": [
-                {
-                  "perfil_nome": "Nome do Perfil",
-                  "arroba": "@arroba_do_perfil",
-                  "emoji_avatar": "⚽",
-                  "texto": "Postagem aqui...",
-                  "likes": 4302,
-                  "pede_venda_jogador": "Nome exato do jogador criticado (ou vazio)",
-                  "opcoesRapidas": ["Opção 1", "Opção 2", "Opção 3"]
-                }
-              ]
+              "perfil_nome": "Nome do Perfil",
+              "arroba": "@arroba_do_perfil",
+              "emoji_avatar": "😤",
+              "texto": "Postagem curta aqui...",
+              "likes": 4302,
+              "pede_venda_jogador": "Nome exato do jogador criticado (ou vazio)",
+              "opcoesRapidas": ["Opção 1", "Opção 2", "Opção 3"]
             }`;
 
             try {
                 const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
-                
+
                 if (match) {
-                    let res = JSON.parse(match[0]);
-                    let novosPosts = res.posts;
-                    
+                    let p = JSON.parse(match[0]);
+
                     if(!db[currentSave].socialFeed) db[currentSave].socialFeed = [];
                     if(!db[currentSave].alvosTorcida) db[currentSave].alvosTorcida = {};
 
-                    novosPosts.forEach(p => {
-                        p.id = 'post_' + Date.now() + Math.random().toString(36).substr(2, 9);
-                        // Garante que se a IA esquecer de mandar as opções, o jogo preenche com padrões contextuais
-                        if (!p.opcoesRapidas) {
-                            p.opcoesRapidas = ["Seguimos trabalhando forte!", "O foco é o próximo desafio.", "Não vou comentar arbitragem/críticas."];
-                        }
-                        db[currentSave].socialFeed.unshift(p);
-                        // ... (continua o restante da lógica de caça às bruxas)
-                        
-                        // Lógica da Caça às Bruxas
-                        if(p.pede_venda_jogador && p.pede_venda_jogador.trim() !== "") {
-                            let alvo = p.pede_venda_jogador.trim();
-                            // A IA às vezes inventa um nome ou aponta alguém que não é nosso:
-                            // só vira exigência quem realmente está ativo no elenco e pode ser
-                            // negociado (quem chegou emprestado pertence a outro clube).
-                            let alvoReal = db[currentSave].plantel.find(j => j.status === 'Ativo' && j.nome.toLowerCase() === alvo.toLowerCase());
-                            if (!alvoReal || jogadorPertenceAOutroClube(alvoReal)) return;
+                    p.id = 'post_' + Date.now() + Math.random().toString(36).substr(2, 9);
+                    p.categoria = 'corneta';
+                    if (!p.opcoesRapidas) p.opcoesRapidas = ["Seguimos trabalhando forte!", "O foco é o próximo desafio.", "Não vou comentar arbitragem/críticas."];
+                    db[currentSave].socialFeed.unshift(p);
+
+                    // Lógica da Caça às Bruxas: pressão repetida da torcida por um jogador vira exigência da diretoria
+                    if(p.pede_venda_jogador && p.pede_venda_jogador.trim() !== "") {
+                        let alvo = p.pede_venda_jogador.trim();
+                        // A IA às vezes inventa um nome ou aponta alguém que não é nosso: só vira
+                        // exigência quem realmente está ativo no elenco e pode ser negociado
+                        // (quem chegou emprestado pertence a outro clube).
+                        let alvoReal = plantelAtivo.find(j => j.nome.toLowerCase() === alvo.toLowerCase());
+                        if (alvoReal && !jogadorPertenceAOutroClube(alvoReal)) {
                             alvo = alvoReal.nome;
                             db[currentSave].alvosTorcida[alvo] = (db[currentSave].alvosTorcida[alvo] || 0) + 1;
-                            
+
                             // Se bater 3 exigências seguidas da torcida, a diretoria interfere
-                            if(db[currentSave].alvosTorcida[alvo] >= 3) {
-                                if(!db[currentSave].exigenciasDiretoria.includes(alvo)) {
-                                    db[currentSave].exigenciasDiretoria.push(alvo);
-                                    setTimeout(() => {
-                                        document.getElementById('evento-texto').innerHTML = `A pressão da torcida no Feed Social ficou insustentável! A diretoria exige a venda/empréstimo de <strong>${alvo}</strong> imediatamente para acalmar os ânimos. Vá até o Mercado.`;
-                                        document.querySelector('.evento-box').style.borderColor = "var(--danger)";
-                                        document.getElementById('modal-evento').style.display = 'flex';
-                                    }, 1500);
-                                }
+                            if(db[currentSave].alvosTorcida[alvo] >= 3 && !db[currentSave].exigenciasDiretoria.includes(alvo)) {
+                                db[currentSave].exigenciasDiretoria.push(alvo);
+                                setTimeout(() => {
+                                    document.getElementById('evento-texto').innerHTML = `A pressão da torcida no Feed Social ficou insustentável! A diretoria exige a venda/empréstimo de <strong>${alvo}</strong> imediatamente para acalmar os ânimos. Vá até o Mercado.`;
+                                    document.querySelector('.evento-box').style.borderColor = "var(--danger)";
+                                    document.getElementById('modal-evento').style.display = 'flex';
+                                }, 1500);
                             }
                         }
-                    });
+                    }
 
                     // Limita a 50 posts no histórico (5 páginas)
                     if(db[currentSave].socialFeed.length > 50) db[currentSave].socialFeed = db[currentSave].socialFeed.slice(0, 50);
                 }
             } catch(e) { console.log("Erro ao gerar feed", e); }
-            
-            salvarDados(); 
+
+            salvarDados();
             postsVisiveisSocial = 10; // Reseta para a primeira página ao atualizar o feed
-            if(btn) btn.disabled = false;
             if(loader) loader.style.display = 'none';
             renderizarSocialFeed();
         }
 
-        // ADAPTAÇÃO: A antiga função de "notícia automática" (que era gerada em contratações) 
+        // ADAPTAÇÃO: A antiga função de "notícia automática" (que era gerada em contratações)
         // agora vira um tweet oficial do Jornalista e entra no Feed Social.
-        function adicionarNoticiaAutomatica(titulo, detalhe) {
+        // categoriaForcada é opcional — quando quem chama já sabe o tipo do evento (ex: resultado
+        // de partida, que sabe se foi vitória/derrota/empate) passa aqui; senão a categoria é
+        // adivinhada pelas palavras do título (categoriaDoPost), cobrindo todo o resto dos mais de
+        // 30 lugares do app que já chamavam esta função sem precisar mexer em nenhum deles.
+        function adicionarNoticiaAutomatica(titulo, detalhe, categoriaForcada) {
             if(!db[currentSave].socialFeed) db[currentSave].socialFeed = [];
-            
-            // 1. Define um perfil de mídia padrão para jogos, resultados e avisos gerais
-            let nomePerfil = "Diário Esportivo";
-            let arrobaPerfil = "@diario_esporte";
-            let emojiPerfil = "📰";
-            let tag = "#Futebol";
 
-            // 2. Verifica se o título da notícia tem a ver com transferências
-            let tituloUpper = titulo.toUpperCase();
-            let isMercado = tituloUpper.includes("REFORÇO") || tituloUpper.includes("HERE WE GO") || 
-                            tituloUpper.includes("VEND") || tituloUpper.includes("COFRES") || 
-                            tituloUpper.includes("EMPRÉSTIMO") || tituloUpper.includes("ASSINA") || 
-                            tituloUpper.includes("CONTRATO") || tituloUpper.includes("LIVRE") ||
-                            tituloUpper.includes("CHUTEIRAS");
+            let categoria = categoriaForcada || categoriaDoPost(titulo);
 
-            // 3. Se for de mercado, chama o Fabrizio
-            if (isMercado) {
-                nomePerfil = "Fabrizio Transferências";
-                arrobaPerfil = "@fabrizio_mercato";
-                emojiPerfil = "🚨";
-                tag = "#Mercato";
+            // Perfil muda um pouco pelo tipo de notícia — Fabrizio pra mercado/dinheiro,
+            // Departamento Médico pra lesão, Diário Esportivo pro resto (jogo, vestiário, etc.)
+            let nomePerfil = "Diário Esportivo", arrobaPerfil = "@diario_esporte", emojiPerfil = "📰";
+            if (categoria === 'contratacao' || categoria === 'venda' || categoria === 'financeiro') {
+                nomePerfil = "Fabrizio Transferências"; arrobaPerfil = "@fabrizio_mercato"; emojiPerfil = "🚨";
+            } else if (categoria === 'lesao') {
+                nomePerfil = "Departamento Médico"; arrobaPerfil = "@dm_oficial"; emojiPerfil = "🏥";
             }
 
             db[currentSave].socialFeed.unshift({
@@ -331,10 +375,12 @@
                 perfil_nome: nomePerfil,
                 arroba: arrobaPerfil,
                 emoji_avatar: emojiPerfil,
-                texto: `EXCLUSIVO: ${titulo} ${detalhe} ${tag}`,
+                categoria: categoria,
+                legenda: titulo,
+                detalhe: detalhe,
+                texto: `${titulo} ${detalhe}`, // mantido só pros prompts de IA (resposta/curtida) lerem o contexto completo
                 likes: gerarNumeroAleatorio(5000, 25000),
                 pede_venda_jogador: "",
-                // 4. CORREÇÃO: Adicionando as opções rápidas que estavam faltando
                 opcoesRapidas: ["Seguimos trabalhando forte!", "O foco é no campo.", "Sem comentários no momento."]
             });
 
@@ -420,7 +466,7 @@ async function apagarSocialFeed() {
                 e.target.closest('button') || 
                 e.target.classList.contains('nav-btn') || 
                 e.target.classList.contains('btn-quick') ||
-                e.target.classList.contains('tweet-action-btn')) {
+                e.target.classList.contains('insta-icone')) {
                 playClickSound();
             }
         });
