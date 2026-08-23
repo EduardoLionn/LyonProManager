@@ -30,6 +30,9 @@ function atualizarKPIsEForma(pFiltradas) {
                 document.getElementById('kpi-gols-feitos').innerText = "0";
                 document.getElementById('kpi-gols-sofridos').innerText = "0";
                 document.getElementById('kpi-saldo').innerText = "0";
+                // O estado vazio também precisa da leitura zerada — sem isso a barra e os
+                // textos ficavam com os valores da temporada anterior ao trocar de filtro.
+                atualizarSituacaoTemporada(pFiltradas, 0, 0, 0);
                 return;
             }
 
@@ -56,7 +59,110 @@ function atualizarKPIsEForma(pFiltradas) {
             document.getElementById('kpi-gols-feitos').innerText = golsProTot;
             document.getElementById('kpi-gols-sofridos').innerText = golsConTot;
             document.getElementById('kpi-saldo').innerText = saldo > 0 ? "+" + saldo : saldo;
+
+            atualizarSituacaoTemporada(pFiltradas, Number(aprov), golsProTot, golsConTot);
         }
+
+// Preenche a leitura que acompanha os números no topo do Dashboard. Os KPIs sozinhos não
+// diziam se o time estava bem ou mal — 48% de aproveitamento é bom ou ruim? Aqui entram a
+// faixa comparável, a média de gols por jogo, o recorte casa/fora e o estado do elenco.
+function atualizarSituacaoTemporada(pFiltradas, aprov, golsPro, golsContra) {
+    let el = (id) => document.getElementById(id);
+
+    // --- Aproveitamento: barra + leitura em palavras ---
+    let barra = el('barra-aproveitamento-fill');
+    let leitura = el('situacao-aprov-leitura');
+    if (barra && leitura) {
+        let temJogos = pFiltradas.length > 0;
+        let pct = temJogos ? Math.max(0, Math.min(100, aprov)) : 0;
+        let cor = !temJogos ? 'var(--text-muted)'
+            : pct >= 70 ? '#4CAF7A' : pct >= 50 ? 'var(--primary)' : pct >= 30 ? 'var(--warning)' : 'var(--danger)';
+        barra.style.width = pct + '%';
+        barra.style.background = cor;
+        leitura.innerText = !temJogos ? 'sem dados'
+            : pct >= 70 ? 'campanha de ponta' : pct >= 50 ? 'campanha regular' : pct >= 30 ? 'campanha abaixo do esperado' : 'campanha de risco';
+    }
+
+    // --- Gols: média por jogo diz mais sobre o time do que o total acumulado ---
+    let golsLeitura = el('situacao-gols-leitura');
+    if (golsLeitura) {
+        if (pFiltradas.length === 0) {
+            golsLeitura.innerText = 'Sem partidas registradas.';
+        } else {
+            let mediaPro = (golsPro / pFiltradas.length).toFixed(1);
+            let mediaContra = (golsContra / pFiltradas.length).toFixed(1);
+            golsLeitura.innerText = `${mediaPro} marcados e ${mediaContra} sofridos por jogo.`;
+        }
+    }
+
+    // --- Casa × fora: duas barras comparáveis ---
+    let mando = el('situacao-mando');
+    if (mando) {
+        let comMando = pFiltradas.filter(p => p.mando === 'Casa' || p.mando === 'Fora');
+        if (comMando.length < 2) {
+            mando.innerHTML = '<span class="situacao-card-nota">Poucos jogos pra comparar ainda.</span>';
+        } else {
+            let linha = (rotulo, icone) => {
+                let lista = comMando.filter(p => p.mando === rotulo);
+                if (lista.length === 0) return `<div class="mando-linha"><span class="mando-linha-rotulo">${icone}</span><span class="situacao-card-nota">sem jogos</span></div>`;
+                let a = (typeof aproveitamentoPartidas === 'function') ? aproveitamentoPartidas(lista) : 0;
+                let cor = a >= 70 ? '#4CAF7A' : a >= 50 ? 'var(--primary)' : a >= 30 ? 'var(--warning)' : 'var(--danger)';
+                return `<div class="mando-linha">
+                    <span class="mando-linha-rotulo">${icone}</span>
+                    <span class="mando-linha-barra"><span class="mando-linha-fill" style="width:${a}%; background:${cor};"></span></span>
+                    <span class="mando-linha-valor">${a}%</span>
+                </div>`;
+            };
+            mando.innerHTML = linha('Casa', '🏠 Casa') + linha('Fora', '✈️ Fora');
+        }
+    }
+
+    // --- Elenco: moral do grupo e quem está fora, que é o que decide a escalação ---
+    let elencoBox = el('situacao-elenco');
+    if (elencoBox) {
+        let ativos = (typeof elencoAtivo === 'function') ? elencoAtivo() : [];
+        if (ativos.length === 0) {
+            elencoBox.innerHTML = '<span class="situacao-card-nota">Sem elenco cadastrado.</span>';
+        } else {
+            let clima = (typeof calcularClimaVestiario === 'function') ? calcularClimaVestiario() : null;
+            let lesionados = ativos.filter(p => (p.diasLesao || 0) > 0).length;
+            let suspensos = ativos.filter(p => p.suspensoVermelho).length;
+            let desgastados = ativos.filter(p => {
+                let c = (typeof condicaoJogador === 'function') ? condicaoJogador(p) : null;
+                return c && (c.nivel === 'critico' || c.nivel === 'risco');
+            }).length;
+
+            let linhas = [`<span class="situacao-card-nota"><strong style="color:var(--text-main);">${ativos.length}</strong> jogadores disponíveis</span>`];
+            if (clima) {
+                let m = Math.round(clima.moralMedia);
+                let corMoral = m >= 75 ? '#4CAF7A' : m >= 60 ? 'var(--primary)' : m >= 45 ? 'var(--warning)' : 'var(--danger)';
+                linhas.push(`<span class="situacao-card-nota">Moral do grupo: <strong style="color:${corMoral};">${m}/100</strong></span>`);
+            }
+            let baixas = [];
+            if (lesionados > 0) baixas.push(`${lesionados} lesionado(s)`);
+            if (suspensos > 0) baixas.push(`${suspensos} suspenso(s)`);
+            if (desgastados > 0) baixas.push(`${desgastados} desgastado(s)`);
+            linhas.push(baixas.length
+                ? `<span class="situacao-card-nota" style="color:var(--warning);">⚠️ ${baixas.join(', ')}</span>`
+                : `<span class="situacao-card-nota" style="color:#4CAF7A;">✅ Elenco inteiro à disposição</span>`);
+            elencoBox.innerHTML = linhas.join('');
+        }
+    }
+
+    // --- Frase do momento do time, na faixa de identidade ---
+    let momento = el('hero-momento');
+    if (momento) {
+        let txt = (typeof sequenciaAtualTexto === 'function') ? sequenciaAtualTexto() : '';
+        momento.innerText = txt ? txt.charAt(0).toUpperCase() + txt.slice(1) : '';
+        momento.className = 'clube-hero-momento ' + (
+            /vitória|vitórias|invicto/.test(txt) ? 'bom' : /derrota|sem vencer/.test(txt) ? 'ruim' : 'neutro'
+        );
+    }
+
+    // --- Liga do clube na faixa de identidade ---
+    let liga = el('hero-liga');
+    if (liga && db[currentSave]) liga.innerText = db[currentSave].liga || '—';
+}
 
 // Atualiza o indicador de carregamento tanto na aba "Elenco" quanto na etapa de Elenco do assistente de Novo Jogo
 function atualizarLoaderPlantel(texto) {

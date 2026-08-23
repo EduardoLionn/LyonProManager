@@ -719,38 +719,64 @@
         <!-- DASHBOARD -->
         <div id="tab-dashboard" class="tab-content">
             
-            <!-- CABEÇALHO DO DASHBOARD -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap: wrap; gap: 10px;">
-                <h2 style="margin:0; font-size:24px; color:white;">
-                    <span id="header-nome-time">Nome do Time</span>
-                </h2>
-                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                    <span style="font-size:14px; color:var(--text-muted); display:flex; align-items:center; gap:4px;">Técnico: <strong id="header-nome-tecnico" style="color:var(--primary); font-size:15px;">-</strong>
-                        <button onclick="abrirModalEditarTecnico()" title="Editar nome do técnico" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:0 4px;">✏️</button>
-                    </span>
-                    <span style="font-size:14px; color:var(--text-muted);">Ciclo/Temporada: <strong id="header-temp-ano" style="color:var(--primary); font-size:16px;">25/26</strong></span>
-                    <button onclick="mudarAba('tab-salvar-partida')" style="background:var(--primary); color:black; padding:10px 18px; font-size:14px; font-weight:bold;">▶️ Iniciar Partida</button>
+            <!-- FAIXA DE IDENTIDADE DO CLUBE: quem somos e como estamos, de cara. -->
+            <div class="clube-hero">
+                <div>
+                    <h2 class="clube-hero-nome"><span id="header-nome-time">Nome do Time</span></h2>
+                    <div class="clube-hero-meta">
+                        <span id="hero-liga">—</span>
+                        <span class="hero-sep">•</span>
+                        <span>Temporada <strong id="header-temp-ano">25/26</strong></span>
+                        <span class="hero-sep">•</span>
+                        <span style="display:inline-flex; align-items:center; gap:4px;">Técnico <strong id="header-nome-tecnico">-</strong>
+                            <button onclick="abrirModalEditarTecnico()" title="Editar nome do técnico" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:0 2px;">✏️</button>
+                        </span>
+                    </div>
                 </div>
+                <div class="clube-hero-forma">
+                    <span class="clube-hero-forma-label">Últimos 5 jogos</span>
+                    <div id="header-forma-recente" class="forma-recente forma-recente-grande"></div>
+                    <div id="hero-momento" class="clube-hero-momento"></div>
+                </div>
+                <button class="btn-iniciar-partida" onclick="mudarAba('tab-salvar-partida')">▶️ Iniciar Partida</button>
             </div>
 
-            <!-- TOPO: KPIs de gols + últimos 5 jogos em destaque -->
-            <div class="dash-top-grid">
-                <div class="kpi-container" id="dashboard-kpis">
-                    <div class="kpi-card" style="border-top-color: var(--gold);"><span style="color: var(--gold);">Partidas Jogadas</span><strong id="kpi-partidas-jogadas">0</strong></div>
-                    <div class="kpi-card" style="border-top-color: var(--primary);"><span style="color: var(--primary);">Aproveitamento</span><strong id="kpi-aproveitamento">0%</strong></div>
-                    <div class="kpi-card" style="border-top-color: #2ecc71;"><span style="color: #2ecc71;">Gols Feitos</span><strong id="kpi-gols-feitos">0</strong></div>
-                    <div class="kpi-card" style="border-top-color: var(--danger);"><span style="color: var(--danger);">Gols Sofridos</span><strong id="kpi-gols-sofridos">0</strong></div>
-                    <div class="kpi-card" style="border-top-color: var(--accent);"><span style="color: var(--accent);">Saldo de Gols</span><strong id="kpi-saldo">0</strong></div>
+            <!-- SITUAÇÃO DA TEMPORADA: os mesmos números de antes, mas com leitura junto —
+                 aproveitamento com faixa comparável, gols agrupados como numa tabela de
+                 campeonato, desempenho por mando e o estado real do elenco. -->
+            <div class="situacao-grid" id="dashboard-kpis">
+                <div class="situacao-card">
+                    <span class="situacao-card-titulo">Aproveitamento</span>
+                    <strong class="situacao-card-numero" id="kpi-aproveitamento">0%</strong>
+                    <div class="barra-aproveitamento"><div class="barra-aproveitamento-fill" id="barra-aproveitamento-fill" style="width:0%; background:var(--text-muted);"></div></div>
+                    <span class="situacao-card-nota"><strong id="kpi-partidas-jogadas">0</strong> jogo(s) no período — <span id="situacao-aprov-leitura">sem dados</span></span>
                 </div>
-                <div class="panel forma-destaque-card">
-                    <span class="forma-destaque-titulo">Últimos 5 Jogos</span>
-                    <div id="header-forma-recente" class="forma-recente forma-recente-grande"></div>
+                <div class="situacao-card">
+                    <span class="situacao-card-titulo">Gols</span>
+                    <div class="gols-split">
+                        <div class="gols-split-item"><span>Pró</span><strong id="kpi-gols-feitos" style="color:#4CAF7A;">0</strong></div>
+                        <div class="gols-split-item"><span>Contra</span><strong id="kpi-gols-sofridos" style="color:var(--danger);">0</strong></div>
+                        <div class="gols-split-item"><span>Saldo</span><strong id="kpi-saldo" style="color:var(--primary);">0</strong></div>
+                    </div>
+                    <span class="situacao-card-nota" id="situacao-gols-leitura">Sem partidas registradas.</span>
+                </div>
+                <div class="situacao-card">
+                    <span class="situacao-card-titulo">Casa × Fora</span>
+                    <div id="situacao-mando" style="display:flex; flex-direction:column; gap:7px;">
+                        <span class="situacao-card-nota">Poucos jogos pra comparar ainda.</span>
+                    </div>
+                </div>
+                <div class="situacao-card">
+                    <span class="situacao-card-titulo">Elenco</span>
+                    <div id="situacao-elenco" style="display:flex; flex-direction:column; gap:5px;">
+                        <span class="situacao-card-nota">Sem elenco cadastrado.</span>
+                    </div>
                 </div>
             </div>
 
             <!-- CENTRAL DE ANÁLISE -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
-                <h2 style="margin:0; font-size: 18px; color: white;">3. Central de Análise Tática Avançada</h2>
+            <div class="secao-titulo secao-titulo-com-acoes">
+                <h2>📊 Análise Tática Avançada</h2>
                 <div class="grafico-filtros-row" style="display: flex; gap:10px;">
                     <select id="filtro-top-jogadores" onchange="desenharGraficos()" style="background:var(--bg-dark); color:white; border-radius:8px; padding: 10px;">
                         <option value="5">Top 5 Jogadores</option>
@@ -1705,6 +1731,9 @@
     <script src="js/plantel-ui.js"></script>
     <script src="js/convocacao.js"></script>
     <script src="js/graficos-historico.js"></script>
+    <!-- Traduz o estado do save em contexto de futebol (momento na competição, vestiário,
+         perfil dos jogadores) pros prompts da IA. Vem antes do chat-ia.js, que o consome. -->
+    <script src="js/contexto-ia.js"></script>
     <script src="js/chat-ia.js"></script>
     <script src="js/auxiliar-eventos.js"></script>
     <script src="js/feed-social.js"></script>
