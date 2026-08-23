@@ -447,6 +447,9 @@ async function cancelarPartidaEmAndamento() {
         : 'Descartar esta partida? A escalação e as substituições declaradas serão perdidas.';
     if (await confirmarModerno(msg, montando ? 'Descartar Escalação' : 'Cancelar Partida', { perigo: true, textoConfirmar: 'Descartar' })) {
         db[currentSave].partidaAuxiliar = null;
+        // Descartar também limpa o nome do adversário — senão ele fica preso no campo e
+        // atrapalha a próxima escalação (ver salvarPartida, mesmo motivo).
+        let elAdv = document.getElementById('inicio-partida-adversario'); if (elAdv) elAdv.value = '';
         salvarDados();
         renderizarAbaSalvarPartida();
     }
@@ -556,15 +559,30 @@ function renderizarAbaSalvarPartida() {
     if (acoes) {
         if (montando) {
             acoes.innerHTML = `
-                <button onclick="abrirMudarFormacaoManual()" style="flex:1; min-width:180px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
+                <button onclick="abrirAjustarTaticaManual()" style="flex:1; min-width:180px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🎛️ Ajustar Tática</button>
                 <button class="btn-hero-secundario" onclick="cancelarPartidaEmAndamento()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar</button>
                 <button onclick="iniciarPartidaDoSetup()" style="flex:1 1 100%; background:var(--primary); color:black; padding:14px; font-size:16px;">▶️ Iniciar Partida</button>`;
         } else {
             let subsUsadas = (partida.substituicoes || []).length;
+            let cartoes = partida.cartoes || [];
+            let lesoes = partida.lesoesDeclaradas || [];
+            let cartoesHtml = cartoes.length ? `
+                <div style="flex:1 1 100%; display:flex; flex-wrap:wrap; gap:6px; margin-bottom:2px;">
+                    ${cartoes.slice().sort((a, b) => (a.minuto || 0) - (b.minuto || 0)).map(c => `<span class="matchday-chip" style="font-size:11px; padding:4px 8px;">${c.minuto}' ${c.tipo === 'vermelho' ? '🟥' : '🟨'} ${c.nome}</span>`).join('')}
+                </div>` : '';
+            let lesoesHtml = lesoes.length ? `
+                <div style="flex:1 1 100%; display:flex; flex-wrap:wrap; gap:6px; margin-bottom:2px;">
+                    ${lesoes.map(nome => `<span class="matchday-chip" style="font-size:11px; padding:4px 8px;">🏥 ${nome}</span>`).join('')}
+                </div>` : '';
             acoes.innerHTML = `
                 <p style="flex:1 1 100%; text-align:center; font-size:12px; color:var(--text-muted); margin: 0 0 4px 0;">Substituições: <strong style="color:${subsUsadas >= 5 ? 'var(--danger)' : 'var(--primary)'};">${subsUsadas}/5</strong> — quem sai não volta mais nesta partida.</p>
+                ${cartoesHtml}
+                ${lesoesHtml}
                 <button onclick="abrirMudarFormacaoManual()" style="flex:1; min-width:160px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
                 <button onclick="pedirSugestaoAoVivo()" style="flex:1; min-width:160px; background:var(--accent); color:white;">🤖 Pedir sugestão ao Auxiliar</button>
+                <button onclick="abrirDeclararCartao('amarelo')" style="flex:1; min-width:140px; background:var(--panel-bg); border:1px solid var(--warning); color:var(--warning);">🟨 Cartão Amarelo</button>
+                <button onclick="abrirDeclararCartao('vermelho')" style="flex:1; min-width:140px; background:var(--panel-bg); border:1px solid var(--danger); color:var(--danger);">🟥 Cartão Vermelho</button>
+                <button onclick="abrirDeclararLesao()" style="flex:1; min-width:140px; background:var(--panel-bg); border:1px solid var(--text-muted); color:var(--text);">🏥 Declarar Lesão</button>
                 <button class="btn-hero-secundario" onclick="cancelarPartidaEmAndamento()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar Partida</button>`;
         }
     }
@@ -572,22 +590,17 @@ function renderizarAbaSalvarPartida() {
     if (typeof renderizarCampinhoLimpo === 'function') renderizarCampinhoLimpo();
 }
 
-// Atalho do botão da partida em andamento: leva pro chat do Auxiliar e já pergunta como está o
-// jogo. Antes só preenchia a caixa de texto e deixava pro treinador clicar em "Conversar" — na
-// prática isso ocupava a caixa com um texto que ele tinha que apagar toda vez que queria escrever
-// a própria mensagem em vez da pergunta padrão. Agora a pergunta é enviada direto e a caixa volta
-// vazia (mesmo comportamento de sempre do enviarChat), pronta pro treinador digitar o que quiser.
+// Atalho do botão da partida em andamento: leva pro chat do Auxiliar e deixa pronto pro
+// treinador escrever. Antes preenchia uma pergunta genérica e enviava na hora — o Auxiliar
+// então respondia (às vezes sugerindo substituição) sem o treinador ter dito nada de verdade
+// sobre o jogo. Agora só abre e foca a caixa: o treinador escreve o que quiser e/ou anexa um
+// print (📸) e só sai alguma coisa quando ELE clicar em "Conversar".
 function pedirSugestaoAoVivo() {
     mudarAba('tab-auxiliar');
     let painel = document.getElementById('panel-chat-auxiliar');
     if (painel && painel.style.display === 'none' && typeof toggleChatAuxiliar === 'function') toggleChatAuxiliar();
     let input = document.getElementById('input-auxiliar');
-    if (!input) return;
-    // Se o treinador já estava no meio de escrever a própria mensagem, não atropela: só foca a
-    // caixa pra ele continuar e enviar quando quiser.
-    if (input.value.trim()) { input.focus(); return; }
-    input.value = 'Como está o jogo até aqui na sua leitura? Precisa mexer em alguma coisa? (anexe um print se quiser uma análise mais precisa)';
-    if (typeof enviarChat === 'function') enviarChat('auxiliar');
+    if (input) input.focus();
 }
 
 // -------------------------------------------------------------------------------------
@@ -608,6 +621,7 @@ function gerarHtmlFichaPartida(partida) {
         escalacaoInicial: f.escalacaoInicial,
         formacaoInicial: f.formacaoInicial,
         substituicoes: f.substituicoes,
+        cartoes: f.cartoes,
         jogadoresNotas: partida.jogadores || []
     };
 
@@ -649,5 +663,6 @@ function gerarHtmlFichaPartida(partida) {
         <h4 class="historico-secao-titulo">🧩 Escalação do apito inicial</h4>
         ${(typeof gerarHtmlCampinhoHistorico === 'function') ? gerarHtmlCampinhoHistorico(paraRenderizar) : ''}
         ${(typeof gerarHtmlSubstituicoesHistorico === 'function') ? gerarHtmlSubstituicoesHistorico(paraRenderizar) : ''}
+        ${(typeof gerarHtmlCartoesHistorico === 'function') ? gerarHtmlCartoesHistorico(paraRenderizar) : ''}
         ${bancoHtml}`;
 }

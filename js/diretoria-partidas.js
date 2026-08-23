@@ -497,6 +497,31 @@
             let mando = document.getElementById('partida-mando').value;
             let contexto = document.getElementById('partida-contexto').value.trim();
             let diasPassados = Math.max(0, Number(document.getElementById('partida-dias-proxima').value) || 3);
+
+            // Cartão vermelho declarado durante a partida só vira suspensão de verdade agora, ao
+            // encerrar — reaproveita o campo suspensoVermelho que o Departamento Médico já usa
+            // (inclusive a lógica de "só é cumprida quando o jogador realmente fica de fora").
+            (partidaAberta.cartoes || []).filter(c => c.tipo === 'vermelho').forEach(c => {
+                let jogadorExpulso = db[currentSave].plantel.find(p => p.nome === c.nome);
+                if (jogadorExpulso) { garantirCondicaoFisica(jogadorExpulso); jogadorExpulso.suspensoVermelho = true; }
+            });
+
+            // Lesão declarada durante a partida: agora sim pergunta quanto tempo cada jogador fica
+            // de fora. O valor entra direto em diasLesao — como isso acontece ANTES de
+            // processarCondicaoFisicaPosPartida rodar logo abaixo, os dias até a próxima partida já
+            // saem descontados dessa lesão no mesmo cálculo que todo mundo passa.
+            for (let nomeLesionado of (partidaAberta.lesoesDeclaradas || [])) {
+                let jogadorLesionado = db[currentSave].plantel.find(p => p.nome === nomeLesionado);
+                if (!jogadorLesionado) continue;
+                let diasStr = await promptModerno(`Quantos dias ${nomeLesionado} vai ficar de fora por causa dessa lesão?`, '', '🏥 Dias de Recuperação');
+                let dias = parseInt(diasStr, 10);
+                if (diasStr !== null && !isNaN(dias) && dias > 0) {
+                    garantirCondicaoFisica(jogadorLesionado);
+                    jogadorLesionado.diasLesao = dias;
+                    jogadorLesionado.jogosSeguidos = 0;
+                }
+            }
+
             processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp.map(j => j.nome));
 
             // A ficha completa da partida vive no próprio registro: escalação do apito inicial,
@@ -515,6 +540,8 @@
                     escalacaoFinal: partidaAberta.titulares || {},
                     bancoInicial: partidaAberta.bancoInicial || partidaAberta.banco || [],
                     substituicoes: partidaAberta.substituicoes || [],
+                    cartoes: partidaAberta.cartoes || [],
+                    lesoesDeclaradas: partidaAberta.lesoesDeclaradas || [],
                     tatica: partidaAberta.tatica || null,
                     adversarioInfo: partidaAberta.adversarioInfo || '',
                     analiseGeral: partidaAberta.analiseGeral || '',
@@ -628,7 +655,11 @@
                 else if (golsC > golsP) ajustarMoralElenco(-gerarNumeroAleatorio(3, 6));
             }
 
-            // A partida acabou: zera o formulário e volta a aba pro estado "Iniciar Partida"
+            // A partida acabou: zera o formulário e volta a aba pro estado "Iniciar Partida". O campo
+            // de adversário do próximo jogo (#inicio-partida-adversario) tinha que ser limpo aqui —
+            // como nunca era, o nome do adversário desta partida ficava visível no campo, e
+            // usarSugestaoDoAuxiliar só preenche o campo quando ele está vazio, então o adversário
+            // NOVO sugerido pelo Auxiliar nunca aparecia: ficava preso no nome antigo pra sempre.
             db[currentSave].sugestaoAuxiliar = null;
             ['gols-pro', 'gols-contra', 'fin-pro', 'fin-adv', 'posse-pro', 'posse-adv'].forEach(id => {
                 let el = document.getElementById(id);
@@ -636,6 +667,7 @@
             });
             let elContexto = document.getElementById('partida-contexto'); if (elContexto) elContexto.value = '';
             let elDias = document.getElementById('partida-dias-proxima'); if (elDias) elDias.value = '3';
+            let elAdv = document.getElementById('inicio-partida-adversario'); if (elAdv) elAdv.value = '';
 
             salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
             alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!");
