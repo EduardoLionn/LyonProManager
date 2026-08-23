@@ -587,9 +587,9 @@
                     `Quem viu, viu! Uma partida sólida onde o sistema defensivo funcionou e o ataque foi eficiente. Criar <strong>${finP} chances</strong> não é para qualquer um. O projeto do Manager está rendendo frutos impressionantes.`
                 ];
                 detalheNoticia = detalhesVitoria[Math.floor(Math.random() * detalhesVitoria.length)];
-                adicionarNoticiaAutomatica(manchete, detalheNoticia); 
-            } 
-            else if (golsC > golsP) { 
+                adicionarNoticiaAutomatica(manchete, detalheNoticia, 'vitoria');
+            }
+            else if (golsC > golsP) {
                 // Contexto: Derrota
                 let impactoDerrota = isTierAlto ? -0.2 : (isTierBaixo ? -0.05 : -0.1);
                 if (qtdDerrotasRecentes >= 2) impactoDerrota *= 1.5; 
@@ -610,9 +610,9 @@
                     `Apagão em campo! A equipe pareceu desconcentrada e foi engolida pela proposta de jogo do ${adv}. Reuniões tensas no vestiário são esperadas após esse resultado terrível.`
                 ];
                 detalheNoticia = detalhesDerrota[Math.floor(Math.random() * detalhesDerrota.length)];
-                adicionarNoticiaAutomatica(manchete, detalheNoticia); 
-            } 
-            else { 
+                adicionarNoticiaAutomatica(manchete, detalheNoticia, 'derrota');
+            }
+            else {
                 // Contexto: Empate
                 let impactoEmpate = isTierAlto ? -0.05 : (isTierBaixo ? 0.05 : 0.0);
                 atualizarNotaDiretoria(impactoEmpate);
@@ -631,14 +631,16 @@
                     `Equilíbrio puro! Nenhuma das equipes conseguiu se impor totalmente. Um empate que deixa lições claras sobre onde o time precisa evoluir para quebrar linhas de defesas fechadas.`
                 ];
                 detalheNoticia = detalhesEmpate[Math.floor(Math.random() * detalhesEmpate.length)];
-                adicionarNoticiaAutomatica(manchete, detalheNoticia); 
+                adicionarNoticiaAutomatica(manchete, detalheNoticia, 'empate');
             }
 
             // --- APLICA GATILHOS DE DEMISSÃO ---
             checarRiscoDemissao();
-            
-            // Gera a repercussão do jogo na Rede Social
-            gerarPostsSocial("Pós-Jogo contra o " + adv);
+
+            // O resultado da partida já ganhou o post dele agora mesmo, com uma linha acima
+            // (adicionarNoticiaAutomatica). gerarPostsSocial só entra depois de uma derrota, pra
+            // simular a torcida cornetando no feed — não mais um post extra a cada partida.
+            if (golsC > golsP) gerarPostsSocial("Derrota para o " + adv);
 
             // Se havia uma partida declarada no Auxiliar Técnico pra esse jogo, fecha o ciclo:
             // avaliação pós-jogo, arquivo no histórico e limpa a partida em aberto.
