@@ -1823,6 +1823,22 @@
                 </div>
             </div>
 
+            <!-- MODAL: DECLARAR LESÃO (ao vivo) -->
+            <div id="modal-declarar-lesao" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 style="margin-top:0;">🏥 Declarar Lesão</h2>
+                    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Quantos dias ele vai ficar de fora é perguntado só ao encerrar a partida.</p>
+                    <div class="linha-form">
+                        <label>Jogador</label>
+                        <select id="modal-lesao-jogador"></select>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarDeclararLesao()">✅ Declarar</button>
+                        <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-declarar-lesao').style.display='none'">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- MODAL: FUNÇÃO DO JOGADOR NO PLANO DO AUXILIAR — só leitura, não escala nada.
                  Fica fora de #tab-auxiliar pelo mesmo motivo dos modais acima. -->
             <div id="modal-funcao-jogador" class="modal-troca-overlay" style="display: none;">

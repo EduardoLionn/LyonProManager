@@ -506,6 +506,22 @@
                 if (jogadorExpulso) { garantirCondicaoFisica(jogadorExpulso); jogadorExpulso.suspensoVermelho = true; }
             });
 
+            // Lesão declarada durante a partida: agora sim pergunta quanto tempo cada jogador fica
+            // de fora. O valor entra direto em diasLesao — como isso acontece ANTES de
+            // processarCondicaoFisicaPosPartida rodar logo abaixo, os dias até a próxima partida já
+            // saem descontados dessa lesão no mesmo cálculo que todo mundo passa.
+            for (let nomeLesionado of (partidaAberta.lesoesDeclaradas || [])) {
+                let jogadorLesionado = db[currentSave].plantel.find(p => p.nome === nomeLesionado);
+                if (!jogadorLesionado) continue;
+                let diasStr = await promptModerno(`Quantos dias ${nomeLesionado} vai ficar de fora por causa dessa lesão?`, '', '🏥 Dias de Recuperação');
+                let dias = parseInt(diasStr, 10);
+                if (diasStr !== null && !isNaN(dias) && dias > 0) {
+                    garantirCondicaoFisica(jogadorLesionado);
+                    jogadorLesionado.diasLesao = dias;
+                    jogadorLesionado.jogosSeguidos = 0;
+                }
+            }
+
             processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp.map(j => j.nome));
 
             // A ficha completa da partida vive no próprio registro: escalação do apito inicial,
@@ -525,6 +541,7 @@
                     bancoInicial: partidaAberta.bancoInicial || partidaAberta.banco || [],
                     substituicoes: partidaAberta.substituicoes || [],
                     cartoes: partidaAberta.cartoes || [],
+                    lesoesDeclaradas: partidaAberta.lesoesDeclaradas || [],
                     tatica: partidaAberta.tatica || null,
                     adversarioInfo: partidaAberta.adversarioInfo || '',
                     analiseGeral: partidaAberta.analiseGeral || '',

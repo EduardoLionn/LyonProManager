@@ -1754,6 +1754,33 @@ ${textoRegrasCompatibilidadePosicional()}
             return !!(partida && Array.isArray(partida.cartoes) && partida.cartoes.some(c => c.tipo === 'vermelho' && c.nome === nome));
         }
 
+        // --- DECLARAR LESÃO DURANTE A PARTIDA AO VIVO ---
+        // Diferente do cartão vermelho, não trava nada — o jeito normal de tirar um jogador
+        // lesionado é substituí-lo pelo fluxo que já existe. Isto só registra QUEM se machucou;
+        // QUANTOS DIAS ele fica de fora só é perguntado ao encerrar a partida (salvarPartida, em
+        // js/diretoria-partidas.js) — o valor entra direto em diasLesao, que o Departamento Médico
+        // já sabe descontar dos dias até a próxima partida (processarCondicaoFisicaPosPartida).
+        function abrirDeclararLesao() {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento' || !partida.titulares) return;
+            let jogadoresEmCampo = Object.values(partida.titulares).filter(j => j && j.nome && j.nome !== '???');
+            document.getElementById('modal-lesao-jogador').innerHTML = jogadoresEmCampo
+                .map(j => `<option value="${j.nome}">${j.nome}</option>`).join('');
+            document.getElementById('modal-declarar-lesao').style.display = 'flex';
+        }
+
+        function confirmarDeclararLesao() {
+            let nome = document.getElementById('modal-lesao-jogador').value;
+            document.getElementById('modal-declarar-lesao').style.display = 'none';
+            if (!nome) return;
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida) return;
+            if (!partida.lesoesDeclaradas) partida.lesoesDeclaradas = [];
+            if (!partida.lesoesDeclaradas.includes(nome)) partida.lesoesDeclaradas.push(nome);
+            salvarDados();
+            if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida();
+        }
+
         // --- MUDAR FORMAÇÃO (sugerida pela IA ou manual, pré-jogo ou ao vivo) ---
 
         // Realoca os titulares atuais pra nova formação de forma coerente com a posição de cada um
