@@ -1723,10 +1723,12 @@
                 <div class="setup-box modal-troca-box">
                     <h2 style="margin-top:0;" id="modal-trocar-titulo">🔄 Trocar Jogador</h2>
                     <p id="modal-trocar-subtitulo" style="font-size:13px; color:var(--text-muted); margin-top:-8px;">Escolha quem entra no lugar dele.</p>
-                    <div id="modal-trocar-lista" class="modal-troca-lista"></div>
-                    <div id="modal-trocar-ver-todos-wrap" style="display:none; text-align:center; margin-top:10px;">
-                        <button id="btn-modal-trocar-ver-todos" onclick="expandirVerTodosTroca()" style="background:transparent; border:none; color:var(--accent); text-decoration:underline; cursor:pointer; font-size:12px; padding:4px;">➕ Puxar jogador não relacionado</button>
+                    <div id="modal-trocar-abas-wrap" class="filtros-plantel" style="display:none; margin-bottom:12px;">
+                        <button id="btn-modal-trocar-recomendados" class="btn-filtro active" onclick="mostrarAbaTroca('recomendados')" style="font-size:12px; padding:7px 12px;">⭐ Recomendados</button>
+                        <button id="btn-modal-trocar-todos" class="btn-filtro" onclick="mostrarAbaTroca('todos')" style="display:none; font-size:12px; padding:7px 12px;">👥 Todos os Jogadores</button>
+                        <button id="btn-modal-trocar-nao-relacionados" class="btn-filtro" onclick="mostrarAbaTroca('nao-relacionados')" style="display:none; font-size:12px; padding:7px 12px;">➕ Não Relacionados</button>
                     </div>
+                    <div id="modal-trocar-lista" class="modal-troca-lista"></div>
                     <div id="modal-trocar-botao-extra-wrap" style="display:none; margin-top:12px;"></div>
                     <button style="width: 100%; margin-top: 15px; background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-trocar-jogador').style.display='none'">Cancelar</button>
                 </div>

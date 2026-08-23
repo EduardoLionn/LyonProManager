@@ -154,8 +154,12 @@
         }`;
                 } else {
                     let partidaAtual = db[currentSave].partidaAuxiliar;
+                    // Pra cada reserva do banco, além da posição real, mostra em quais funções ESTE
+                    // treinador costuma escalar esse jogador — é o mesmo sinal usado na escalação
+                    // pré-jogo (ver regra 10 de regrasEstrategistaTexto), agora também disponível
+                    // pra sugestão de substituição AO VIVO.
                     let escalacaoStr = (partidaAtual && partidaAtual.titulares)
-                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares (sigla da posição no campo: nome): ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco (nome e posição real do jogador): ${(partidaAtual.banco || []).map(b => { let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome); let posTxt = (jogBD ? jogBD.posicao : b.posicao) || 'posição desconhecida'; return `${b.nome} (${posTxt})`; }).join(', ') || 'nenhum registrado'}.${(partidaAtual.jogadoresForaDaPartida && partidaAtual.jogadoresForaDaPartida.length > 0) ? ` JÁ SAÍRAM DA PARTIDA E NÃO PODEM MAIS ENTRAR: ${partidaAtual.jogadoresForaDaPartida.join(', ')}.` : ''}`
+                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares (sigla da posição no campo: nome): ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco (nome, posição real e histórico de uso do jogador): ${(partidaAtual.banco || []).map(b => { let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome); let posTxt = (jogBD ? jogBD.posicao : b.posicao) || 'posição desconhecida'; let habituaisStr = posicoesHabituaisTexto(b.nome); return `${b.nome} (${posTxt}${habituaisStr ? ' | costuma jogar: ' + habituaisStr : ''})`; }).join(', ') || 'nenhum registrado'}.${(partidaAtual.jogadoresForaDaPartida && partidaAtual.jogadoresForaDaPartida.length > 0) ? ` JÁ SAÍRAM DA PARTIDA E NÃO PODEM MAIS ENTRAR: ${partidaAtual.jogadoresForaDaPartida.join(', ')}.` : ''}`
                         : "Nenhuma partida declarada/escalação em campo no momento.";
 
                     let jogoAoVivo = partidaAtual && partidaAtual.status === 'em_andamento';
@@ -178,6 +182,7 @@
         - Se o contexto (texto e/ou imagem) pedir claramente uma substituição e ainda houver substituições disponíveis, preencha o campo "sugestaoSubstituicao" do JSON com um jogador REAL que sai (titular atual) e um jogador REAL que entra (de preferência do banco listado acima), citando os nomes EXATAMENTE como aparecem no contexto, mais uma instrução tática curta pro jogador que entra.
         - FAÇA SENTIDO POSICIONAL (REGRA CRÍTICA): "jogadorEntra" DEVE jogar numa posição compatível com a vaga de quem está saindo — use a posição indicada entre parênteses no Banco acima e a sigla/posição de quem sai pra escolher alguém coerente (ex: não tire um zagueiro pra colocar um atacante, não tire um lateral pra colocar um volante puro). Só foja disso se for uma mudança tática deliberada e MUITO clara pelo pedido do treinador — e nesse caso explique bem o motivo na instrução.
         - Ao escolher entre mais de uma opção coerente no banco, prefira quem estiver rendendo melhor recentemente (nota em campo), não só o de OVR mais alto — se você não souber a nota de cada reserva, baseie-se no contexto e na condição física deles.
+        - APRENDA COMO ESTE TREINADOR USA CADA JOGADOR: quando o Banco acima trouxer "costuma jogar: ...", isso é o padrão que ESTE treinador já estabeleceu com esse jogador neste time (ex: um zagueiro que ele sempre usa como volante) — prefira colocá-lo numa das posições desse histórico, sem sair da compatibilidade posicional da vaga que está saindo. Pode variar quando o contexto pedir claramente, mas isso é exceção, não padrão.
         - Se não houver mais substituições disponíveis (restam 0), NÃO sugira substituição — dê apenas orientação tática/posicional.
         - Se a situação não pedir substituição nenhuma, deixe "sugestaoSubstituicao" como null. Não sugira trocas só por sugerir.
         - SE você sugerir substituição JUNTO com uma mudança de formação (ambos os campos preenchidos na mesma resposta), pense primeiro em qual vaga da FORMAÇÃO NOVA o jogador que entra vai ocupar — "jogadorSai" tem que ser o titular que, depois de aplicada a formação nova, fica na posição que o jogador que entra pode substituir. Nunca pense a substituição em cima da formação antiga quando as duas mudanças vêm juntas.
@@ -451,7 +456,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                     } };
                 });
 
-            abrirModalTroca(opcoes, [], `Quem sai no lugar de ${msg.sugestaoSub.jogadorSai}?`, `${msg.sugestaoSub.jogadorEntra} vai entrar — escolha quem realmente sai de campo.`);
+            abrirModalTroca(opcoes, [], [], `Quem sai no lugar de ${msg.sugestaoSub.jogadorSai}?`, `${msg.sugestaoSub.jogadorEntra} vai entrar — escolha quem realmente sai de campo.`);
         }
 
         // ============================================================
@@ -499,9 +504,14 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
 
             let ovrMedio = plantelStr.reduce((soma, p) => soma + p.ovr, 0) / (plantelStr.length || 1);
             let apMedia = plantelStr.reduce((soma, p) => soma + p.aparicoes, 0) / (plantelStr.length || 1);
+            // Calculado uma vez só e reaproveitado pra cada jogador — evita varrer o histórico
+            // inteiro de novo dentro do .map() de cada um deles.
+            let historicoPosicoes = calcularHistoricoPosicoesJogadores();
             let texto = plantelStr.map(p => {
                 let tagReserva = (p.ovr < ovrMedio && p.aparicoes < apMedia) ? " [RESERVA/JOVEM - pouco utilizado]" : "";
-                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${p.fadigaStr}${tagReserva}]`;
+                let habituaisStr = posicoesHabituaisTexto(p.nome, historicoPosicoes);
+                let tagHabitual = habituaisStr ? ` [Costuma jogar aqui neste time: ${habituaisStr}]` : "";
+                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${p.fadigaStr}${tagReserva}${tagHabitual}]`;
             }).join(', ');
 
             return { texto: texto, formacoesPossiveisStr: JSON.stringify(FORMACOES_SIGLAS) };
@@ -526,7 +536,8 @@ ${textoRegrasCompatibilidadePosicional()}
                - Regra de ouro: NUNCA escale alguém com OVR muito inferior à média do time titular só para "bater a posição exata" quando existir uma alternativa compatível (pela tabela acima) com OVR bem melhor.
             7. DESEMPENHO EM CAMPO PESA MAIS QUE O OVR (REGRA CRÍTICA — NÃO IGNORE): cada jogador do elenco acima traz a "Nota Média" dele nas partidas que já disputou ("Sem nota" = ainda não tem amostra suficiente, baseie-se só no OVR nesse caso). OVR é só potencial no papel — quem decide jogos é quem está rendendo bem em campo. Quando dois jogadores concorrerem à mesma posição, NÃO escale automaticamente o de OVR mais alto: compare também a Nota Média deles. Se o jogador de OVR menor tiver uma Nota Média visivelmente melhor (e baseada em pelo menos 3 jogos), ELE deve ser o titular, mesmo tendo alguns pontos de OVR a menos — desempenho recente e consistente em campo vale mais que o número de OVR. Só desconsidere a nota se a amostra for muito pequena (1-2 jogos) ou muito antiga/desatualizada.
             8. ESCOLHA DE JOGADORES CONSIDERANDO O ADVERSÁRIO (não é só a instrução — é QUEM joga): além das instruções táticas, a própria ESCOLHA de quem entra em campo deve mudar de acordo com o adversário (${adv}). Ex: contra um time que ataca muito pelas pontas/aposta em velocidade, priorize laterais e zagueiros mais rápidos e seguros defensivamente nesse lado, mesmo abrindo mão de um pouco de OVR. Contra um time forte fisicamente ou que usa muito jogo aéreo, priorize zagueiros/volantes fortes no desarme e no jogo aéreo. Contra um time que se fecha atrás e joga recuado, priorize criatividade, drible e habilidade em espaços curtos no ataque/meio. Baseie-se no que você souber sobre o estilo do adversário (da análise/imagens) para embasar essas escolhas, não só as instruções.
-            9. APRENDA COM O HISTÓRICO (se houver um bloco de histórico de partidas anteriores no prompt): leve em conta o que já funcionou e o que não funcionou nos jogos passados do treinador com este time. Se uma formação ou abordagem já falhou repetidamente contra adversários parecidos, evite repeti-la sem motivo; se algo deu certo, é um bom sinal para manter ou repetir em contextos parecidos. Isso é conhecimento acumulado do treinador, não regra fixa — use como orientação, não como obrigação cega.`;
+            9. APRENDA COM O HISTÓRICO (se houver um bloco de histórico de partidas anteriores no prompt): leve em conta o que já funcionou e o que não funcionou nos jogos passados do treinador com este time. Se uma formação ou abordagem já falhou repetidamente contra adversários parecidos, evite repeti-la sem motivo; se algo deu certo, é um bom sinal para manter ou repetir em contextos parecidos. Isso é conhecimento acumulado do treinador, não regra fixa — use como orientação, não como obrigação cega.
+            10. APRENDA COMO ESTE TREINADOR USA CADA JOGADOR (tag "[Costuma jogar aqui neste time: ...]" no elenco acima): alguns jogadores já foram usados repetidamente numa função diferente da posição de carteirinha deles — ex: um zagueiro que esse treinador sempre escala como volante. Isso é um padrão que ESTE treinador já estabeleceu com ESTE jogador, e pesa mais do que a posição de carteirinha sozinha. Ao escalar, prefira colocar o jogador numa das funções que ele já costuma jogar aqui (respeitando ainda a tabela de compatibilidade da regra 6 — nunca fora dela). Você pode variar e escalar numa posição diferente do hábito quando o contexto pedir claramente (lesão, tática específica pro adversário, falta de opção), mas isso deve ser a exceção, não o padrão, e merece uma instrução explicando o motivo da mudança.`;
         }
 
         // Resume o histórico de partidas do Auxiliar (resultado por formação usada + últimos jogos em detalhe)
@@ -1200,6 +1211,72 @@ ${textoRegrasCompatibilidadePosicional()}
             return Array.isArray(lista) && lista.includes(posicaoJogador);
         }
 
+        // =====================================================================================
+        // APRENDIZADO POSICIONAL — como o Auxiliar aprende, com o histórico, em quais posições
+        // cada jogador costuma jogar (mesmo quando a "posição de carteirinha" dele é outra —
+        // ex: um zagueiro que às vezes vira volante nesse time). Não é uma trava: só um sinal a
+        // mais no prompt, pra IA variar dentro do que já vimos funcionar, não fora dele.
+        // =====================================================================================
+
+        // Sigla da função no campinho -> nome curto e legível, pra aparecer no prompt/UI.
+        const ROLE_GRUPO_NOME = {
+            GOL: 'Goleiro', ZAD: 'Zagueiro', ZAE: 'Zagueiro', ZAC: 'Zagueiro',
+            LAD: 'Lateral Direito', ALD: 'Lateral Direito', LAE: 'Lateral Esquerdo', ALE: 'Lateral Esquerdo',
+            VOL: 'Volante', VOLD: 'Volante', VOLE: 'Volante',
+            MCD: 'Meio-Campo', MCE: 'Meio-Campo', MC: 'Meio-Campo',
+            MEI: 'Meia-Armador', MEID: 'Meia-Armador', MEIE: 'Meia-Armador',
+            PD: 'Ponta Direita', MD: 'Ponta Direita', PE: 'Ponta Esquerda', ME: 'Ponta Esquerda',
+            ATA: 'Atacante', ATD: 'Atacante', ATE: 'Atacante'
+        };
+
+        // Varre o histórico de partidas já finalizadas (kickoff + escalação final, que já reflete
+        // as substituições feitas) e conta, por jogador, quantas vezes ele jogou em cada função do
+        // campinho. Recalculado na hora sempre que precisa — não precisa migrar saves antigos nem
+        // guardar um contador à parte, e já funciona pro histórico que o save já tinha.
+        function calcularHistoricoPosicoesJogadores() {
+            let contagem = {}; // { nomeJogador: { roleSigla: quantidade } }
+            let historico = (db[currentSave] && db[currentSave].historicoPartidasAuxiliar) || [];
+
+            let contarEscalacao = (escalacao) => {
+                if (!escalacao) return;
+                Object.entries(escalacao).forEach(([role, info]) => {
+                    if (!info || !info.nome || info.nome === '???') return;
+                    if (!contagem[info.nome]) contagem[info.nome] = {};
+                    contagem[info.nome][role] = (contagem[info.nome][role] || 0) + 1;
+                });
+            };
+
+            historico.forEach(partida => {
+                contarEscalacao(partida.escalacaoInicial); // quem começou, e em qual função
+                contarEscalacao(partida.titulares); // escalação final (já reflete quem entrou substituindo, e em qual função)
+            });
+
+            return contagem;
+        }
+
+        // Texto curto tipo "Zagueiro (7x), Volante (2x)" com as funções mais usadas por esse
+        // jogador, ou '' se ainda não há histórico suficiente pra dizer algo útil (menos de 2
+        // aparições contadas — com só 1 não dá pra distinguir "hábito" de "acaso").
+        function posicoesHabituaisTexto(nomeJogador, historicoPosicoes) {
+            let porRole = (historicoPosicoes || calcularHistoricoPosicoesJogadores())[nomeJogador];
+            if (!porRole) return '';
+
+            let porGrupo = {};
+            Object.entries(porRole).forEach(([role, qtd]) => {
+                let grupo = ROLE_GRUPO_NOME[role] || role;
+                porGrupo[grupo] = (porGrupo[grupo] || 0) + qtd;
+            });
+
+            let totalAparicoes = Object.values(porGrupo).reduce((a, b) => a + b, 0);
+            if (totalAparicoes < 2) return '';
+
+            return Object.entries(porGrupo)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 2)
+                .map(([grupo, qtd]) => `${grupo} (${qtd}x)`)
+                .join(', ');
+        }
+
         // Texto pronto pra alimentar o prompt de escalação da IA — a mesma régua de compatibilidade
         // usada no seletor de troca, mas em formato de regra pra IA seguir exatamente, sem "inventar" improvisos.
         function textoRegrasCompatibilidadePosicional() {
@@ -1267,8 +1344,11 @@ ${textoRegrasCompatibilidadePosicional()}
             return trocas;
         }
 
-        let _trocaOpcoesAtuais = []; // [{nome, ovr, posicao, tag, onSelect}]
-        let _trocaOpcoesExtras = [];
+        let _trocaOpcoesAtuais = []; // [{nome, ovr, posicao, tag, onSelect}] — o que está na tela agora
+        let _trocaOpcoesRecomendados = []; // aba "Recomendados": quem faz sentido pra essa posição
+        let _trocaOpcoesTodos = []; // aba "Todos os Jogadores": titulares + banco de hoje, GOL -> ATA
+        let _trocaOpcoesNaoRelacionados = []; // aba "Não Relacionados": elenco fora da escalação (só pré-jogo)
+        let _trocaAbaAtual = 'recomendados';
 
         // Estado (só visual) de qual card do campinho está mostrando "quem saiu" em vez de "quem está agora" — por role.
         let pitchToggleSubView = {};
@@ -1279,15 +1359,31 @@ ${textoRegrasCompatibilidadePosicional()}
             renderizarCampinhoLimpo();
         }
 
-        function abrirModalTroca(opcoesPrincipais, opcoesExtras, titulo, subtitulo, botaoExtra) {
-            _trocaOpcoesAtuais = opcoesPrincipais || [];
-            _trocaOpcoesExtras = opcoesExtras || [];
+        // opcoesTodos e opcoesNaoRelacionados são opcionais — quando um caller não usa esse conceito
+        // (ex: escolher quem sai numa sugestão da IA), passa [] e a aba correspondente some sozinha.
+        function abrirModalTroca(opcoesRecomendados, opcoesTodos, opcoesNaoRelacionados, titulo, subtitulo, botaoExtra) {
+            _trocaOpcoesRecomendados = opcoesRecomendados || [];
+            _trocaOpcoesTodos = opcoesTodos || [];
+            _trocaOpcoesNaoRelacionados = opcoesNaoRelacionados || [];
+            _trocaAbaAtual = 'recomendados';
+            _trocaOpcoesAtuais = _trocaOpcoesRecomendados;
+
             document.getElementById('modal-trocar-titulo').innerText = `🔄 ${titulo}`;
             let elSub = document.getElementById('modal-trocar-subtitulo');
             if (elSub) elSub.innerText = subtitulo || 'Escolha quem entra no lugar dele.';
+
+            let wrapAbas = document.getElementById('modal-trocar-abas-wrap');
+            let temTodos = _trocaOpcoesTodos.length > 0;
+            let temNaoRelacionados = _trocaOpcoesNaoRelacionados.length > 0;
+            if (wrapAbas) wrapAbas.style.display = (temTodos || temNaoRelacionados) ? 'flex' : 'none';
+            let btnTodos = document.getElementById('btn-modal-trocar-todos');
+            if (btnTodos) btnTodos.style.display = temTodos ? 'inline-block' : 'none';
+            let btnNaoRelacionados = document.getElementById('btn-modal-trocar-nao-relacionados');
+            if (btnNaoRelacionados) btnNaoRelacionados.style.display = temNaoRelacionados ? 'inline-block' : 'none';
+
             _renderizarListaTroca();
-            let wrapVerTodos = document.getElementById('modal-trocar-ver-todos-wrap');
-            if (wrapVerTodos) wrapVerTodos.style.display = _trocaOpcoesExtras.length > 0 ? 'block' : 'none';
+            _atualizarAbasAtivasTroca();
+
             let wrapExtra = document.getElementById('modal-trocar-botao-extra-wrap');
             if (wrapExtra) {
                 if (botaoExtra) {
@@ -1313,18 +1409,25 @@ ${textoRegrasCompatibilidadePosicional()}
                 </div>`).join('') || '<p style="color:var(--text-muted); text-align:center;">Nenhuma opção disponível.</p>';
         }
 
-        function expandirVerTodosTroca() {
-            _trocaOpcoesAtuais = _trocaOpcoesAtuais.concat(_trocaOpcoesExtras);
-            _trocaOpcoesExtras = [];
+        function _atualizarAbasAtivasTroca() {
+            ['recomendados', 'todos', 'nao-relacionados'].forEach(aba => {
+                let el = document.getElementById(`btn-modal-trocar-${aba}`);
+                if (el) el.classList.toggle('active', _trocaAbaAtual === aba);
+            });
+        }
+
+        function mostrarAbaTroca(aba) {
+            _trocaAbaAtual = aba;
+            _trocaOpcoesAtuais = aba === 'todos' ? _trocaOpcoesTodos
+                : aba === 'nao-relacionados' ? _trocaOpcoesNaoRelacionados
+                : _trocaOpcoesRecomendados;
             _renderizarListaTroca();
-            let wrapVerTodos = document.getElementById('modal-trocar-ver-todos-wrap');
-            if (wrapVerTodos) wrapVerTodos.style.display = 'none';
+            _atualizarAbasAtivasTroca();
         }
 
         function executarTrocaSelecionada(idx) {
             let op = _trocaOpcoesAtuais[idx];
-            _trocaOpcoesAtuais = [];
-            _trocaOpcoesExtras = [];
+            _trocaOpcoesAtuais = []; _trocaOpcoesRecomendados = []; _trocaOpcoesTodos = []; _trocaOpcoesNaoRelacionados = [];
             document.getElementById('modal-trocar-jogador').style.display = 'none';
             if (op && typeof op.onSelect === 'function') op.onSelect();
         }
@@ -1341,30 +1444,27 @@ ${textoRegrasCompatibilidadePosicional()}
                 .filter(([r, j]) => r !== role && j.nome && j.nome !== '???')
                 .map(([r, j]) => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
-                    return { nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : r, tag: 'Trocar de posição (' + r + ')', onSelect: () => trocarPosicaoTitulares(role, r) };
+                    return { nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : r, tag: 'Trocar de posição (' + r + ')', onSelect: () => trocarPosicaoTitulares(role, r), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
                 });
             let posRelevantes = opcoesPosicao.filter(o => posicaoCompativelComRole(role, o.posicao));
-            let posOutros = opcoesPosicao.filter(o => !posicaoCompativelComRole(role, o.posicao));
 
-            let opcoesFinal, opcoesExtras, subtitulo;
+            let opcoesRecomendados, opcoesTodos, subtitulo;
 
             if (!aoVivo) {
-                // Pré-jogo: também dá pra trazer alguém do banco/elenco pra essa vaga (aí sim vira uma troca de escalação normal).
+                // Pré-jogo: também dá pra trazer alguém do banco pra essa vaga (aí sim vira uma troca de escalação normal).
                 let titularesNomes = Object.values(partida.titulares).map(j => j.nome);
                 let bancoNomes = (partida.banco || []).map(b => b.nome);
-                let candidatosBanco = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome));
-                let opcoesBanco = candidatosBanco.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: bancoNomes.includes(p.nome) ? 'Banco' : 'Fora da escalação', onSelect: () => trocarJogadorNoCampo(role, p.nome) }));
+                let candidatosBanco = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome) && bancoNomes.includes(p.nome));
+                let opcoesBanco = candidatosBanco.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: 'Banco', onSelect: () => trocarJogadorNoCampo(role, p.nome), _ordemPos: ordemPosicoes[p.posicao] || 8 }));
                 let bancoRelevantes = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
-                let bancoOutros = opcoesBanco.filter(o => !posicaoCompativelComRole(role, o.posicao));
                 bancoRelevantes.sort((a, b) => b.ovr - a.ovr);
-                bancoOutros.sort((a, b) => b.ovr - a.ovr);
                 posRelevantes.sort((a, b) => b.ovr - a.ovr);
-                posOutros.sort((a, b) => b.ovr - a.ovr);
-                // O que o treinador mais quer aqui é escalar alguém do elenco — isso vem primeiro.
+                // O que o treinador mais quer aqui é escalar alguém do banco — isso vem primeiro.
                 // Trocar de posição com outro titular é secundário, fica depois.
-                opcoesFinal = bancoRelevantes.concat(posRelevantes);
-                opcoesExtras = bancoOutros.concat(posOutros);
-                subtitulo = 'Escolha alguém do banco/elenco pra essa vaga, ou outro titular pra trocar de posição com ele.';
+                opcoesRecomendados = bancoRelevantes.concat(posRelevantes);
+                // "Todos os Jogadores": time de hoje inteiro (titulares + banco), do goleiro ao atacante.
+                opcoesTodos = opcoesBanco.concat(opcoesPosicao).sort((a, b) => (a._ordemPos - b._ordemPos) || (b.ovr - a.ovr));
+                subtitulo = 'Jogadores que fazem sentido pra essa posição. Use as abas acima pra ver o time todo ou puxar alguém de fora da escalação.';
             } else {
                 // Ao vivo: a MESMA lista já mistura trocar de posição com quem está em campo (não
                 // gasta substituição) e trazer alguém do banco pro lugar dele (gasta 1 das 5 e pede
@@ -1375,23 +1475,33 @@ ${textoRegrasCompatibilidadePosicional()}
                 let fora = partida.jogadoresForaDaPartida || [];
                 let opcoesBanco = subsUsadas < 5 ? (partida.banco || []).filter(b => b.nome && !fora.includes(b.nome)).map(b => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
-                    return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: `Banco — declara substituição (${subsUsadas}/5)`, onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome) };
+                    return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: `Banco — declara substituição (${subsUsadas}/5)`, onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
                 }) : [];
                 let bancoRelevantesVivo = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
-                let bancoOutrosVivo = opcoesBanco.filter(o => !posicaoCompativelComRole(role, o.posicao));
                 bancoRelevantesVivo.sort((a, b) => b.ovr - a.ovr);
-                bancoOutrosVivo.sort((a, b) => b.ovr - a.ovr);
                 posRelevantes.sort((a, b) => b.ovr - a.ovr);
-                posOutros.sort((a, b) => b.ovr - a.ovr);
 
-                opcoesFinal = bancoRelevantesVivo.concat(posRelevantes);
-                opcoesExtras = bancoOutrosVivo.concat(posOutros);
+                opcoesRecomendados = bancoRelevantesVivo.concat(posRelevantes);
+                // Ao vivo não existe "fora da escalação" pra puxar — só quem já é do jogo hoje conta.
+                opcoesTodos = opcoesBanco.concat(opcoesPosicao).sort((a, b) => (a._ordemPos - b._ordemPos) || (b.ovr - a.ovr));
                 subtitulo = subsUsadas < 5
                     ? `Traga alguém do banco (gasta 1 das ${5 - subsUsadas} substituições restantes e pede o minuto) ou troque de posição com outro titular (não gasta substituição).`
                     : 'Limite de 5 substituições já atingido — só dá pra trocar de posição com outro titular.';
             }
 
-            abrirModalTroca(opcoesFinal, opcoesExtras, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo);
+            // "Não Relacionados": elenco ativo que nem está no banco de hoje — só faz sentido pré-jogo,
+            // já que ao vivo não dá pra chamar alguém que não fazia parte da partida declarada.
+            let opcoesNaoRelacionados = [];
+            if (!aoVivo) {
+                let titularesNomes = Object.values(partida.titulares).map(j => j.nome);
+                let bancoNomes = (partida.banco || []).map(b => b.nome);
+                opcoesNaoRelacionados = db[currentSave].plantel
+                    .filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome) && !bancoNomes.includes(p.nome))
+                    .map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: 'Fora da escalação', onSelect: () => trocarJogadorNoCampo(role, p.nome), _ordemPos: ordemPosicoes[p.posicao] || 8 }))
+                    .sort((a, b) => (a._ordemPos - b._ordemPos) || (b.ovr - a.ovr));
+            }
+
+            abrirModalTroca(opcoesRecomendados, opcoesTodos, opcoesNaoRelacionados, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo);
         }
 
         // Troca dois titulares de posição entre si — não mexe no banco, não conta como substituição.
@@ -1464,7 +1574,7 @@ ${textoRegrasCompatibilidadePosicional()}
             // elenco, sem mandar ninguém pro campo — só ajusta as opções disponíveis no banco.
             let botaoExtra = !aoVivo ? { label: '🔄 Trocar por outro do elenco (sem entrar em campo)', onclick: `abrirTrocaBancoPorElenco(${idx})` } : null;
 
-            abrirModalTroca(relevantes, outros, `Colocar ${atual.nome || 'reserva'} em campo`, subtitulo, botaoExtra);
+            abrirModalTroca(relevantes, outros, [], `Colocar ${atual.nome || 'reserva'} em campo`, subtitulo, botaoExtra);
         }
 
         // Substitui quem ocupa esse slot do banco por outro jogador do elenco ativo — só faz
@@ -1488,7 +1598,7 @@ ${textoRegrasCompatibilidadePosicional()}
             relevantes.sort((a, b) => b.ovr - a.ovr);
             outros.sort((a, b) => b.ovr - a.ovr);
 
-            abrirModalTroca(relevantes, outros, `Trocar ${atual.nome} no banco`, `Escolha quem do elenco assume o lugar de ${atual.nome} no banco — ele não entra em campo.`);
+            abrirModalTroca(relevantes, outros, [], `Trocar ${atual.nome} no banco`, `Escolha quem do elenco assume o lugar de ${atual.nome} no banco — ele não entra em campo.`);
         }
 
         function trocarJogadorNoBanco(idx, novoNome) {
