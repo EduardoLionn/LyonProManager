@@ -410,7 +410,7 @@
 .termometro-bar { background: var(--bg-dark); height: 12px; border-radius: 6px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border); position: relative; }
 .termometro-fill { height: 100%; transition: width 0.5s, background 0.5s; }
 /* --- FEED SOCIAL: CARDS ESTILO INSTAGRAM --- */
-.insta-card { background: var(--panel-bg); border-radius: 14px; border: 1px solid var(--border); margin-bottom: 18px; overflow: hidden; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.insta-card { background: var(--panel-bg); border-radius: 14px; border: 1px solid var(--border); margin: 0 auto 18px; max-width: 470px; width: 100%; overflow: hidden; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .insta-card:hover { border-color: var(--primary); }
 .insta-topo { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
 .insta-avatar { width: 38px; height: 38px; border-radius: 50%; min-width: 38px; display: flex; align-items: center; justify-content: center; font-size: 18px; background: var(--input-bg); border: 1px solid var(--border); }
@@ -418,8 +418,12 @@
 .insta-nome { font-weight: bold; color: white; font-size: 14px; }
 .insta-arroba { color: var(--text-muted); font-size: 12px; }
 .insta-categoria-chip { font-size: 11px; font-weight: bold; color: var(--text-muted); background: var(--input-bg); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
-.insta-hero { width: 100%; aspect-ratio: 16 / 10; display: flex; align-items: center; justify-content: center; }
-.insta-hero-emoji { font-size: 68px; filter: drop-shadow(0 6px 18px rgba(0,0,0,0.5)); }
+.insta-hero { position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 280px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.insta-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Com foto carregada, o emoji vira só um selinho no canto — a foto é a capa, não o emoji. */
+.insta-hero-emoji { position: absolute; right: 10px; bottom: 10px; z-index: 1; font-size: 20px; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(13,21,18,0.55); backdrop-filter: blur(2px); }
+/* Sem foto (offline ou categoria sem capa ainda) — volta pro emoji grande centralizado de antes. */
+.insta-hero.sem-foto .insta-hero-emoji { position: static; width: auto; height: auto; background: none; backdrop-filter: none; font-size: 68px; filter: drop-shadow(0 6px 18px rgba(0,0,0,0.5)); }
 .insta-acoes { display: flex; align-items: center; gap: 18px; padding: 12px 14px 2px; }
 .insta-icone { font-size: 24px; cursor: pointer; transition: transform 0.15s; line-height: 1; }
 .insta-icone:hover { transform: scale(1.15); }

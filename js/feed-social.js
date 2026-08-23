@@ -1,23 +1,33 @@
         // =====================================================================================
         // FEED SOCIAL — VISUAL TIPO INSTAGRAM
         // =====================================================================================
-        // Cada post ganha uma "capa" (gradiente + emoji temático) em vez de só texto corrido —
-        // não dá pra buscar foto de banco de imagens em tempo real (exigiria chave de API paga),
-        // então a capa é 100% CSS/gradiente, sem depender de internet. A categoria decide qual
-        // capa usar e é herdada do tipo de evento (vitória, derrota, contratação, lesão...).
+        // Cada post ganha uma "capa" com foto de verdade. Duas camadas, nessa ordem de tentativa
+        // (tudo via onerror no próprio <img>, sem precisar checar nada em JS):
+        //   1) assets/social/<categoria>.jpg — se você colocar um arquivo com esse nome no
+        //      repositório, ele passa a ser a capa fixa daquela categoria (sua própria foto).
+        //   2) imgKeywords — se não existir arquivo local, busca uma foto de banco livre (sem
+        //      direitos autorais) combinando com o tema do evento.
+        //   3) se as duas falharem (ex: sem internet), cai no gradiente + emoji de sempre — nunca
+        //      quebra mostrando ícone de imagem faltando.
         const CATEGORIAS_POST_SOCIAL = {
-            vitoria:     { emoji: '🏆', label: 'Vitória',             grad: 'linear-gradient(155deg, #241a03 0%, #6b4e12 48%, #E8B84B 100%)' },
-            campeao:     { emoji: '🏆', label: 'Título',              grad: 'linear-gradient(155deg, #2b1e00 0%, #8a6412 45%, #F2C868 100%)' },
-            derrota:     { emoji: '🌧️', label: 'Derrota',             grad: 'linear-gradient(155deg, #04070a 0%, #131c26 55%, #33465a 100%)' },
-            empate:      { emoji: '⚖️', label: 'Empate',              grad: 'linear-gradient(155deg, #0e1317 0%, #223038 55%, #445a5f 100%)' },
-            contratacao: { emoji: '✍️', label: 'Contratação',         grad: 'linear-gradient(155deg, #061711 0%, #10422a 50%, #24b374 100%)' },
-            venda:       { emoji: '👋', label: 'Saída',                grad: 'linear-gradient(155deg, #060f17 0%, #123049 50%, #3a86c4 100%)' },
-            lesao:       { emoji: '🏥', label: 'Departamento Médico',  grad: 'linear-gradient(155deg, #190607 0%, #4a1214 50%, #E24B4B 100%)' },
-            capitao:     { emoji: '🎖️', label: 'Vestiário',           grad: 'linear-gradient(155deg, #221902 0%, #6b4e12 50%, #E8B84B 100%)' },
-            financeiro:  { emoji: '💰', label: 'Bastidores',           grad: 'linear-gradient(155deg, #041213 0%, #0f3a3d 50%, #33b6bd 100%)' },
-            corneta:     { emoji: '🔥', label: 'Repercussão',          grad: 'linear-gradient(155deg, #190800 0%, #5c1d05 50%, #D9822B 100%)' },
-            geral:       { emoji: '📰', label: 'Notícia',              grad: 'linear-gradient(155deg, #0D1512 0%, #182420 55%, #2A3B34 100%)' }
+            vitoria:     { emoji: '🏆', label: 'Vitória',             grad: 'linear-gradient(155deg, #241a03 0%, #6b4e12 48%, #E8B84B 100%)', imgKeywords: 'soccer,celebration' },
+            campeao:     { emoji: '🏆', label: 'Título',              grad: 'linear-gradient(155deg, #2b1e00 0%, #8a6412 45%, #F2C868 100%)', imgKeywords: 'soccer,trophy' },
+            derrota:     { emoji: '🌧️', label: 'Derrota',             grad: 'linear-gradient(155deg, #04070a 0%, #131c26 55%, #33465a 100%)', imgKeywords: 'soccer,rain,stadium' },
+            empate:      { emoji: '⚖️', label: 'Empate',              grad: 'linear-gradient(155deg, #0e1317 0%, #223038 55%, #445a5f 100%)', imgKeywords: 'soccer,match' },
+            contratacao: { emoji: '✍️', label: 'Contratação',         grad: 'linear-gradient(155deg, #061711 0%, #10422a 50%, #24b374 100%)', imgKeywords: 'soccer,handshake' },
+            venda:       { emoji: '👋', label: 'Saída',                grad: 'linear-gradient(155deg, #060f17 0%, #123049 50%, #3a86c4 100%)', imgKeywords: 'soccer,player,walking' },
+            lesao:       { emoji: '🏥', label: 'Departamento Médico',  grad: 'linear-gradient(155deg, #190607 0%, #4a1214 50%, #E24B4B 100%)', imgKeywords: 'physiotherapy,sport' },
+            capitao:     { emoji: '🎖️', label: 'Vestiário',           grad: 'linear-gradient(155deg, #221902 0%, #6b4e12 50%, #E8B84B 100%)', imgKeywords: 'soccer,captain' },
+            financeiro:  { emoji: '💰', label: 'Bastidores',           grad: 'linear-gradient(155deg, #041213 0%, #0f3a3d 50%, #33b6bd 100%)', imgKeywords: 'stadium,business' },
+            corneta:     { emoji: '🔥', label: 'Repercussão',          grad: 'linear-gradient(155deg, #190800 0%, #5c1d05 50%, #D9822B 100%)', imgKeywords: 'soccer,fans,crowd' },
+            geral:       { emoji: '📰', label: 'Notícia',              grad: 'linear-gradient(155deg, #0D1512 0%, #182420 55%, #2A3B34 100%)', imgKeywords: 'soccer,stadium' }
         };
+
+        // Monta a URL de banco livre de imagens (LoremFlickr — sem chave de API) pra uma categoria.
+        function urlImagemBanco(categoria) {
+            let cat = CATEGORIAS_POST_SOCIAL[categoria] ? categoria : 'geral';
+            return `https://loremflickr.com/640/400/${CATEGORIAS_POST_SOCIAL[cat].imgKeywords}`;
+        }
 
         // Classifica um post pelo texto do título — mesma ideia do isMercado que já existia,
         // só que cobrindo todas as categorias agora (não só mercado). Roda sobre QUALQUER post
@@ -39,7 +49,8 @@
 
         function heroDoPost(post) {
             let cat = post.categoria && CATEGORIAS_POST_SOCIAL[post.categoria] ? post.categoria : categoriaDoPost(post.legenda || post.texto);
-            return CATEGORIAS_POST_SOCIAL[cat] || CATEGORIAS_POST_SOCIAL.geral;
+            if (!CATEGORIAS_POST_SOCIAL[cat]) cat = 'geral';
+            return Object.assign({ chave: cat }, CATEGORIAS_POST_SOCIAL[cat]);
         }
 
         // 25000 -> "25 mil" — número de curtidas fica mais Instagram e menos planilha.
@@ -104,6 +115,8 @@
                             <span class="insta-categoria-chip">${hero.emoji} ${hero.label}</span>
                         </div>
                         <div class="insta-hero" style="background:${hero.grad}">
+                            <img class="insta-hero-img" alt="" loading="lazy" src="assets/social/${hero.chave}.jpg"
+                                onerror="this.onerror=function(){ this.style.display='none'; this.closest('.insta-hero').classList.add('sem-foto'); }; this.src='${urlImagemBanco(hero.chave)}';">
                             <span class="insta-hero-emoji">${hero.emoji}</span>
                         </div>
                         <div class="insta-acoes">
