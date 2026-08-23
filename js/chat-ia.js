@@ -124,6 +124,12 @@
                 let historicoChat = history.map(h => `${h.role === 'user' ? 'Treinador' : tipo}: ${h.text || ''}`).join('\n');
 
                 let promptFull = "";
+                // Declarado aqui fora (não dentro do "else" do auxiliar) de propósito: é lido mais
+                // abaixo, depois que a IA responde, pra validar a sugestão de formação — nesse ponto
+                // o bloco if/else já fechou. Só existia como "let" preso dentro do else, então toda
+                // vez que a IA sugeria mudar a formação ao vivo isso estourava um ReferenceError, que
+                // o catch genérico de então escondia atrás de "Conexão interrompida".
+                let formacoesPreferidasChat = [];
 
                 if (tipo === 'diretoria') {
                     // Mapeamento Dinâmico do Perfil da IA baseado na Nota
@@ -172,7 +178,7 @@
         - SEJA HONESTO: se o time estiver bem e os dados não pedirem mudança nenhuma, DIGA CLARAMENTE que está tudo certo e não force uma alteração só por forçar.` : '';
 
                     let taticaBaseChat = (typeof taticaDoSave === 'function') ? taticaDoSave() : null;
-                    let formacoesPreferidasChat = (taticaBaseChat && Array.isArray(taticaBaseChat.formacoesPreferidas) && taticaBaseChat.formacoesPreferidas.length)
+                    formacoesPreferidasChat = (taticaBaseChat && Array.isArray(taticaBaseChat.formacoesPreferidas) && taticaBaseChat.formacoesPreferidas.length)
                         ? taticaBaseChat.formacoesPreferidas.filter(f => coordsFormacoes[f])
                         : Object.keys(coordsFormacoes);
                     if (!formacoesPreferidasChat.length) formacoesPreferidasChat = Object.keys(coordsFormacoes);
