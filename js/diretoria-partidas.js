@@ -628,7 +628,11 @@
                 else if (golsC > golsP) ajustarMoralElenco(-gerarNumeroAleatorio(3, 6));
             }
 
-            // A partida acabou: zera o formulário e volta a aba pro estado "Iniciar Partida"
+            // A partida acabou: zera o formulário e volta a aba pro estado "Iniciar Partida". O campo
+            // de adversário do próximo jogo (#inicio-partida-adversario) tinha que ser limpo aqui —
+            // como nunca era, o nome do adversário desta partida ficava visível no campo, e
+            // usarSugestaoDoAuxiliar só preenche o campo quando ele está vazio, então o adversário
+            // NOVO sugerido pelo Auxiliar nunca aparecia: ficava preso no nome antigo pra sempre.
             db[currentSave].sugestaoAuxiliar = null;
             ['gols-pro', 'gols-contra', 'fin-pro', 'fin-adv', 'posse-pro', 'posse-adv'].forEach(id => {
                 let el = document.getElementById(id);
@@ -636,6 +640,7 @@
             });
             let elContexto = document.getElementById('partida-contexto'); if (elContexto) elContexto.value = '';
             let elDias = document.getElementById('partida-dias-proxima'); if (elDias) elDias.value = '3';
+            let elAdv = document.getElementById('inicio-partida-adversario'); if (elAdv) elAdv.value = '';
 
             salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
             alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!");

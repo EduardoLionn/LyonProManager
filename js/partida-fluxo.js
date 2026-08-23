@@ -447,6 +447,9 @@ async function cancelarPartidaEmAndamento() {
         : 'Descartar esta partida? A escalação e as substituições declaradas serão perdidas.';
     if (await confirmarModerno(msg, montando ? 'Descartar Escalação' : 'Cancelar Partida', { perigo: true, textoConfirmar: 'Descartar' })) {
         db[currentSave].partidaAuxiliar = null;
+        // Descartar também limpa o nome do adversário — senão ele fica preso no campo e
+        // atrapalha a próxima escalação (ver salvarPartida, mesmo motivo).
+        let elAdv = document.getElementById('inicio-partida-adversario'); if (elAdv) elAdv.value = '';
         salvarDados();
         renderizarAbaSalvarPartida();
     }

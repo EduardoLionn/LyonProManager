@@ -1193,6 +1193,10 @@ ${textoRegrasCompatibilidadePosicional()}
                         criadaEm: Date.now()
                     };
                     imagemAdvEscalacao = null; imagemAdvTatica = null;
+                    // Limpa o campo de nome pra não ficar preso no adversário que acabou de ser
+                    // declarado — senão a próxima vez que o treinador for declarar OUTRO adversário
+                    // vê o nome antigo ainda ali, confundindo qual jogo está sendo planejado.
+                    let elAdvNome = document.getElementById('declarar-adv-nome'); if (elAdvNome) elAdvNome.value = '';
                     salvarDados();
                     renderizarSugestaoAuxiliar();
                 } else {
