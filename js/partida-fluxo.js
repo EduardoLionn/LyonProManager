@@ -559,7 +559,7 @@ function renderizarAbaSalvarPartida() {
     if (acoes) {
         if (montando) {
             acoes.innerHTML = `
-                <button onclick="abrirMudarFormacaoManual()" style="flex:1; min-width:180px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
+                <button onclick="abrirAjustarTaticaManual()" style="flex:1; min-width:180px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🎛️ Ajustar Tática</button>
                 <button class="btn-hero-secundario" onclick="cancelarPartidaEmAndamento()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar</button>
                 <button onclick="iniciarPartidaDoSetup()" style="flex:1 1 100%; background:var(--primary); color:black; padding:14px; font-size:16px;">▶️ Iniciar Partida</button>`;
         } else {

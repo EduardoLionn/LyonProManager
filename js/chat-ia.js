@@ -1797,6 +1797,52 @@ ${textoRegrasCompatibilidadePosicional()}
             renderizarAuxiliarPartida();
         }
 
+        // --- AJUSTAR TÁTICA COMPLETA (pré-jogo — formação, estilo, armação e defesa de uma vez) ---
+        // Antes de Iniciar Partida o treinador só conseguia mexer na formação (o resto do pacote
+        // tático — predefinição/armação/abordagem defensiva — só vinha do Auxiliar ou do "Estilo de
+        // Jogo" do Perfil do Treinador). Este modal deixa ajustar tudo manualmente pra ESTA partida,
+        // reaproveitando o mesmo motor de regras (corrigirTatica) que já valida a sugestão da IA.
+        function abrirAjustarTaticaManual() {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida) return;
+            let t = Object.assign(taticaPadrao(), partida.tatica || {});
+            document.getElementById('modal-tatica-formacao').innerHTML = Object.keys(coordsFormacoes)
+                .map(f => `<option value="${f}" ${f === partida.formacaoEscolhida ? 'selected' : ''}>${f}</option>`).join('');
+            document.getElementById('modal-tatica-predefinicao').innerHTML = PREDEFINICOES_TATICAS
+                .map(p => `<option value="${p.id}" ${p.id === t.predefinicao ? 'selected' : ''}>${p.emoji} ${p.nome}</option>`).join('');
+            document.getElementById('modal-tatica-armacao').innerHTML = ESTILOS_ARMACAO
+                .map(e => `<option value="${e.id}" ${e.id === t.estiloArmacao ? 'selected' : ''}>${e.nome}</option>`).join('');
+            document.getElementById('modal-tatica-defesa').value = t.abordagemDefensiva;
+            atualizarAjudaPredefinicaoModal();
+            document.getElementById('modal-ajustar-tatica').style.display = 'flex';
+        }
+
+        function atualizarAjudaPredefinicaoModal() {
+            let sel = document.getElementById('modal-tatica-predefinicao');
+            let ajuda = document.getElementById('modal-tatica-ajuda');
+            if (sel && ajuda) ajuda.innerText = textoRegraPredefinicao(sel.value);
+        }
+
+        function confirmarAjustarTaticaManual() {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida) return;
+
+            let novaFormacao = document.getElementById('modal-tatica-formacao').value;
+            let predefinicao = document.getElementById('modal-tatica-predefinicao').value;
+            let estiloArmacao = document.getElementById('modal-tatica-armacao').value;
+            let abordagemDefensiva = Number(document.getElementById('modal-tatica-defesa').value);
+
+            document.getElementById('modal-ajustar-tatica').style.display = 'none';
+
+            if (novaFormacao !== partida.formacaoEscolhida) aplicarNovaFormacao(novaFormacao);
+
+            let { tatica, ajustes } = corrigirTatica({ predefinicao: predefinicao, estiloArmacao: estiloArmacao, abordagemDefensiva: abordagemDefensiva, esquema: novaFormacao });
+            partida.tatica = Object.assign({}, partida.tatica, tatica);
+            salvarDados();
+            renderizarAbaSalvarPartida();
+            if (ajustes.length) alert('A combinação escolhida não é permitida no jogo — corrigi automaticamente:\n\n' + ajustes.join('\n'));
+        }
+
         // --- CICLO DE VIDA DA PARTIDA (iniciar / cancelar / ir registrar) ---
 
         // Chamada pelo salvarPartida() (Dashboard) quando há uma partida declarada em aberto.
