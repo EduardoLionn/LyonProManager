@@ -13,7 +13,13 @@ const CONDICAO_FISICA_CFG = {
     STAMINA_CUSTO_BASE: 16,            // desgaste padrão por partida jogada
     STAMINA_CUSTO_POUCO_DESCANSO: 24,  // desgaste extra se jogou com 2 dias ou menos de descanso
     STAMINA_CUSTO_DESCANSO_MEDIO: 19,  // desgaste com 3-4 dias de descanso
-    STAMINA_RECUPERACAO_DIA: 9,        // recuperação por dia de descanso (joga ou não)
+    // Com 9/dia, quem joga a cada 3-4 dias (o normal em qualquer temporada com mais de uma
+    // competição) RECUPERAVA mais do que gastava partida a partida — o elenco nunca acumulava
+    // cansaço de verdade, só quem jogava a cada 2 dias sentia alguma coisa. Com 6/dia, jogar de 3
+    // em 3 dias já corrói a condição aos poucos (recupera 18, gasta 19) e só uma folga de verdade
+    // (uma semana cheia ou uma data FIFA) devolve o elenco fresco — cansaço agora se acumula ao
+    // longo da temporada com o calendário apertado, não só num sprint de 48h.
+    STAMINA_RECUPERACAO_DIA: 6,        // recuperação por dia de descanso (joga ou não)
     STAMINA_ALERTA: 55,
     STAMINA_RISCO: 35,
     STAMINA_CRITICO: 18,
