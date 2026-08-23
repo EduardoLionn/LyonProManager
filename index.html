@@ -1808,6 +1808,21 @@
                 </div>
             </div>
 
+            <!-- MODAL: DECLARAR CARTÃO (ao vivo) -->
+            <div id="modal-declarar-cartao" class="modal-troca-overlay" style="display: none;">
+                <div class="setup-box modal-troca-box">
+                    <h2 id="modal-cartao-titulo" style="margin-top:0;">🟨 Declarar Cartão Amarelo</h2>
+                    <div class="linha-form">
+                        <label>Jogador</label>
+                        <select id="modal-cartao-jogador"></select>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button style="flex:1; background:var(--primary); color:black;" onclick="confirmarDeclararCartao()">✅ Declarar</button>
+                        <button style="background:transparent; border:1px solid var(--border); color:white;" onclick="document.getElementById('modal-declarar-cartao').style.display='none'">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- MODAL: FUNÇÃO DO JOGADOR NO PLANO DO AUXILIAR — só leitura, não escala nada.
                  Fica fora de #tab-auxiliar pelo mesmo motivo dos modais acima. -->
             <div id="modal-funcao-jogador" class="modal-troca-overlay" style="display: none;">

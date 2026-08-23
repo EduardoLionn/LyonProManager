@@ -564,10 +564,18 @@ function renderizarAbaSalvarPartida() {
                 <button onclick="iniciarPartidaDoSetup()" style="flex:1 1 100%; background:var(--primary); color:black; padding:14px; font-size:16px;">▶️ Iniciar Partida</button>`;
         } else {
             let subsUsadas = (partida.substituicoes || []).length;
+            let cartoes = partida.cartoes || [];
+            let cartoesHtml = cartoes.length ? `
+                <div style="flex:1 1 100%; display:flex; flex-wrap:wrap; gap:6px; margin-bottom:2px;">
+                    ${cartoes.slice().sort((a, b) => (a.minuto || 0) - (b.minuto || 0)).map(c => `<span class="matchday-chip" style="font-size:11px; padding:4px 8px;">${c.minuto}' ${c.tipo === 'vermelho' ? '🟥' : '🟨'} ${c.nome}</span>`).join('')}
+                </div>` : '';
             acoes.innerHTML = `
                 <p style="flex:1 1 100%; text-align:center; font-size:12px; color:var(--text-muted); margin: 0 0 4px 0;">Substituições: <strong style="color:${subsUsadas >= 5 ? 'var(--danger)' : 'var(--primary)'};">${subsUsadas}/5</strong> — quem sai não volta mais nesta partida.</p>
+                ${cartoesHtml}
                 <button onclick="abrirMudarFormacaoManual()" style="flex:1; min-width:160px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent);">🔄 Mudar Formação</button>
                 <button onclick="pedirSugestaoAoVivo()" style="flex:1; min-width:160px; background:var(--accent); color:white;">🤖 Pedir sugestão ao Auxiliar</button>
+                <button onclick="abrirDeclararCartao('amarelo')" style="flex:1; min-width:140px; background:var(--panel-bg); border:1px solid var(--warning); color:var(--warning);">🟨 Cartão Amarelo</button>
+                <button onclick="abrirDeclararCartao('vermelho')" style="flex:1; min-width:140px; background:var(--panel-bg); border:1px solid var(--danger); color:var(--danger);">🟥 Cartão Vermelho</button>
                 <button class="btn-hero-secundario" onclick="cancelarPartidaEmAndamento()" style="color:var(--danger); border-color:var(--danger);">🗑️ Descartar Partida</button>`;
         }
     }
@@ -606,6 +614,7 @@ function gerarHtmlFichaPartida(partida) {
         escalacaoInicial: f.escalacaoInicial,
         formacaoInicial: f.formacaoInicial,
         substituicoes: f.substituicoes,
+        cartoes: f.cartoes,
         jogadoresNotas: partida.jogadores || []
     };
 
@@ -647,5 +656,6 @@ function gerarHtmlFichaPartida(partida) {
         <h4 class="historico-secao-titulo">🧩 Escalação do apito inicial</h4>
         ${(typeof gerarHtmlCampinhoHistorico === 'function') ? gerarHtmlCampinhoHistorico(paraRenderizar) : ''}
         ${(typeof gerarHtmlSubstituicoesHistorico === 'function') ? gerarHtmlSubstituicoesHistorico(paraRenderizar) : ''}
+        ${(typeof gerarHtmlCartoesHistorico === 'function') ? gerarHtmlCartoesHistorico(paraRenderizar) : ''}
         ${bancoHtml}`;
 }

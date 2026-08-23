@@ -1521,7 +1521,10 @@ ${textoRegrasCompatibilidadePosicional()}
                 // pontas cobrindo lateral), nunca o lateral reserva de verdade que estava no banco.
                 let subsUsadas = (partida.substituicoes || []).length;
                 let fora = partida.jogadoresForaDaPartida || [];
-                let opcoesBanco = subsUsadas < 5 ? (partida.banco || []).filter(b => b.nome && !fora.includes(b.nome)).map(b => {
+                // Expulso (cartão vermelho) não pode ser substituído — regra do futebol, sair por
+                // expulsão não abre vaga pro banco. Só resta trocar de posição com outro titular.
+                let expulsoAqui = jogadorExpulsoNestaPartida(partida, nomeAtual);
+                let opcoesBanco = (subsUsadas < 5 && !expulsoAqui) ? (partida.banco || []).filter(b => b.nome && !fora.includes(b.nome)).map(b => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
                     return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: `Banco — declara substituição (${subsUsadas}/5)`, onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
                 }) : [];
@@ -1532,9 +1535,11 @@ ${textoRegrasCompatibilidadePosicional()}
                 opcoesRecomendados = bancoRelevantesVivo.concat(posRelevantes);
                 // Ao vivo não existe "fora da escalação" pra puxar — só quem já é do jogo hoje conta.
                 opcoesTodos = opcoesBanco.concat(opcoesPosicao).sort((a, b) => (a._ordemPos - b._ordemPos) || (b.ovr - a.ovr));
-                subtitulo = subsUsadas < 5
-                    ? `Traga alguém do banco (gasta 1 das ${5 - subsUsadas} substituições restantes e pede o minuto) ou troque de posição com outro titular (não gasta substituição).`
-                    : 'Limite de 5 substituições já atingido — só dá pra trocar de posição com outro titular.';
+                subtitulo = expulsoAqui
+                    ? `🟥 ${nomeAtual} foi expulso — não pode ser substituído, só trocado de posição com outro titular.`
+                    : (subsUsadas < 5
+                        ? `Traga alguém do banco (gasta 1 das ${5 - subsUsadas} substituições restantes e pede o minuto) ou troque de posição com outro titular (não gasta substituição).`
+                        : 'Limite de 5 substituições já atingido — só dá pra trocar de posição com outro titular.');
             }
 
             // "Não Relacionados": elenco ativo que nem está no banco de hoje — só faz sentido pré-jogo,
@@ -1598,7 +1603,8 @@ ${textoRegrasCompatibilidadePosicional()}
             let posicaoAtual = (jogBDAtual && jogBDAtual.posicao) ? jogBDAtual.posicao : (atual.posicao || '');
 
             let opcoesSlots = Object.entries(partida.titulares || {})
-                .filter(([r, j]) => j.nome && j.nome !== '???')
+                // Vaga de quem foi expulso não aparece aqui — expulso não é substituído (só troca de posição).
+                .filter(([r, j]) => j.nome && j.nome !== '???' && !(aoVivo && jogadorExpulsoNestaPartida(partida, j.nome)))
                 .map(([r, j]) => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
                     let posTxt = jogBD ? jogBD.posicao : r;
@@ -1690,6 +1696,8 @@ ${textoRegrasCompatibilidadePosicional()}
             if (!partida || partida.status !== 'em_andamento') return;
             if ((partida.substituicoes || []).length >= 5) { alert('Limite de 5 substituições já atingido nesta partida.'); return; }
             if ((partida.jogadoresForaDaPartida || []).includes(nomeEntra)) { alert(`${nomeEntra} já saiu da partida antes e não pode voltar.`); return; }
+            let jogadorSaindo = partida.titulares && partida.titulares[roleSai];
+            if (jogadorSaindo && jogadorExpulsoNestaPartida(partida, jogadorSaindo.nome)) { alert(`${jogadorSaindo.nome} foi expulso e não pode ser substituído — só trocado de posição com outro titular.`); return; }
 
             let minutoStr = await promptModerno(`Em que minuto ${nomeEntra} entrou em campo?`, '', '⏱️ Minuto da Substituição');
             if (minutoStr === null) return;
@@ -1699,6 +1707,51 @@ ${textoRegrasCompatibilidadePosicional()}
             let ok = efetivarSubstituicao(roleSai, nomeEntra, minuto, instrucao);
             if (!ok) { alert('Não foi possível confirmar essa substituição.'); return; }
             renderizarAuxiliarPartida();
+        }
+
+        // --- DECLARAR CARTÃO (amarelo/vermelho) DURANTE A PARTIDA AO VIVO ---
+        // Fica registrado na ficha da partida (mesmo lugar das substituições). O cartão vermelho
+        // tem uma regra própria: o jogador expulso NÃO pode ser substituído (regra do futebol —
+        // sair de campo por expulsão não abre vaga pro banco), só trocado de posição com outro
+        // titular. A suspensão pra próxima partida só é aplicada quando a partida é salva
+        // (salvarPartida, em js/diretoria-partidas.js), reaproveitando o campo suspensoVermelho
+        // que o Departamento Médico já usa.
+        let _tipoCartaoAtual = null;
+
+        function abrirDeclararCartao(tipo) {
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida || partida.status !== 'em_andamento' || !partida.titulares) return;
+            _tipoCartaoAtual = tipo;
+            let titulo = document.getElementById('modal-cartao-titulo');
+            if (titulo) titulo.innerText = tipo === 'vermelho' ? '🟥 Declarar Cartão Vermelho' : '🟨 Declarar Cartão Amarelo';
+            let jogadoresEmCampo = Object.values(partida.titulares).filter(j => j && j.nome && j.nome !== '???');
+            document.getElementById('modal-cartao-jogador').innerHTML = jogadoresEmCampo
+                .map(j => `<option value="${j.nome}">${j.nome}</option>`).join('');
+            document.getElementById('modal-declarar-cartao').style.display = 'flex';
+        }
+
+        async function confirmarDeclararCartao() {
+            let nome = document.getElementById('modal-cartao-jogador').value;
+            let tipo = _tipoCartaoAtual;
+            document.getElementById('modal-declarar-cartao').style.display = 'none';
+            if (!nome || !tipo) return;
+
+            let minutoStr = await promptModerno(`Em que minuto ${nome} recebeu o cartão ${tipo}?`, '', tipo === 'vermelho' ? '🟥 Minuto do Cartão Vermelho' : '🟨 Minuto do Cartão Amarelo');
+            if (minutoStr === null) return;
+            let minuto = parseInt(minutoStr, 10);
+            if (isNaN(minuto) || minuto < 0 || minuto > 130) { alert('Digite um minuto válido (0 a 130).'); return; }
+
+            let partida = db[currentSave].partidaAuxiliar;
+            if (!partida) return;
+            if (!partida.cartoes) partida.cartoes = [];
+            partida.cartoes.push({ nome: nome, tipo: tipo, minuto: minuto });
+            salvarDados();
+            if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida();
+        }
+
+        // Já foi expulso NESTA partida? Usado pra travar a substituição dele (só pode trocar de posição).
+        function jogadorExpulsoNestaPartida(partida, nome) {
+            return !!(partida && Array.isArray(partida.cartoes) && partida.cartoes.some(c => c.tipo === 'vermelho' && c.nome === nome));
         }
 
         // --- MUDAR FORMAÇÃO (sugerida pela IA ou manual, pré-jogo ou ao vivo) ---
@@ -1880,7 +1933,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 formacaoEscolhida: partida.formacaoEscolhida, titulares: partida.titulares, banco: partida.banco,
                 formacaoInicial: partida.formacaoInicial || partida.formacaoEscolhida,
                 escalacaoInicial: partida.escalacaoInicial || partida.titulares, bancoInicial: partida.bancoInicial || partida.banco,
-                substituicoes: partida.substituicoes || [],
+                substituicoes: partida.substituicoes || [], cartoes: partida.cartoes || [],
                 analiseGeral: partida.analiseGeral, ajustesFeitos: partida.ajustesFeitos,
                 jogadoresNotas: dadosDashboard ? dadosDashboard.jogadores : [],
                 estatisticas: dadosDashboard ? { possePro: dadosDashboard.possePro, posseAdv: dadosDashboard.posseAdv, finPro: dadosDashboard.finPro, finAdv: dadosDashboard.finAdv, comp: dadosDashboard.comp, mando: dadosDashboard.mando } : null,
@@ -1928,6 +1981,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         ${gerarHtmlCampinhoHistorico(p)}
 
                         ${gerarHtmlSubstituicoesHistorico(p)}
+                        ${gerarHtmlCartoesHistorico(p)}
 
                         <h4 class="historico-secao-titulo">⭐ Notas dos Jogadores</h4>
                         ${gerarHtmlNotasHistorico(p)}
@@ -1981,6 +2035,16 @@ ${textoRegrasCompatibilidadePosicional()}
             return `<h4 class="historico-secao-titulo">🔁 Substituições</h4>
                 <div class="historico-subs-lista">
                     ${ordenadas.map(s => `<div class="historico-sub-item"><strong>${s.minuto}'</strong> — 🟢 ${s.entrou} entrou no lugar de 🔴 ${s.saiu}${s.instrucao ? ` <span class="historico-sub-instrucao">(${s.instrucao})</span>` : ''}</div>`).join('')}
+                </div>`;
+        }
+
+        function gerarHtmlCartoesHistorico(p) {
+            let cartoes = p.cartoes || [];
+            if (cartoes.length === 0) return '';
+            let ordenados = cartoes.slice().sort((a, b) => (a.minuto || 0) - (b.minuto || 0));
+            return `<h4 class="historico-secao-titulo">🟨🟥 Cartões</h4>
+                <div class="historico-subs-lista">
+                    ${ordenados.map(c => `<div class="historico-sub-item"><strong>${c.minuto}'</strong> — ${c.tipo === 'vermelho' ? '🟥' : '🟨'} ${c.nome}</div>`).join('')}
                 </div>`;
         }
 

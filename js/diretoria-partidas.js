@@ -497,6 +497,15 @@
             let mando = document.getElementById('partida-mando').value;
             let contexto = document.getElementById('partida-contexto').value.trim();
             let diasPassados = Math.max(0, Number(document.getElementById('partida-dias-proxima').value) || 3);
+
+            // Cartão vermelho declarado durante a partida só vira suspensão de verdade agora, ao
+            // encerrar — reaproveita o campo suspensoVermelho que o Departamento Médico já usa
+            // (inclusive a lógica de "só é cumprida quando o jogador realmente fica de fora").
+            (partidaAberta.cartoes || []).filter(c => c.tipo === 'vermelho').forEach(c => {
+                let jogadorExpulso = db[currentSave].plantel.find(p => p.nome === c.nome);
+                if (jogadorExpulso) { garantirCondicaoFisica(jogadorExpulso); jogadorExpulso.suspensoVermelho = true; }
+            });
+
             processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp.map(j => j.nome));
 
             // A ficha completa da partida vive no próprio registro: escalação do apito inicial,
@@ -515,6 +524,7 @@
                     escalacaoFinal: partidaAberta.titulares || {},
                     bancoInicial: partidaAberta.bancoInicial || partidaAberta.banco || [],
                     substituicoes: partidaAberta.substituicoes || [],
+                    cartoes: partidaAberta.cartoes || [],
                     tatica: partidaAberta.tatica || null,
                     adversarioInfo: partidaAberta.adversarioInfo || '',
                     analiseGeral: partidaAberta.analiseGeral || '',
