@@ -1110,7 +1110,7 @@ ${textoRegrasCompatibilidadePosicional()}
             0. Além da escalação, escolha o PACOTE TÁTICO completo (predefinição, esquema, estilo de armação e abordagem defensiva de 0 a 100) respeitando as travas listadas acima. O treinador vai selecionar exatamente isso dentro do jogo, então uma combinação proibida é inútil. ESTE PACOTE PARTE DA CONFIGURAÇÃO BASE DO TREINADOR, mas você DEVE ajustá-lo pra ESTE adversário específico: contra um time de posse/tiki-taka, reduza a abordagem defensiva e recue mais a linha; contra um time fraco ou que joga muito recuado, pode subir a linha e ser mais agressivo; ajuste o foco de zagueiros/volantes pra "Defesa"/"Roubada de Bola" contra ataques fortes, ou pra "Ataque"/"Armação" contra defesas fracas. A justificativa desse ajuste vai em "justificativaTatica".
             1. Escolha UMA das formações preferidas listadas acima (${formacoesPreferidasIA.join(', ')}) — a mais adequada pra ESTE adversário — e use EXATAMENTE AS SIGLAS DO SEGUINTE MAPA COMO CHAVES: ${plantelInfo.formacoesPossiveisStr}
             2. NÃO invente siglas (Ex: não crie "MC" se na formação escolhida tiver apenas "MCD" e "MCE").
-            3. BANCO DE RESERVAS: monte também até 9 jogadores do elenco ativo que NÃO entraram nos 11 titulares, ordenados por relevância. REGRA OBRIGATÓRIA: pelo menos 1 desses 9 TEM que ser um goleiro reserva (nunca deixe o banco sem nenhum goleiro). Para cada um, diga em poucas palavras qual seria o papel dele se entrasse. Não invente jogadores fora da lista do elenco.
+            3. BANCO DE RESERVAS: monte também até 9 jogadores do elenco ativo que NÃO entraram nos 11 titulares. REGRA OBRIGATÓRIA: pelo menos 1 desses 9 TEM que ser um goleiro reserva (nunca deixe o banco sem nenhum goleiro). PROFUNDIDADE REALISTA (REGRA CRÍTICA): um banco de verdade cobre o time inteiro — NUNCA monte um banco dominado por uma linha só (ex: 5 zagueiros/laterais e nenhum atacante). Distribua entre defesa (zagueiro/lateral), meio (volante/meio-campo) e ataque (ponta/atacante) de forma equilibrada, sempre que o elenco tiver opção em cada linha — prefira o melhor OVR disponível dentro de cada linha, não o melhor OVR do elenco inteiro ignorando a posição. Para cada um, diga em poucas palavras qual seria o papel dele se entrasse. Não invente jogadores fora da lista do elenco.
             4. Para CADA titular, além da "instrucao" em texto livre, preencha também "funcao" e "foco" com ids REAIS da lista de funções acima, coerentes com o grupo daquela sigla — parta da configuração base do treinador e só desvie quando o adversário realmente pedir.
 
             Retorne EXATAMENTE este JSON PURO:
@@ -1183,7 +1183,10 @@ ${textoRegrasCompatibilidadePosicional()}
                         ajustesTaticos: normalizada.ajustes,
                         escalacao: res.escalacao,
                         funcoesPorRole: funcoesPorRole,
-                        reservas: (typeof garantirGoleiroNoBanco === 'function') ? garantirGoleiroNoBanco(res.reservas, res.escalacao) : (Array.isArray(res.reservas) ? res.reservas : []),
+                        reservas: (() => {
+                            let lista = (typeof garantirGoleiroNoBanco === 'function') ? garantirGoleiroNoBanco(res.reservas, res.escalacao) : (Array.isArray(res.reservas) ? res.reservas : []);
+                            return (typeof ordenarBancoPorPosicao === 'function') ? ordenarBancoPorPosicao(lista) : lista;
+                        })(),
                         alertaRotacao: alertaRotacao,
                         rotacoesAutomaticas: rotacoesAutomaticas,
                         diretriz: diretriz,

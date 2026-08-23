@@ -281,7 +281,50 @@
             }
             // --------------------------
 
-            if(loaderText) loaderText.innerText = ""; loader.style.display = "none"; renderizarListaTemp(); preencherDatalistJogadores(); event.target.value = ""; 
+            if(loaderText) loaderText.innerText = ""; loader.style.display = "none"; renderizarListaTemp(); preencherDatalistJogadores(); event.target.value = "";
+        }
+
+        // Segundo print, exclusivo do goleiro: o resumo geral (lerImagensIAJogadores) não traz
+        // as defesas dele na partida — essa estatística mora numa tela própria dentro do jogo.
+        // Aqui só funde o número de defesas no registro já existente, sem tocar no resto da ficha.
+        async function lerDefesasGoleiroIA(event, idTemp) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+
+            let jogador = jogadoresPartidaTemp.find(j => j.idTemp === idTemp);
+            if (!jogador) return;
+
+            let loader = document.getElementById('loader-jogador');
+            let loaderText = document.getElementById('loader-jogador-text');
+            if (loader) loader.style.display = 'inline-block';
+            if (loaderText) loaderText.innerText = `Lendo defesas de ${jogador.nome}...`;
+
+            try {
+                let base64Data = await new Promise((resolve) => {
+                    let reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(file);
+                });
+
+                let prompt = `Analise esta tela de estatísticas de GOLEIRO de uma partida de futebol. Encontre o número de DEFESAS (saves) que o goleiro fez na partida.
+                Retorne EXATAMENTE este JSON puro sem formatação markdown: {"defesas": numero}`;
+
+                const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] });
+                let rawText = data.candidates[0].content.parts[0].text;
+                let jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    let stats = JSON.parse(jsonMatch[0]);
+                    if (typeof stats.defesas === 'number') {
+                        jogador.defesas = stats.defesas;
+                        renderizarListaTemp();
+                    }
+                }
+            } catch (e) {
+                console.error('Erro ao ler defesas do goleiro', e);
+                alert('Não consegui ler o print das defesas. Tente de novo ou preencha manualmente.');
+            } finally {
+                if (loaderText) loaderText.innerText = '';
+                if (loader) loader.style.display = 'none';
+            }
         }
 
         async function lerImagemIA(event, tipo) {
@@ -350,11 +393,24 @@
             if (titulo) titulo.innerText = `Lista de Jogadores nesta Partida (${jogadoresPartidaTemp.length}):`;
 
             let div = document.getElementById('lista-jogadores-temp');
-            div.innerHTML = jogadoresPartidaTemp.map(j => `
+            div.innerHTML = jogadoresPartidaTemp.map(j => {
+                // O print geral de estatísticas (o mesmo lido pra todo mundo) não mostra as
+                // defesas do goleiro nesse jogo — esse número fica numa tela própria dele
+                // dentro do jogo. Só pra goleiros do elenco, oferece um segundo print dedicado
+                // só a essa estatística, que funde o valor na ficha já lida pelo lote geral.
+                let jogadorElenco = db[currentSave].plantel.find(x => x.nome === j.nome);
+                let ehGoleiro = jogadorElenco && String(jogadorElenco.posicao).split('/')[0] === 'Goleiro';
+                let botaoDefesas = ehGoleiro ? `
+                    <label class="btn-upload" style="margin:0; padding:6px 10px; font-size:12px; cursor:pointer;" title="Print da tela de defesas do goleiro (é uma tela separada do resumo geral)">
+                        🧤 Defesas: ${j.defesas || 0}
+                        <input type="file" accept="image/*" style="display:none;" onchange="lerDefesasGoleiroIA(event, ${j.idTemp})">
+                    </label>` : '';
+                return `
                 <div style="background:rgba(0,255,136,0.05); border: 1px solid var(--border); border-radius:8px; margin-bottom:10px; padding:15px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                         <span style="font-size:15px;"><strong>${j.nome}</strong> ${j.mvp ? '⚽ (Melhor em campo)' : ''} | Nota: <span style="color:var(--warning); font-weight:bold;">${j.nota.toFixed(1)}</span></span>
-                        <div style="display: flex; gap: 5px;">
+                        <div style="display: flex; gap: 5px; align-items:center;">
+                            ${botaoDefesas}
                             <button onclick="toggleEditInline(${j.idTemp})" style="padding:6px 10px; background:var(--warning); color:black; border:none; border-radius: 6px; font-weight: bold; cursor:pointer;">✏️</button>
                             <button onclick="removerJogadorTemp(${j.idTemp})" style="padding:6px 10px; background:var(--danger); color:white; border:none; border-radius: 6px; font-weight: bold; cursor:pointer;">X</button>
                         </div>
@@ -387,7 +443,8 @@
                         <button style="width:100%; background:var(--accent); color:white; padding: 10px; font-size: 14px; border:none; border-radius:6px; cursor:pointer;" onclick="salvarEditInline(${j.idTemp})">💾 Salvar Alterações do Jogador</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function toggleEditInline(idTemp) {
