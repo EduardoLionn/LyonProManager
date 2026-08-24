@@ -1374,14 +1374,15 @@
                     <h2 style="margin:0;">⭐ Upgrades e Downgrades (A cada 5 jogos)</h2>
                     <button style="background:var(--accent); color:white; font-size:13px; padding:10px 15px;" onclick="abrirModalTrocaLiga()">🔄 Trocar Divisão / Liga</button>
                 </div>
-                <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 25px; margin-top:10px;">O sistema avalia a média das <strong>últimas 5 partidas</strong> e usa as <strong>Prateleiras</strong> (Highest a Lowest) baseadas na liga atual: <span id="info-liga-atual" style="color:var(--primary);font-weight:bold;"></span>.</p>
-                
-                <div style="background: rgba(255, 184, 0, 0.1); border-left: 4px solid var(--warning); padding: 18px; border-radius: 8px; margin-bottom: 15px; cursor: pointer; transition:0.2s;" onclick="toggleSection('sec-acao')" onmouseover="this.style.background='rgba(255,184,0,0.15)'" onmouseout="this.style.background='rgba(255,184,0,0.1)'">
-                    <h3 style="margin:0; color:var(--warning); font-size: 18px;">⚠️ Aguardando Decisão (Alterações Pendentes) ↕️</h3>
+                <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 25px; margin-top:10px;">O sistema avalia a média das <strong>últimas 5 partidas</strong> e usa as <strong>Prateleiras</strong> (Highest a Lowest) baseadas na liga atual: <span id="info-liga-atual" style="color:var(--primary);font-weight:bold;"></span>. As variações vão se acumulando sozinhas a cada janela de 5 jogos — não precisa aplicar uma por uma, aplique quando quiser (final de temporada, por exemplo).</p>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; background: rgba(255, 184, 0, 0.1); border-left: 4px solid var(--warning); padding: 18px; border-radius: 8px; margin-bottom: 15px; transition:0.2s;">
+                    <h3 style="margin:0; color:var(--warning); font-size: 18px; cursor:pointer;" onclick="toggleSection('sec-acao')">📊 Ajustes Acumulados (Prontos pra Aplicar) ↕️</h3>
+                    <button id="btn-aplicar-todos-upgrades" style="display:none; background:var(--primary); color:var(--bg-dark); font-weight:bold; font-size:13px; padding:8px 14px;" onclick="aplicarTodosUpgradesPendentes()">✅ Aplicar Todos de Uma Vez</button>
                 </div>
                 <div id="sec-acao" style="display: block;">
                     <table id="tabela-upgrades-acao">
-                        <thead><tr><th>Posição</th><th>Jogador</th><th>Prateleira / Meta</th><th>Média (Últ 5)</th><th>OVR Atual</th><th>Ação</th></tr></thead>
+                        <thead><tr><th>Posição</th><th>Jogador</th><th>OVR Atual</th><th>Acumulado</th><th>OVR se Aplicar</th><th>Ação</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>

@@ -1933,10 +1933,20 @@ ${textoRegrasCompatibilidadePosicional()}
             let resultado = golsPro > golsContra ? 'Vitória' : (golsPro < golsContra ? 'Derrota' : 'Empate');
             let nomeAdv = partida.adversarioNome || adversarioTexto || 'o adversário';
 
+            // Reclamação do treinador: "perdemos de 1 a 0 pro Barcelona, dominamos a posse, fora
+            // de casa, e o Auxiliar me cornetou do mesmo jeito que numa goleada em casa". O
+            // comentário pós-jogo só olhava pro placar — nunca soube se o time jogou bem ou mal de
+            // verdade. Agora ele lê a ficha completa da partida que acabou de ser salva (posse,
+            // finalizações, mando) pra avaliar a atuação de verdade, não só o resultado seco.
+            let ultimaPartida = db[currentSave].partidas[db[currentSave].partidas.length - 1];
+            let contextoAtuacao = ultimaPartida ? `Mando: ${ultimaPartida.mando}. Posse de bola: ${ultimaPartida.possePro}% (nosso) x ${ultimaPartida.posseAdv}% (${nomeAdv}). Finalizações: ${ultimaPartida.finPro} (nosso) x ${ultimaPartida.finAdv} (${nomeAdv}).` : '';
+
             let promptIA = `Você é ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}". A partida contra ${nomeAdv} terminou: ${golsPro} x ${golsContra} (${resultado} para o seu time).
+            ${contextoAtuacao}
             Seu plano pré-jogo foi: ${partida.analiseGeral || 'sem análise prévia registrada'}.
             ${partida.ajustesFeitos && partida.ajustesFeitos.length > 0 ? `Durante o jogo você deu ${partida.ajustesFeitos.length} orientação(ões) ao treinador: ${partida.ajustesFeitos.map(a => a.resposta).join(' | ')}` : 'Você não precisou dar nenhuma orientação extra durante o jogo — o plano se manteve do início ao fim.'}
             Dê um comentário curto (2-3 frases), honesto e no seu estilo de auxiliar técnico, avaliando como o time e o plano se saíram. Seja específico ao resultado (não genérico) e diga se o plano funcionou ou não.
+            ⚠️ Um auxiliar técnico de verdade sabe separar resultado de desempenho: se os números acima mostram domínio de posse/finalizações mesmo numa derrota (ainda mais fora de casa ou contra um adversário mais forte), reconheça a boa atuação em vez de cobrar como se o time tivesse jogado mal — o tom só deve ser duro quando o desempenho justificar.
             Retorne APENAS o texto do comentário puro, sem JSON, sem aspas ao redor.`;
 
             let textoResumo = '';

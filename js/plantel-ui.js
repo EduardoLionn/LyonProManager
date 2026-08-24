@@ -200,80 +200,102 @@
         function abrirModalTrocaLiga() { document.getElementById('nova-liga-select').innerHTML = document.getElementById('setup-liga').innerHTML; document.getElementById('nova-liga-select').value = db[currentSave].liga; document.getElementById('modal-troca-liga').style.display = 'flex'; }
         function confirmarTrocaLiga() { db[currentSave].liga = document.getElementById('nova-liga-select').value; salvarDados(); document.getElementById('modal-troca-liga').style.display = 'none'; atualizarUpgradesUI(); }
 
+        // Pedido do treinador: "caso o jogador não queira alterar o OVR de cada jogador no
+        // Upgrade, ele pode ir deixando acumulando, e a cada variação, ou soma ou subtrai aos
+        // pontos que devem ser acrescentados ou retirados, e ao final da temporada ou qualquer
+        // momento ele faça as alterações". Antes, toda vez que uma janela de 5 jogos cruzava um
+        // limite, a avaliação TRAVAVA esperando um clique em "+1 OVR"/"-1 OVR" — enquanto o
+        // treinador não clicava, jogosAvaliacao não avançava e a mesmíssima janela de 5 jogos
+        // ficava reavaliada pra sempre, travando o resto da temporada daquele jogador. Agora a
+        // avaliação nunca trava: cada janela de 5 jogos sempre gera o veredito e sempre avança
+        // (igual ao "Mantido" já fazia), só que a variação vira um saldo acumulado em
+        // jogador.ovrPendente em vez de um botão bloqueante — o treinador aplica quando quiser.
         function atualizarUpgradesUI() {
             let tbodyAcao = document.querySelector('#tabela-upgrades-acao tbody'); tbodyAcao.innerHTML = '';
             let tbodyProg = document.querySelector('#tabela-upgrades-progresso tbody'); tbodyProg.innerHTML = '';
-            
+
             let ligaStr = db[currentSave].liga; document.getElementById('info-liga-atual').innerText = ligaStr;
-            let ligaInfo = Number(ligaStr.match(/\d+/g)?.pop() || 70); 
-            
-            let aguardandoCount = 0, progressoCount = 0;
-            db[currentSave].plantel.filter(p => p.status === 'Ativo').forEach(jogador => {
+            let ligaInfo = Number(ligaStr.match(/\d+/g)?.pop() || 70);
+
+            let ativos = db[currentSave].plantel.filter(p => p.status === 'Ativo');
+
+            // Passo 1: processa TODAS as janelas de 5 jogos já disponíveis, de uma vez, sem
+            // esperar clique nenhum — acumula em ovrPendente e sempre avança jogosAvaliacao.
+            ativos.forEach(jogador => {
+                if (jogador.ovrPendente === undefined) jogador.ovrPendente = 0;
                 let pJogadas = []; db[currentSave].partidas.forEach(p => { let at = p.jogadores.find(j => j.nome === jogador.nome); if(at) pJogadas.push(at); });
-                let nAvaliados = pJogadas.length - (jogador.jogosAvaliacao || 0);
-                
-                if (nAvaliados >= 5) {
+
+                while (pJogadas.length - (jogador.jogosAvaliacao || 0) >= 5) {
                     let ultimos = pJogadas.slice((jogador.jogosAvaliacao || 0), (jogador.jogosAvaliacao || 0) + 5);
                     let media = ultimos.reduce((a,c) => a + c.nota, 0) / 5;
                     let diff = jogador.ovr - ligaInfo;
-                    let tier = ''; let upLimit = 0, downLimit = 0;
-                    
-                    // --- NOVA LÓGICA: OVR MERECIDO ---
-                    // Calcula um OVR hipotético: Cada 0.1 acima de 6.5 de nota equivale a +1 no OVR merecido (ajuste como preferir)
-                    let variacaoOVR = (media - 6.5) * 8; 
-                    let ovrMerecido = Math.round(jogador.ovr + variacaoOVR);
-                    if(ovrMerecido > 99) ovrMerecido = 99; // Teto
-                    if(ovrMerecido < 40) ovrMerecido = 40; // Piso
-                    
-                    let badgeMerecido = media >= 6.5 
-                        ? `<span style="font-size:11px; color:var(--primary); font-weight:bold;">Merecido: ${ovrMerecido} 📈</span>` 
-                        : `<span style="font-size:11px; color:var(--danger); font-weight:bold;">Merecido: ${ovrMerecido} 📉</span>`;
-                    // ---------------------------------
-                    
-                    if (diff >= 6) { tier = 'Highest'; upLimit = 7.5; downLimit = 6.4; }
-                    else if (diff >= 1) { tier = 'High'; upLimit = 7.0; downLimit = 6.1; }
-                    else if (diff >= -4) { tier = 'Average'; upLimit = 6.7; downLimit = 5.8; }
-                    else if (diff >= -9) { tier = 'Low'; upLimit = 6.4; downLimit = 5.5; }
-                    else { tier = 'Lowest'; upLimit = 6.1; downLimit = 5.0; }
+                    let upLimit, downLimit;
+                    if (diff >= 6) { upLimit = 7.5; downLimit = 6.4; }
+                    else if (diff >= 1) { upLimit = 7.0; downLimit = 6.1; }
+                    else if (diff >= -4) { upLimit = 6.7; downLimit = 5.8; }
+                    else if (diff >= -9) { upLimit = 6.4; downLimit = 5.5; }
+                    else { upLimit = 6.1; downLimit = 5.0; }
 
-                    if(media >= upLimit) { 
-                        let btn = `<button style="padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome.replace(/'/g, "\\'")}', 1)">+1 OVR</button>`;
-                        tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong><br>${badgeMerecido}</td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
-                        aguardandoCount++;
-                    }
-                    else if(media <= downLimit) { 
-                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome.replace(/'/g, "\\'")}', -1)">-1 OVR</button>`;
-                        tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong><br>${badgeMerecido}</td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
-                        aguardandoCount++;
-                    }
-                    else if(media <= downLimit) { 
-                        let btn = `<button style="background:var(--danger);color:white; padding:6px 10px; font-size:12px;" onclick="aplicarUp('${jogador.nome.replace(/'/g, "\\'")}', -1)">-1 OVR</button>`;
-                        tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td>${tier}</td><td><strong>${media.toFixed(2)}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td><td><div style="display:flex; gap:10px;">${btn}</div></td></tr>`;
-                        aguardandoCount++;
-                    }
-                    else { 
-                        jogador.jogosAvaliacao = (jogador.jogosAvaliacao || 0) + 5; salvarDados();
-                        tbodyProg.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td style="color:var(--primary); font-weight:bold;">${tier}: Mantido ✅</td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td></tr>`;
-                        progressoCount++;
-                    }
-                } else {
-                    tbodyProg.innerHTML += `<tr><td>${jogador.posicao}</td><td>${jogador.nome}</td><td style="color:var(--text-muted)">${nAvaliados} / 5 jg</td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td></tr>`;
-                    progressoCount++;
+                    if (media >= upLimit) jogador.ovrPendente += 1;
+                    else if (media <= downLimit) jogador.ovrPendente -= 1;
+                    jogador.jogosAvaliacao = (jogador.jogosAvaliacao || 0) + 5;
                 }
             });
-            if(aguardandoCount === 0) tbodyAcao.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:25px;">Nenhum jogador aguardando.</td></tr>`;
+            salvarDados();
+
+            // Passo 2: renderiza — quem tem saldo acumulado aparece em "Ajustes Acumulados" com
+            // botão pra aplicar quando o treinador quiser; todo mundo aparece em "Progresso" com
+            // o contador pra próxima janela de 5 jogos.
+            let acumuladosCount = 0, progressoCount = 0;
+            ativos.forEach(jogador => {
+                let pJogadas = []; db[currentSave].partidas.forEach(p => { let at = p.jogadores.find(j => j.nome === jogador.nome); if(at) pJogadas.push(at); });
+                let nAvaliados = pJogadas.length - (jogador.jogosAvaliacao || 0);
+
+                if (jogador.ovrPendente) {
+                    let final = Math.max(40, Math.min(99, jogador.ovr + jogador.ovrPendente));
+                    let cor = jogador.ovrPendente > 0 ? 'var(--primary)' : 'var(--danger)';
+                    let sinal = jogador.ovrPendente > 0 ? '+' : '';
+                    let btn = `<button style="padding:6px 10px; font-size:12px;" onclick="aplicarUpgradePendente('${jogador.nome.replace(/'/g, "\\'")}')">✅ Aplicar</button>`;
+                    tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td><td><strong style="color:${cor};">${sinal}${jogador.ovrPendente}</strong></td><td><strong style="${getOvrClass(final)}">${final}</strong></td><td>${btn}</td></tr>`;
+                    acumuladosCount++;
+                }
+
+                tbodyProg.innerHTML += `<tr><td>${jogador.posicao}</td><td>${jogador.nome}</td><td style="color:var(--text-muted)">${nAvaliados} / 5 jg</td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td></tr>`;
+                progressoCount++;
+            });
+            if(acumuladosCount === 0) tbodyAcao.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:25px;">Nenhum ajuste acumulado aguardando aplicação.</td></tr>`;
             if(progressoCount === 0) tbodyProg.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:25px;">Nenhum jogador em progresso.</td></tr>`;
+
+            let btnTodos = document.getElementById('btn-aplicar-todos-upgrades');
+            if (btnTodos) btnTodos.style.display = acumuladosCount > 0 ? 'inline-block' : 'none';
         }
 
-        function aplicarUp(nome, val) {
+        function aplicarUpgradePendente(nome) {
             let j = db[currentSave].plantel.find(p => p.nome === nome);
-            if(j) {
-                j.ovr += val; j.jogosAvaliacao = (j.jogosAvaliacao || 0) + 5;
+            if (j && j.ovrPendente) {
+                let delta = j.ovrPendente;
+                j.ovr = Math.max(40, Math.min(99, j.ovr + delta));
+                j.ovrPendente = 0;
                 if (typeof garantirCamposElenco === 'function') garantirCamposElenco(j);
-                if (typeof ajustarMoral === 'function' && val > 0) ajustarMoral(j, 5); // evoluir anima o atleta
+                if (typeof ajustarMoral === 'function' && delta > 0) ajustarMoral(j, 5); // evoluir anima o atleta
                 salvarDados(); atualizarUpgradesUI(); atualizarPlantelUI();
-                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Upgrade de OVR: ${nome} (${val > 0 ? '+' : ''}${val})`);
+                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Upgrade de OVR aplicado: ${nome} (${delta > 0 ? '+' : ''}${delta})`);
             }
+        }
+
+        function aplicarTodosUpgradesPendentes() {
+            let aplicados = [];
+            db[currentSave].plantel.filter(p => p.status === 'Ativo' && p.ovrPendente).forEach(j => {
+                let delta = j.ovrPendente;
+                j.ovr = Math.max(40, Math.min(99, j.ovr + delta));
+                j.ovrPendente = 0;
+                if (typeof garantirCamposElenco === 'function') garantirCamposElenco(j);
+                if (typeof ajustarMoral === 'function' && delta > 0) ajustarMoral(j, 5);
+                aplicados.push(j.nome);
+            });
+            if (aplicados.length === 0) return;
+            salvarDados(); atualizarUpgradesUI(); atualizarPlantelUI();
+            if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Aplicou todos os ajustes de OVR pendentes (${aplicados.length} jogador(es))`);
         }
 
         Chart.defaults.color = '#93A39A'; Chart.defaults.borderColor = 'rgba(42, 59, 52, 0.6)';
