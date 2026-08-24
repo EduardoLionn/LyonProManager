@@ -38,15 +38,30 @@ const CONDICAO_FISICA_CFG = {
     CHANCE_EVOLUCAO_TREINO: 25
 };
 
-// Focos de treino individual disponíveis pro Preparador Físico — cada um casa com um estilo de
-// evolução (finalizador, motor de jogo, físico puro ou inteligência tática).
-const FOCOS_TREINO_INDIVIDUAL = ['Finalização', 'Passe e Visão de Jogo', 'Físico e Resistência', 'Tático e Posicionamento'];
-
 // "Zagueiro" -> "Zagueiro", "Lateral/Defesa Direito" -> "Lateral" etc. (mesmo critério usado
 // pelo seletor de troca em chat-ia.js pra filtrar posições relevantes)
 function categoriaAmplaPosicao(p) {
     if (!p || !p.posicao) return '';
     return String(p.posicao).split('/')[0];
+}
+
+// Categoria ampla da posição do jogador -> grupo de função tática real do jogo (GRUPOS_FUNCAO_EA,
+// de funcoes-ea.js). O treino individual (Desenvolvimento Sem Jogar) usava uma lista de "focos"
+// inventada (Finalização/Passe/Físico/Tático) que não existia em nenhum outro lugar do jogo — o
+// treinador pediu pra treinar a FUNÇÃO real de campo (ex: um meio-campo treinando pra Armador
+// Recuado), a mesma nomenclatura que já aparece na escalação e no campinho tático.
+const GRUPO_FUNCAO_POR_CATEGORIA_AMPLA = {
+    Goleiro: 'goleiro', Zagueiro: 'zagueiro', Lateral: 'lateral', Volante: 'volante',
+    MeioCampo: 'meio_campo_central', Ponta: 'ponta', Atacante: 'atacante'
+};
+
+// Funções reais (nomes do EA FC) disponíveis pro jogador treinar, de acordo com a posição de
+// carteirinha dele. Goleiro fica de fora de propósito: as 3 funções de goleiro em
+// GRUPOS_FUNCAO_EA são estilos de jogo (decididos pela tática), não algo pra "treinar rumo a".
+function funcoesDisponiveisParaTreino(p) {
+    let grupoKey = GRUPO_FUNCAO_POR_CATEGORIA_AMPLA[categoriaAmplaPosicao(p)];
+    if (!grupoKey || grupoKey === 'goleiro' || typeof GRUPOS_FUNCAO_EA === 'undefined' || !GRUPOS_FUNCAO_EA[grupoKey]) return [];
+    return GRUPOS_FUNCAO_EA[grupoKey].funcoes.map(f => f.nome);
 }
 
 // Jogadores de linha lateral (laterais e pontas) correm muito mais que zagueiros/volantes/meias centrais
@@ -165,8 +180,8 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
                     if (gerarNumeroAleatorio(1, 100) <= cfg.CHANCE_EVOLUCAO_TREINO) {
                         p.ovrPendente = (p.ovrPendente || 0) + 1;
                         if (typeof adicionarNoticiaAutomatica === 'function') {
-                            adicionarNoticiaAutomatica(`📈 EVOLUÇÃO NO TREINO: ${p.nome} se destaca no plano de ${p.planoTreino}.`,
-                                `Sem depender de minutos em campo, o atleta impressionou a comissão técnica nos treinos focados em ${p.planoTreino}. Um ponto de evolução (OVR) já está disponível pra aplicar na aba Upgrades.`, 'geral');
+                            adicionarNoticiaAutomatica(`📈 EVOLUÇÃO NO TREINO: ${p.nome} se destaca treinando pra função de ${p.planoTreino}.`,
+                                `Sem depender de minutos em campo, o atleta impressionou a comissão técnica nos treinos voltados pra atuar como ${p.planoTreino}. Um ponto de evolução (OVR) já está disponível pra aplicar na aba Upgrades.`, 'geral');
                         }
                     }
                 }
@@ -480,22 +495,24 @@ function atualizarDepartamentoMedicoUI() {
         }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
     }
 
-    // Desenvolvimento sem jogar: cada atleta ativo e saudável pode ter um foco de treino
-    // individual, com progresso pro próximo ciclo de avaliação (a evolução em si acontece em
-    // processarCondicaoFisicaPosPartida, aqui é só a UI pra definir o foco e acompanhar).
+    // Desenvolvimento sem jogar: cada atleta ativo e saudável pode treinar rumo a uma das funções
+    // reais de campo da própria posição (ex: um meio-campo treinando pra Armador Recuado) — as
+    // mesmas funções que já aparecem na escalação, não uma lista de "focos" inventada. Progresso
+    // pro próximo ciclo de avaliação (a evolução em si acontece em
+    // processarCondicaoFisicaPosPartida, aqui é só a UI pra definir a função-alvo e acompanhar).
     let treinoContainer = document.getElementById('medico-treino-individual');
     if (treinoContainer) {
-        let elegiveis = db[currentSave].plantel.filter(p => p.status === 'Ativo' && (p.diasLesao || 0) <= 0);
-        let opcoesFoco = FOCOS_TREINO_INDIVIDUAL.map(f => `<option value="${f}">${f}</option>`).join('');
+        let elegiveis = db[currentSave].plantel.filter(p => p.status === 'Ativo' && (p.diasLesao || 0) <= 0 && funcoesDisponiveisParaTreino(p).length > 0);
         treinoContainer.innerHTML = elegiveis.map(p => {
             let progresso = Math.min(100, Math.round(((p.diasTreinoIndividual || 0) / CONDICAO_FISICA_CFG.DIAS_TREINO_PARA_AVALIACAO) * 100));
+            let opcoesFoco = funcoesDisponiveisParaTreino(p).map(f => `<option value="${f}" ${f === p.planoTreino ? 'selected' : ''}>${f}</option>`).join('');
             return `
             <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
                 <div style="min-width: 160px;"><strong>${p.nome}</strong><br><span style="font-size: 12px; color: var(--text-muted);">${p.posicao} • OVR ${p.ovr}</span></div>
                 <div style="flex:1; min-width:200px;">
                     <select onchange="definirPlanoTreino('${p.nome.replace(/'/g, "\\'")}', this.value)" style="width:100%; box-sizing:border-box; background:var(--bg-dark); font-size:12px;">
-                        <option value="">Sem foco de treino individual</option>
-                        ${opcoesFoco.replace(`value="${p.planoTreino}"`, `value="${p.planoTreino}" selected`)}
+                        <option value="">Sem função-alvo de treino</option>
+                        ${opcoesFoco}
                     </select>
                     ${p.planoTreino ? `<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Progresso do ciclo: ${progresso}% (${p.diasTreinoIndividual || 0}/${CONDICAO_FISICA_CFG.DIAS_TREINO_PARA_AVALIACAO} dias treinando sem jogar)</div>` : ''}
                 </div>
