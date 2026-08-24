@@ -31,8 +31,16 @@ const CONDICAO_FISICA_CFG = {
     // Multiplicador de desgaste por função em campo — corre mais quem cobre mais linha (lateral/ponta),
     // goleiro praticamente não desgasta fisicamente, o resto (zaga/volante/meio/ataque) fica no padrão.
     MULT_DESGASTE_GOLEIRO: 0.35,
-    MULT_DESGASTE_LATERAL_PONTA: 1.3
+    MULT_DESGASTE_LATERAL_PONTA: 1.3,
+    // Desenvolvimento sem jogar (treino individual): quantos "dias de treino" acumulados (contando
+    // só quando o jogador NÃO joga e está saudável) até rolar a chance de evoluir, e a chance em si.
+    DIAS_TREINO_PARA_AVALIACAO: 15,
+    CHANCE_EVOLUCAO_TREINO: 25
 };
+
+// Focos de treino individual disponíveis pro Preparador Físico — cada um casa com um estilo de
+// evolução (finalizador, motor de jogo, físico puro ou inteligência tática).
+const FOCOS_TREINO_INDIVIDUAL = ['Finalização', 'Passe e Visão de Jogo', 'Físico e Resistência', 'Tático e Posicionamento'];
 
 // "Zagueiro" -> "Zagueiro", "Lateral/Defesa Direito" -> "Lateral" etc. (mesmo critério usado
 // pelo seletor de troca em chat-ia.js pra filtrar posições relevantes)
@@ -57,6 +65,9 @@ function garantirCondicaoFisica(p) {
     if (typeof p.jogosSeguidos !== 'number' || isNaN(p.jogosSeguidos)) p.jogosSeguidos = 0;
     if (typeof p.diasLesao !== 'number' || isNaN(p.diasLesao)) p.diasLesao = 0;
     if (typeof p.suspensoVermelho !== 'boolean') p.suspensoVermelho = false;
+    if (typeof p.planoTreino !== 'string') p.planoTreino = '';
+    if (typeof p.diasTreinoIndividual !== 'number' || isNaN(p.diasTreinoIndividual)) p.diasTreinoIndividual = 0;
+    if (typeof p.ovrPendente !== 'number' || isNaN(p.ovrPendente)) p.ovrPendente = 0;
     return p;
 }
 
@@ -142,6 +153,24 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
             // Ficou de fora: cumpre um dos jogos de descanso que o DM concedeu
             if (p.poupadoRestante > 0) p.poupadoRestante -= 1;
             if (p.diasLesao <= 0 && !p.suspensoVermelho) p.jogosSeguidos = 0;
+
+            // Desenvolvimento sem jogar: quem tem um foco de treino individual ativo (definido pelo
+            // Preparador Físico) e está saudável acumula dias de treino enquanto fica de fora, e a
+            // cada ciclo completo tem uma chance de evoluir — sem depender de minutos em campo. O
+            // ganho entra no mesmo saldo acumulado de OVR da aba Upgrades (ovrPendente).
+            if (p.planoTreino && p.diasLesao <= 0) {
+                p.diasTreinoIndividual = (p.diasTreinoIndividual || 0) + diasDescanso;
+                if (p.diasTreinoIndividual >= cfg.DIAS_TREINO_PARA_AVALIACAO) {
+                    p.diasTreinoIndividual -= cfg.DIAS_TREINO_PARA_AVALIACAO;
+                    if (gerarNumeroAleatorio(1, 100) <= cfg.CHANCE_EVOLUCAO_TREINO) {
+                        p.ovrPendente = (p.ovrPendente || 0) + 1;
+                        if (typeof adicionarNoticiaAutomatica === 'function') {
+                            adicionarNoticiaAutomatica(`📈 EVOLUÇÃO NO TREINO: ${p.nome} se destaca no plano de ${p.planoTreino}.`,
+                                `Sem depender de minutos em campo, o atleta impressionou a comissão técnica nos treinos focados em ${p.planoTreino}. Um ponto de evolução (OVR) já está disponível pra aplicar na aba Upgrades.`, 'geral');
+                        }
+                    }
+                }
+            }
         }
     });
 
@@ -282,6 +311,58 @@ function forcarDescansoPreventivo(nome) {
     if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Descanso preventivo para ${nome}`);
 }
 
+// Pedido do treinador: "quero plano de carga, sugestão de descanso... quero me sentir em um
+// clube profissional de futebol". Em vez de precisar entrar jogador por jogador, o Preparador
+// Físico já lista quem está em risco/crítico e deixa poupar todo mundo de uma vez.
+function pouparTodosSugeridos() {
+    if (!db[currentSave]) return;
+    let sugeridos = db[currentSave].plantel.filter(p => {
+        if (p.status !== 'Ativo') return false;
+        let c = condicaoJogador(p);
+        return !c.indisponivel && (c.nivel === 'risco' || c.nivel === 'critico');
+    });
+    if (sugeridos.length === 0) return;
+    sugeridos.forEach(p => {
+        garantirCondicaoFisica(p);
+        p.jogosSeguidos = 0;
+        p.stamina = CONDICAO_FISICA_CFG.STAMINA_MAX;
+    });
+    salvarDados();
+    atualizarDepartamentoMedicoUI();
+    if (currentSave === 'clube' && typeof atualizarPlantelUI === 'function') atualizarPlantelUI();
+    if (typeof adicionarNoticiaAutomatica === 'function') {
+        adicionarNoticiaAutomatica(`💤 RODÍZIO PREVENTIVO: comissão técnica poupa ${sugeridos.length} atleta(s) em risco.`,
+            `Seguindo a recomendação do Preparador Físico, ${sugeridos.map(p => p.nome).join(', ')} folgaram dos treinos de alta intensidade para preservar a condição física.`);
+    }
+    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Poupou ${sugeridos.length} jogador(es) sugerido(s) pelo Preparador Físico`);
+}
+
+// Plano de carga: reaproveita o mesmo nível (ok/alerta/risco/crítico) já calculado pra condição
+// física, só que na linguagem de treino que um preparador físico de verdade usaria.
+function rotuloCargaSugerida(nivel) {
+    if (nivel === 'critico') return { texto: '🔴 Recuperação Total — sem treino de alta intensidade', cor: 'var(--danger)' };
+    if (nivel === 'risco') return { texto: '🟠 Recuperação Ativa — carga leve', cor: 'var(--danger)' };
+    if (nivel === 'alerta') return { texto: '🟡 Carga Moderada — controlar volume', cor: 'var(--warning)' };
+    return { texto: '🟢 Carga Plena — pronto pra alta intensidade', cor: 'var(--primary)' };
+}
+
+// Define (ou remove, com foco vazio) o plano de treino individual de um jogador — a base do
+// "desenvolvimento sem jogar": ver o acúmulo de dias e a chance de evolução em
+// processarCondicaoFisicaPosPartida.
+function definirPlanoTreino(nome, foco) {
+    if (!db[currentSave]) return;
+    let p = db[currentSave].plantel.find(x => x.nome === nome);
+    if (!p) return;
+    garantirCondicaoFisica(p);
+    p.planoTreino = foco || '';
+    p.diasTreinoIndividual = 0; // novo foco reinicia o ciclo de avaliação
+    salvarDados();
+    atualizarDepartamentoMedicoUI();
+    if (typeof registrarAcaoJogo === 'function') {
+        registrarAcaoJogo(foco ? `Plano de treino individual definido para ${nome}: ${foco}` : `Plano de treino individual removido de ${nome}`);
+    }
+}
+
 function corPorNivel(nivel) {
     if (nivel === 'critico' || nivel === 'risco') return 'var(--danger)';
     if (nivel === 'alerta') return 'var(--warning)';
@@ -327,6 +408,24 @@ function atualizarDepartamentoMedicoUI() {
     let relatorioTexto = document.getElementById('medico-relatorio-texto');
     if (relatorioTexto) relatorioTexto.innerText = gerarRelatorioMedicoTexto();
 
+    // Sugestões do Preparador Físico: quem está em risco/crítico agora, pronto pra poupar tudo de
+    // uma vez em vez de entrar jogador por jogador — "quero sugestão de descanso" de verdade.
+    let sugestoes = document.getElementById('medico-sugestoes');
+    if (sugestoes) {
+        let sugeridos = db[currentSave].plantel.filter(p => {
+            if (p.status !== 'Ativo') return false;
+            let c = condicaoJogador(p);
+            return !c.indisponivel && (c.nivel === 'risco' || c.nivel === 'critico');
+        });
+        if (sugeridos.length === 0) {
+            sugestoes.innerHTML = `<p style="margin:0; color:var(--primary);">🟢 Nenhum atleta precisa de descanso agora — pode manter a carga normal de treino.</p>`;
+        } else {
+            sugestoes.innerHTML = `
+                <p style="margin:0 0 10px 0;">⚠️ Recomendo poupar <strong>${sugeridos.length}</strong> atleta(s) no próximo jogo: ${sugeridos.map(p => p.nome).join(', ')}.</p>
+                <button style="background:var(--danger); color:white; font-weight:bold;" onclick="pouparTodosSugeridos()">💤 Poupar Todos os Sugeridos</button>`;
+        }
+    }
+
     let lista = document.getElementById('medico-lista');
     if (lista) {
         let ordem = { critico: 0, risco: 1, alerta: 2, ok: 3 };
@@ -344,6 +443,13 @@ function atualizarDepartamentoMedicoUI() {
             let status = c.indisponivel
                 ? `<span class="badge" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">${p.diasLesao > 0 ? '🏥' : '🟥'} ${c.motivoIndisponivel}</span>`
                 : `<span class="badge" style="background: transparent; color: ${corPorNivel(c.nivel)}; border: 1px solid ${corPorNivel(c.nivel)};">${rotuloPorNivel(c.nivel)}</span>`;
+
+            // Plano de carga sugerido pelo Preparador Físico pra essa condição (não aparece se
+            // indisponível — lesionado/suspenso não tem "carga de treino" nenhuma a sugerir).
+            if (!c.indisponivel) {
+                let carga = rotuloCargaSugerida(c.nivel);
+                status += `<span class="badge" style="background: transparent; color: ${carga.cor}; border: 1px dashed ${carga.cor}; font-size:10px;">${carga.texto}</span>`;
+            }
 
             if (p.poupadoRestante > 0) status += `<span class="badge" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 Poupado (${p.poupadoRestante} jogo(s))</span>`;
             if (p.riscoExtraLesao > 0) status += `<span class="badge" style="background: rgba(226, 75, 75, 0.18); color: var(--danger);">⚠️ Risco extra (${p.riscoExtraLesao} jogo(s))</span>`;
@@ -372,6 +478,29 @@ function atualizarDepartamentoMedicoUI() {
                 </div>
             </div>`;
         }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
+    }
+
+    // Desenvolvimento sem jogar: cada atleta ativo e saudável pode ter um foco de treino
+    // individual, com progresso pro próximo ciclo de avaliação (a evolução em si acontece em
+    // processarCondicaoFisicaPosPartida, aqui é só a UI pra definir o foco e acompanhar).
+    let treinoContainer = document.getElementById('medico-treino-individual');
+    if (treinoContainer) {
+        let elegiveis = db[currentSave].plantel.filter(p => p.status === 'Ativo' && (p.diasLesao || 0) <= 0);
+        let opcoesFoco = FOCOS_TREINO_INDIVIDUAL.map(f => `<option value="${f}">${f}</option>`).join('');
+        treinoContainer.innerHTML = elegiveis.map(p => {
+            let progresso = Math.min(100, Math.round(((p.diasTreinoIndividual || 0) / CONDICAO_FISICA_CFG.DIAS_TREINO_PARA_AVALIACAO) * 100));
+            return `
+            <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div style="min-width: 160px;"><strong>${p.nome}</strong><br><span style="font-size: 12px; color: var(--text-muted);">${p.posicao} • OVR ${p.ovr}</span></div>
+                <div style="flex:1; min-width:200px;">
+                    <select onchange="definirPlanoTreino('${p.nome.replace(/'/g, "\\'")}', this.value)" style="width:100%; box-sizing:border-box; background:var(--bg-dark); font-size:12px;">
+                        <option value="">Sem foco de treino individual</option>
+                        ${opcoesFoco.replace(`value="${p.planoTreino}"`, `value="${p.planoTreino}" selected`)}
+                    </select>
+                    ${p.planoTreino ? `<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Progresso do ciclo: ${progresso}% (${p.diasTreinoIndividual || 0}/${CONDICAO_FISICA_CFG.DIAS_TREINO_PARA_AVALIACAO} dias treinando sem jogar)</div>` : ''}
+                </div>
+            </div>`;
+        }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador saudável disponível pra treino individual agora.</p>`;
     }
 
     if (typeof atualizarSelectCondicaoAuxiliar === 'function') atualizarSelectCondicaoAuxiliar();

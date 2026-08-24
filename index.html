@@ -1494,7 +1494,10 @@
         <div id="tab-medico" class="tab-content">
             <div class="panel" style="border-left: 4px solid var(--danger);">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
-                    <h2 style="margin:0;">🏥 Departamento Médico</h2>
+                    <div>
+                        <h2 style="margin:0;">🏥 Departamento Médico & Preparador Físico</h2>
+                        <span style="font-size: 13px; color: var(--text-muted);">Saúde, carga de treino e desenvolvimento do elenco — tudo num só lugar</span>
+                    </div>
                     <div style="display:flex; align-items:flex-end; gap:10px;">
                         <div class="linha-form" style="margin:0;">
                             <label style="color:var(--accent);">Dias de Descanso Até a Próxima Partida</label>
@@ -1508,9 +1511,20 @@
 
             <div id="medico-resumo-cards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:15px; margin-bottom:20px;"></div>
 
+            <div class="panel" style="border-left: 4px solid var(--warning);">
+                <h3 style="margin-top:0;">🏋️ Sugestões do Preparador Físico</h3>
+                <div id="medico-sugestoes"></div>
+            </div>
+
             <div class="panel" style="border-left: 4px solid var(--accent);">
                 <h3 style="margin-top:0;">📋 Boletim do Preparador Físico</h3>
                 <p id="medico-relatorio-texto" style="font-size:14px; line-height:1.6; color: var(--text-main); margin:0;"></p>
+            </div>
+
+            <div class="panel" style="border-left: 4px solid var(--primary);">
+                <h3 style="margin-top:0;">📈 Desenvolvimento Sem Jogar</h3>
+                <p style="font-size:13px; color:var(--text-muted); margin: 0 0 15px 0;">Reservas e quem está fora do time também evoluem: defina um foco de treino individual e, a cada ciclo completo de treino, o atleta tem chance de ganhar um ponto de OVR — sem depender de minutos em campo. O ganho fica disponível pra aplicar na aba ⭐ Upgrades.</p>
+                <div id="medico-treino-individual"></div>
             </div>
 
             <div class="panel">
@@ -1674,10 +1688,22 @@
                 </div>
             </div>
 
-            <!-- HISTÓRICO DE PARTIDAS DO AUXILIAR — sempre embaixo, oculto até o usuário abrir -->
+            <!-- RELATÓRIOS DO AUXILIAR — análise sobre várias partidas, não só o log jogo a jogo -->
+            <div class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px;">📊 Relatórios do Auxiliar Técnico</h3>
+                        <span style="font-size:12px; color:var(--text-muted);">Análise sobre as últimas partidas — sequência de resultados, padrão tático e recomendação, não só o placar</span>
+                    </div>
+                    <button onclick="gerarRelatorioAuxiliar()" style="background: var(--accent); color:white; padding:10px 15px; font-size:13px;">📊 Gerar Relatório</button>
+                </div>
+                <div id="auxiliar-relatorios" style="margin-top:15px;"></div>
+            </div>
+
+            <!-- HISTÓRICO DE PARTIDAS DO AUXILIAR — o log partida a partida, oculto até o usuário abrir -->
             <div class="panel">
                 <button id="btn-toggle-historico-aux" onclick="toggleHistoricoAuxiliarPanel()" style="width: 100%; background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
-                    📂 Ver Histórico de Partidas
+                    📂 Ver Histórico de Partidas (jogo a jogo)
                 </button>
                 <div id="auxiliar-historico-partidas" style="display:none; margin-top:15px;"></div>
             </div>
