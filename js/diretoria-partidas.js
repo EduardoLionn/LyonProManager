@@ -591,11 +591,29 @@
             }
             else if (golsC > golsP) {
                 // Contexto: Derrota
-                let impactoDerrota = isTierAlto ? -0.2 : (isTierBaixo ? -0.05 : -0.1);
-                if (qtdDerrotasRecentes >= 2) impactoDerrota *= 1.5; 
-                atualizarNotaDiretoria(impactoDerrota); 
-                atualizarTermometroTorcida(-gerarNumeroAleatorio(3, 8)); // Torcida pistola
-                
+                // Reclamação do treinador: "enfrentamos o Barcelona, o time deles é infinitamente
+                // maior que o nosso, perdemos de 1 a 0 apenas, dominamos a posse, fora de casa, e
+                // fui cornetado do mesmo jeito que se fosse uma goleada em casa — tem que ser mais
+                // realista". A pressão agora reage ao CONTEXTO da derrota, não só ao placar:
+                // margem de gols, se o time dominou algum aspecto do jogo mesmo perdendo, e se foi
+                // fora de casa (onde perder pesa menos que em casa).
+                let margemGols = golsC - golsP;
+                let dominouPosse = posseP > posseA;
+                let dominouFinalizacoes = finP >= (Number(document.getElementById('fin-adv').value) || 0);
+                let jogoDigno = dominouPosse || dominouFinalizacoes;
+                let jogoFora = mando === 'Fora';
+
+                let fatorDerrota = 1.0;
+                if (margemGols === 1) fatorDerrota *= 0.6; // derrota apertada pesa bem menos que goleada
+                else if (margemGols >= 3) fatorDerrota *= 1.4; // goleada pesa mais
+                if (jogoDigno) fatorDerrota *= 0.75; // dominou posse ou finalizações mesmo perdendo
+                if (jogoFora) fatorDerrota *= 0.75; // perder fora dói bem menos que perder em casa
+
+                let impactoDerrota = (isTierAlto ? -0.2 : (isTierBaixo ? -0.05 : -0.1)) * fatorDerrota;
+                if (qtdDerrotasRecentes >= 2) impactoDerrota *= 1.5;
+                atualizarNotaDiretoria(impactoDerrota);
+                atualizarTermometroTorcida(-Math.max(1, Math.round(gerarNumeroAleatorio(3, 8) * fatorDerrota))); // Torcida reage ao contexto, não só ao placar
+
                 let titulosDerrota = [
                     `❌ DECEPÇÃO: ${db[currentSave].nome} tropeça feio contra o ${adv}.`,
                     `📉 ALERTA LIGADO! Derrota dolorosa levanta dúvidas sobre a tática.`,
@@ -640,7 +658,18 @@
             // O resultado da partida já ganhou o post dele agora mesmo, com uma linha acima
             // (adicionarNoticiaAutomatica). gerarPostsSocial só entra depois de uma derrota, pra
             // simular a torcida cornetando no feed — não mais um post extra a cada partida.
-            if (golsC > golsP) gerarPostsSocial("Derrota para o " + adv);
+            // O contexto vai enriquecido (mando, domínio, margem de gols) pra o post da torcida
+            // reagir à derrota de verdade, não só ao placar — ver "TOM TEM QUE BATER COM O
+            // CONTEXTO" no prompt de gerarPostsSocial.
+            if (golsC > golsP) {
+                let margem = golsC - golsP;
+                let dominou = posseP > posseA || finP >= (Number(document.getElementById('fin-adv').value) || 0);
+                let contextoDerrota = `Derrota para o ${adv} por ${golsP}x${golsC}` +
+                    (margem === 1 ? ' (apertada, por apenas 1 gol de diferença)' : (margem >= 3 ? ' (goleada)' : '')) +
+                    (mando === 'Fora' ? ', jogando fora de casa' : ', jogando em casa') +
+                    (dominou ? `, mas o ${db[currentSave].nome} dominou a posse de bola/finalizações mesmo perdendo` : '');
+                gerarPostsSocial(contextoDerrota);
+            }
 
             // Se havia uma partida declarada no Auxiliar Técnico pra esse jogo, fecha o ciclo:
             // avaliação pós-jogo, arquivo no histórico e limpa a partida em aberto.

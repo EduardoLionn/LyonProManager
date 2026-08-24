@@ -608,6 +608,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 box.style.display = 'none';
                 if (pedir) pedir.style.display = 'block';
                 renderizarHistoricoPartidasAuxiliar();
+                renderizarRelatoriosAuxiliar();
                 return;
             }
 
@@ -650,6 +651,7 @@ ${textoRegrasCompatibilidadePosicional()}
 
             renderizarCampinhoEspelhoLeitura(t.esquema, sug.escalacao, sug.reservas, sug.tatica, null, sug.funcoesPorRole);
             renderizarHistoricoPartidasAuxiliar();
+            renderizarRelatoriosAuxiliar();
         }
 
         // -------------------------------------------------------------------------------------
@@ -1933,10 +1935,20 @@ ${textoRegrasCompatibilidadePosicional()}
             let resultado = golsPro > golsContra ? 'Vitória' : (golsPro < golsContra ? 'Derrota' : 'Empate');
             let nomeAdv = partida.adversarioNome || adversarioTexto || 'o adversário';
 
+            // Reclamação do treinador: "perdemos de 1 a 0 pro Barcelona, dominamos a posse, fora
+            // de casa, e o Auxiliar me cornetou do mesmo jeito que numa goleada em casa". O
+            // comentário pós-jogo só olhava pro placar — nunca soube se o time jogou bem ou mal de
+            // verdade. Agora ele lê a ficha completa da partida que acabou de ser salva (posse,
+            // finalizações, mando) pra avaliar a atuação de verdade, não só o resultado seco.
+            let ultimaPartida = db[currentSave].partidas[db[currentSave].partidas.length - 1];
+            let contextoAtuacao = ultimaPartida ? `Mando: ${ultimaPartida.mando}. Posse de bola: ${ultimaPartida.possePro}% (nosso) x ${ultimaPartida.posseAdv}% (${nomeAdv}). Finalizações: ${ultimaPartida.finPro} (nosso) x ${ultimaPartida.finAdv} (${nomeAdv}).` : '';
+
             let promptIA = `Você é ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}". A partida contra ${nomeAdv} terminou: ${golsPro} x ${golsContra} (${resultado} para o seu time).
+            ${contextoAtuacao}
             Seu plano pré-jogo foi: ${partida.analiseGeral || 'sem análise prévia registrada'}.
             ${partida.ajustesFeitos && partida.ajustesFeitos.length > 0 ? `Durante o jogo você deu ${partida.ajustesFeitos.length} orientação(ões) ao treinador: ${partida.ajustesFeitos.map(a => a.resposta).join(' | ')}` : 'Você não precisou dar nenhuma orientação extra durante o jogo — o plano se manteve do início ao fim.'}
             Dê um comentário curto (2-3 frases), honesto e no seu estilo de auxiliar técnico, avaliando como o time e o plano se saíram. Seja específico ao resultado (não genérico) e diga se o plano funcionou ou não.
+            ⚠️ Um auxiliar técnico de verdade sabe separar resultado de desempenho: se os números acima mostram domínio de posse/finalizações mesmo numa derrota (ainda mais fora de casa ou contra um adversário mais forte), reconheça a boa atuação em vez de cobrar como se o time tivesse jogado mal — o tom só deve ser duro quando o desempenho justificar.
             Retorne APENAS o texto do comentário puro, sem JSON, sem aspas ao redor.`;
 
             let textoResumo = '';
@@ -1976,6 +1988,89 @@ ${textoRegrasCompatibilidadePosicional()}
             if (typeof notificarAuxiliar === 'function') {
                 notificarAuxiliar(`📋 Avaliação pós-jogo vs ${nomeAdv} (${golsPro}x${golsContra})`, `<p>${textoResumo}</p><p style="color:var(--text-muted);">Resultado: <strong>${resultado}</strong>. O relatório completo, com campinho tático e substituições, está na aba do Auxiliar Técnico.</p>`);
             }
+        }
+
+        // --- RELATÓRIOS DO AUXILIAR TÉCNICO ---
+        // Pedido do treinador: "o auxiliar técnico não me entrega relatórios completos, ao invés
+        // de histórico de partida dentro da aba auxiliar, poderia ter relatórios". O histórico
+        // (abaixo) é só uma lista partida a partida — não junta nada. Um relatório de verdade olha
+        // pra VÁRIAS partidas de uma vez e aponta padrão: sequência de resultados, formação que
+        // mais rendeu, tendência de posse/finalizações, e uma recomendação concreta pra sequência.
+        // Os números (sequência, médias, formação mais usada) são calculados aqui mesmo, sem IA —
+        // só o texto do relatório em si é que vai pro modelo, com esses números prontos no prompt.
+        async function gerarRelatorioAuxiliar() {
+            if (!db[currentSave] || !db[currentSave].nome) return;
+            let historico = db[currentSave].historicoPartidasAuxiliar || [];
+            let ultimas = historico.slice(0, 5); // guardado com unshift -> mais recente primeiro
+            if (ultimas.length === 0) {
+                alert('Ainda não há partidas registradas pelo Auxiliar pra gerar um relatório. Jogue pelo menos uma partida primeiro.');
+                return;
+            }
+
+            let vitorias = ultimas.filter(p => p.resultado === 'Vitória').length;
+            let empates = ultimas.filter(p => p.resultado === 'Empate').length;
+            let derrotas = ultimas.filter(p => p.resultado === 'Derrota').length;
+            let sequencia = ultimas.map(p => p.resultado === 'Vitória' ? 'V' : (p.resultado === 'Derrota' ? 'D' : 'E')).join('-');
+
+            let comEstatisticas = ultimas.filter(p => p.estatisticas && typeof p.estatisticas.possePro === 'number');
+            let mediaPosse = comEstatisticas.length ? Math.round(comEstatisticas.reduce((a, c) => a + c.estatisticas.possePro, 0) / comEstatisticas.length) : null;
+
+            let formacoes = {};
+            ultimas.forEach(p => { let f = p.formacaoFinal || p.formacaoEscolhida; if (f) formacoes[f] = (formacoes[f] || 0) + 1; });
+            let formacaoMaisUsada = Object.entries(formacoes).sort((a, b) => b[1] - a[1])[0]?.[0] || 'variada';
+
+            let resumoPartidas = ultimas.map(p => `${p.adversarioNome || 'Adversário'}: ${p.golsPro}x${p.golsContra} (${p.resultado})${p.estatisticas ? ` — posse ${p.estatisticas.possePro}%x${p.estatisticas.posseAdv}%, finalizações ${p.estatisticas.finPro}x${p.estatisticas.finAdv}` : ''}`).join(' | ');
+
+            let promptIA = `Você é ${nomeAuxiliarExibicao()}, o Auxiliar Técnico do "${db[currentSave].nome}". Analisando as últimas ${ultimas.length} partidas: ${resumoPartidas}.
+            Sequência de resultados (mais recente primeiro): ${sequencia} (${vitorias}V ${empates}E ${derrotas}D). Formação mais usada no período: ${formacaoMaisUsada}.${mediaPosse !== null ? ` Posse de bola média: ${mediaPosse}%.` : ''}
+
+            Escreva um RELATÓRIO igual um auxiliar técnico de verdade entregaria ao treinador — 3 a 4 parágrafos curtos cobrindo: (1) o momento atual da equipe olhando pra essa sequência, (2) um padrão tático que você percebeu ao longo dessas partidas (bom ou ruim, seja específico), (3) uma recomendação concreta pra próxima fase da temporada.
+            Nada de texto genérico — use os números acima de verdade. Retorne só o texto corrido do relatório, sem JSON, sem título.`;
+
+            if (typeof mostrarCarregandoIA === 'function') mostrarCarregandoIA('📊 O Auxiliar Técnico está preparando o relatório...');
+            let texto = '';
+            try {
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
+                texto = (data.candidates[0].content.parts[0].text || '').trim();
+            } catch (e) {
+                texto = 'Não consegui preparar o relatório agora — tente novamente em instantes.';
+            } finally {
+                if (typeof esconderCarregandoIA === 'function') esconderCarregandoIA();
+            }
+
+            if (!db[currentSave].relatoriosAuxiliar) db[currentSave].relatoriosAuxiliar = [];
+            db[currentSave].relatoriosAuxiliar.unshift({
+                data: Date.now(), temporada: db[currentSave].temporadaAtual, texto,
+                sequencia, vitorias, empates, derrotas, mediaPosse, formacaoMaisUsada, partidasAnalisadas: ultimas.length
+            });
+            if (db[currentSave].relatoriosAuxiliar.length > 20) db[currentSave].relatoriosAuxiliar.length = 20;
+            salvarDados();
+            renderizarRelatoriosAuxiliar();
+            if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo('Gerou relatório do Auxiliar Técnico');
+        }
+
+        function renderizarRelatoriosAuxiliar() {
+            let container = document.getElementById('auxiliar-relatorios');
+            if (!container || !db[currentSave]) return;
+            let relatorios = db[currentSave].relatoriosAuxiliar || [];
+            if (relatorios.length === 0) {
+                container.innerHTML = `<p class="wizard-elenco-vazio">Nenhum relatório gerado ainda. Clique em "Gerar Relatório" depois de disputar algumas partidas.</p>`;
+                return;
+            }
+            container.innerHTML = relatorios.map((r, idx) => {
+                let dataFmt = new Date(r.data).toLocaleDateString('pt-BR');
+                return `
+                <div class="historico-partida-card">
+                    <div class="historico-partida-header" onclick="toggleHistoricoPartida('rel-${idx}')">
+                        <span style="font-weight:bold;">📊 Relatório de ${dataFmt}</span>
+                        <span style="color:var(--text-muted); font-size:12px;">${r.vitorias}V ${r.empates}E ${r.derrotas}D nas últimas ${r.partidasAnalisadas} • ${r.sequencia}</span>
+                    </div>
+                    <div class="historico-partida-detalhes" id="historico-detalhe-rel-${idx}" style="display:none;">
+                        <p style="white-space:pre-line; line-height:1.6;">${r.texto}</p>
+                        ${r.mediaPosse !== null ? `<p style="color:var(--text-muted); font-size:12px; margin-top:10px;">Posse média no período: ${r.mediaPosse}% • Formação mais usada: ${r.formacaoMaisUsada}</p>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         // --- HISTÓRICO DE PARTIDAS ---

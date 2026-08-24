@@ -1,33 +1,39 @@
         // =====================================================================================
         // FEED SOCIAL — VISUAL TIPO INSTAGRAM
         // =====================================================================================
-        // Cada post ganha uma "capa" com foto de verdade. Duas camadas, nessa ordem de tentativa
-        // (tudo via onerror no próprio <img>, sem precisar checar nada em JS):
+        // Cada post ganha uma "capa". Duas camadas, nessa ordem de tentativa:
         //   1) assets/social/<categoria>.jpg — se você colocar um arquivo com esse nome no
-        //      repositório, ele passa a ser a capa fixa daquela categoria (sua própria foto).
-        //   2) imgKeywords — se não existir arquivo local, busca uma foto de banco livre (sem
-        //      direitos autorais) combinando com o tema do evento.
-        //   3) se as duas falharem (ex: sem internet), cai no gradiente + emoji de sempre — nunca
-        //      quebra mostrando ícone de imagem faltando.
+        //      repositório, ele passa a ser a capa fixa daquela categoria (sua própria foto). Se
+        //      o arquivo não existir (404), o onerror do próprio <img> remove a tag.
+        //   2) svg — uma ilustração vetorial desenhada pra bater com o tema exato do evento
+        //      (troféu, chuva, prancheta médica, megafone...). Antes essa camada buscava foto de
+        //      banco livre por palavra-chave (LoremFlickr): a busca não tinha garantia nenhuma de
+        //      bater com o assunto do post (podia vir qualquer coisa) e ainda dependia de internet
+        //      no navegador de quem joga. O SVG sempre bate com a categoria e nunca depende de rede.
         const CATEGORIAS_POST_SOCIAL = {
-            vitoria:     { emoji: '🏆', label: 'Vitória',             grad: 'linear-gradient(155deg, #241a03 0%, #6b4e12 48%, #E8B84B 100%)', imgKeywords: 'soccer,celebration' },
-            campeao:     { emoji: '🏆', label: 'Título',              grad: 'linear-gradient(155deg, #2b1e00 0%, #8a6412 45%, #F2C868 100%)', imgKeywords: 'soccer,trophy' },
-            derrota:     { emoji: '🌧️', label: 'Derrota',             grad: 'linear-gradient(155deg, #04070a 0%, #131c26 55%, #33465a 100%)', imgKeywords: 'soccer,rain,stadium' },
-            empate:      { emoji: '⚖️', label: 'Empate',              grad: 'linear-gradient(155deg, #0e1317 0%, #223038 55%, #445a5f 100%)', imgKeywords: 'soccer,match' },
-            contratacao: { emoji: '✍️', label: 'Contratação',         grad: 'linear-gradient(155deg, #061711 0%, #10422a 50%, #24b374 100%)', imgKeywords: 'soccer,handshake' },
-            venda:       { emoji: '👋', label: 'Saída',                grad: 'linear-gradient(155deg, #060f17 0%, #123049 50%, #3a86c4 100%)', imgKeywords: 'soccer,player,walking' },
-            lesao:       { emoji: '🏥', label: 'Departamento Médico',  grad: 'linear-gradient(155deg, #190607 0%, #4a1214 50%, #E24B4B 100%)', imgKeywords: 'physiotherapy,sport' },
-            capitao:     { emoji: '🎖️', label: 'Vestiário',           grad: 'linear-gradient(155deg, #221902 0%, #6b4e12 50%, #E8B84B 100%)', imgKeywords: 'soccer,captain' },
-            financeiro:  { emoji: '💰', label: 'Bastidores',           grad: 'linear-gradient(155deg, #041213 0%, #0f3a3d 50%, #33b6bd 100%)', imgKeywords: 'stadium,business' },
-            corneta:     { emoji: '🔥', label: 'Repercussão',          grad: 'linear-gradient(155deg, #190800 0%, #5c1d05 50%, #D9822B 100%)', imgKeywords: 'soccer,fans,crowd' },
-            geral:       { emoji: '📰', label: 'Notícia',              grad: 'linear-gradient(155deg, #0D1512 0%, #182420 55%, #2A3B34 100%)', imgKeywords: 'soccer,stadium' }
+            vitoria:     { emoji: '🏆', label: 'Vitória',             grad: 'linear-gradient(155deg, #241a03 0%, #6b4e12 48%, #E8B84B 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M35 20h30v14a15 15 0 0 1-30 0z"/><path d="M35 24h-10a8 8 0 0 0 8 12"/><path d="M65 24h10a8 8 0 0 0-8 12"/><path d="M50 49v10"/><path d="M40 66h20l3 9h-26z"/><path d="M37 75h26"/><path d="M50 8v6M38 10l3 5M62 10l-3 5"/></svg>' },
+            campeao:     { emoji: '🏆', label: 'Título',              grad: 'linear-gradient(155deg, #2b1e00 0%, #8a6412 45%, #F2C868 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M33 18h34v16a17 17 0 0 1-34 0z"/><path d="M33 23h-9a7 7 0 0 0 7 11"/><path d="M67 23h9a7 7 0 0 0-7 11"/><path d="M50 51v9"/><path d="M39 68h22l3 9h-28z"/><path d="M36 77h28"/><path d="M50 4l2.4 5 5.6.5-4.3 3.6 1.3 5.4L50 15.7 45 18.5l1.3-5.4L42 9.5l5.6-.5z" fill="currentColor" stroke="none"/></svg>' },
+            derrota:     { emoji: '🌧️', label: 'Derrota',             grad: 'linear-gradient(155deg, #04070a 0%, #131c26 55%, #33465a 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><line x1="20" y1="14" x2="14" y2="28"/><line x1="40" y1="10" x2="34" y2="26"/><line x1="60" y1="14" x2="54" y2="30"/><line x1="80" y1="10" x2="74" y2="26"/><circle cx="50" cy="55" r="10"/><path d="M35 90c2-16 10-24 15-24s13 8 15 24"/><path d="M42 55h16"/></svg>' },
+            empate:      { emoji: '⚖️', label: 'Empate',              grad: 'linear-gradient(155deg, #0e1317 0%, #223038 55%, #445a5f 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="50" y1="14" x2="50" y2="82"/><line x1="22" y1="30" x2="78" y2="30"/><path d="M22 30l-10 22a10 10 0 0 0 20 0z"/><path d="M78 30l-10 22a10 10 0 0 0 20 0z"/><line x1="36" y1="86" x2="64" y2="86"/><circle cx="50" cy="18" r="5"/></svg>' },
+            contratacao: { emoji: '✍️', label: 'Contratação',         grad: 'linear-gradient(155deg, #061711 0%, #10422a 50%, #24b374 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 70c15 4 45 4 60 0"/><path d="M28 66l38-38 8 8-38 38-11 3z"/><path d="M60 34l8 8"/><path d="M20 82h30"/></svg>' },
+            venda:       { emoji: '👋', label: 'Saída',                grad: 'linear-gradient(155deg, #060f17 0%, #123049 50%, #3a86c4 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M30 15v70"/><path d="M30 15h20l14 8"/><path d="M30 85h20l14-8"/><path d="M60 30v40"/><path d="M70 40l12 10-12 10"/><line x1="82" y1="50" x2="60" y2="50"/></svg>' },
+            lesao:       { emoji: '🏥', label: 'Departamento Médico',  grad: 'linear-gradient(155deg, #190607 0%, #4a1214 50%, #E24B4B 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="18" width="64" height="64" rx="14"/><path d="M20 50h16l6-14 8 24 6-14h14"/></svg>' },
+            capitao:     { emoji: '🎖️', label: 'Vestiário',           grad: 'linear-gradient(155deg, #221902 0%, #6b4e12 50%, #E8B84B 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 30c22-10 42-10 64 0v20c-22 10-42 10-64 0z"/><path d="M50 32l3.5 7 7.5.7-5.7 5 1.7 7.3L50 48l-6.5 4 1.7-7.3-5.7-5 7.5-.7z" fill="currentColor" stroke="none"/></svg>' },
+            financeiro:  { emoji: '💰', label: 'Bastidores',           grad: 'linear-gradient(155deg, #041213 0%, #0f3a3d 50%, #33b6bd 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="16" y1="84" x2="88" y2="84"/><rect x="24" y="60" width="12" height="24"/><rect x="44" y="46" width="12" height="38"/><rect x="64" y="30" width="12" height="54"/><circle cx="76" cy="18" r="10"/><path d="M72 18h8M76 14v8" stroke-width="3"/></svg>' },
+            corneta:     { emoji: '🔥', label: 'Repercussão',          grad: 'linear-gradient(155deg, #190800 0%, #5c1d05 50%, #D9822B 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 46v8l14 4v-16z"/><path d="M34 38v24l32 14V24z"/><path d="M66 34a12 12 0 0 1 0 22"/><path d="M26 58l4 16"/><path d="M78 34c6 4 6 18 0 22" stroke-width="3"/><path d="M84 28c10 8 10 26 0 34" stroke-width="3"/></svg>' },
+            geral:       { emoji: '📰', label: 'Notícia',              grad: 'linear-gradient(155deg, #0D1512 0%, #182420 55%, #2A3B34 100%)',
+                svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="24" width="68" height="52" rx="4"/><line x1="26" y1="36" x2="46" y2="36"/><line x1="26" y1="44" x2="46" y2="44"/><line x1="26" y1="52" x2="40" y2="52"/><rect x="54" y="34" width="20" height="16"/><line x1="54" y1="58" x2="74" y2="58"/><line x1="54" y1="65" x2="74" y2="65"/></svg>' }
         };
-
-        // Monta a URL de banco livre de imagens (LoremFlickr — sem chave de API) pra uma categoria.
-        function urlImagemBanco(categoria) {
-            let cat = CATEGORIAS_POST_SOCIAL[categoria] ? categoria : 'geral';
-            return `https://loremflickr.com/640/400/${CATEGORIAS_POST_SOCIAL[cat].imgKeywords}`;
-        }
 
         // Classifica um post pelo texto do título — mesma ideia do isMercado que já existia,
         // só que cobrindo todas as categorias agora (não só mercado). Roda sobre QUALQUER post
@@ -115,8 +121,8 @@
                             <span class="insta-categoria-chip">${hero.emoji} ${hero.label}</span>
                         </div>
                         <div class="insta-hero" style="background:${hero.grad}">
-                            <img class="insta-hero-img" alt="" loading="lazy" src="assets/social/${hero.chave}.jpg"
-                                onerror="this.onerror=function(){ this.style.display='none'; this.closest('.insta-hero').classList.add('sem-foto'); }; this.src='${urlImagemBanco(hero.chave)}';">
+                            <div class="insta-hero-arte">${hero.svg}</div>
+                            <img class="insta-hero-img" alt="" loading="lazy" src="assets/social/${hero.chave}.jpg" onerror="this.remove();">
                             <span class="insta-hero-emoji">${hero.emoji}</span>
                         </div>
                         <div class="insta-acoes">
@@ -290,12 +296,14 @@
             // Filtra apenas jogadores importantes (OVR >= 70) para a torcida cobrar
             let jogadoresRelevantes = plantelAtivo.filter(p => p.ovr >= 70).map(p => `${p.nome} (OVR ${p.ovr})`).join(', ');
 
-            let promptIA = `Você é um torcedor influente do "${db[currentSave].nome}" cornetando o time nas redes sociais depois de um resultado ruim.
+            let promptIA = `Você é um torcedor influente do "${db[currentSave].nome}" reagindo nas redes sociais ao resultado mais recente.
             Contexto:
             - Evento Recente: ${contextoExtra}
             - Aprovação da Torcida: ${db[currentSave].aprovacaoTorcida}/100
             - Últimos Resultados: ${resumoUltimos || "Início de temporada"}
             - Elenco Atual (USE APENAS ESTES NOMES SE FOR CITAR ALGUM JOGADOR): ${jogadoresRelevantes || "Nenhum jogador relevante cadastrado ainda"}
+
+            ⚠️ TOM TEM QUE BATER COM O CONTEXTO (MUITO IMPORTANTE): torcedor de time grande sabe reconhecer uma boa atuação mesmo perdendo. Se o "Evento Recente" descrever uma derrota apertada, fora de casa, contra um adversário claramente mais forte, ou com domínio de posse/finalizações do próprio time, o tom deve ser de reconhecimento ou cobrança leve ("time crescendo", "orgulho apesar do resultado", "seguimos fortes") — NÃO de fúria. Reserve a cornetada pesada (cobrança dura, pedido de venda de jogador) pra derrotas em casa, goleadas, ou sequências ruins repetidas — é isso que o contexto vai te dizer.
 
             Escreva UMA ÚNICA postagem CURTA (1 frase, no máximo 2) — é uma legenda de post tipo Instagram/Twitter, não um artigo. Sem textão.
 
