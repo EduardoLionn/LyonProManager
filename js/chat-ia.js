@@ -1078,6 +1078,11 @@ ${textoRegrasCompatibilidadePosicional()}
                 nome: 'Dar Oportunidade à Base/Jovens',
                 descricaoIA: 'Priorizar minutos pras joias da base: jogadores até 22 anos com pouca minutagem na temporada (jovens promessas, comparados à média de jogos de todo o elenco) recebem um bônus artificial enorme (+25) na pontuação efetiva — grande o bastante pra superarem titulares consagrados. O objetivo é que cerca de METADE dos relacionados desta partida (titulares + banco) seja formada por essas promessas, mesmo abrindo mão de força técnica pontualmente; o restante das vagas fica com quem sobrou de maior pontuação geral, jovem ou veterano. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
                 selecionarEscalacaoEBanco: montarRelacionadosOportunidadeJovens
+            },
+            'titulares-todo-custo': {
+                nome: 'Titulares a Todo Custo (Risco de Lesão)',
+                descricaoIA: 'Escalar sempre os melhores jogadores puramente pela qualidade técnica (OVR + desempenho recente), IGNORANDO COMPLETAMENTE a fadiga acumulada — não existe penalidade nenhuma por cansaço nesta diretriz, o treinador decidiu arriscar tudo pela força máxima em campo. Qualquer titular com 80% de fadiga ou mais entra escalado do mesmo jeito, mas o clube registra um alerta de risco de lesão pra ele (vai pro boletim médico depois da partida). A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaTitularesTodoCusto
             }
         };
 
@@ -1170,6 +1175,47 @@ ${textoRegrasCompatibilidadePosicional()}
             let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
             let penalidade = Math.pow(fadiga / 100, 5) * 40;
             return Math.round((notaBase - penalidade) * 10) / 10;
+        }
+
+        // Pedido do treinador pra diretriz "Titulares a Todo Custo (Risco de Lesão)": ZERO
+        // penalidade por fadiga — a pontuação efetiva é a nota técnica pura (OVR + desempenho
+        // recente) / 2, sem nenhum desconto por cansaço. O parâmetro fadigaAtual é recebido só
+        // pra manter o mesmo contrato das outras diretrizes (calcularPontuacaoEfetivaFn(ovr,
+        // notaMedia, fadigaAtual)), mas é ignorado de propósito. O cansaço não some do jogo: ele
+        // vira alerta de risco de lesão depois, em jogadoresEmRiscoDeLesao.
+        //
+        // Validado com o cenário do pedido: Jogador A (craque, OVR 85, nota 80, fadiga 90%) dá
+        // pontuação efetiva 82.5 — a fadiga não desconta nada. Jogador B (reserva 100% descansado,
+        // OVR 74, nota 70) dá 72.0. O craque cansado (82.5) continua na frente e é escalado.
+        function calcularPontuacaoEfetivaTitularesTodoCusto(ovr, notaMedia, fadigaAtual) {
+            let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
+            return Math.round(notaBase * 10) / 10;
+        }
+
+        // Limiar de fadiga (pedido, seção 3) a partir do qual um titular escalado entra em
+        // "risco de lesão" — hoje vira um alerta pro treinador; no futuro alimenta a simulação de
+        // lesão muscular no pós-jogo. Varre a escalação FINAL, não importa qual diretriz a gerou
+        // (um titular exausto é risco de lesão em qualquer diretriz, não só na "Titulares a Todo
+        // Custo" — é só que ela é a única que deixa isso acontecer de propósito).
+        const LIMIAR_FADIGA_RISCO_LESAO = 80;
+
+        // "escalacao" aceita tanto {ROLE: "Nome"} (o formato cru dos motores de seleção) quanto
+        // {ROLE: {nome, instrucao, ...}} (o formato já mesclado com a resposta da IA em
+        // declararPartidaIA) — cobre os dois pontos onde essa função é chamada.
+        function jogadoresEmRiscoDeLesao(escalacao) {
+            if (!db[currentSave] || !escalacao) return [];
+            return Object.entries(escalacao).map(([role, info]) => {
+                let nome = typeof info === 'string' ? info : (info && info.nome);
+                let jogador = nome ? db[currentSave].plantel.find(p => p.nome === nome) : null;
+                if (!jogador || (jogador.fadiga || 0) < LIMIAR_FADIGA_RISCO_LESAO) return null;
+                return { nome: jogador.nome, posicao: jogador.posicao, role: role, fadiga: jogador.fadiga };
+            }).filter(Boolean);
+        }
+
+        // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
+        // escalação, sem passar pelo catálogo.
+        function selecionarEscalacaoTitularesTodoCusto(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaTitularesTodoCusto);
         }
 
         // Monta os 11 titulares de uma diretriz de pontuação (Escalação Titular Padrão, Rotação
@@ -1610,7 +1656,12 @@ ${textoRegrasCompatibilidadePosicional()}
                         }
                     }
 
-                    let rotacoesAutomaticas = aplicarRotacaoObrigatoriaEscalacao(res);
+                    // A diretriz "Titulares a Todo Custo (Risco de Lesão)" existe justamente pra
+                    // desligar essa rede de segurança médica — o treinador decidiu conscientemente
+                    // arriscar a lesão em troca de força máxima em campo, então a rotação
+                    // obrigatória por fadiga crítica/risco NÃO se aplica aqui (o aviso vira
+                    // "alertasRiscoLesao" mais abaixo, mas ninguém é trocado à força).
+                    let rotacoesAutomaticas = diretrizId === 'titulares-todo-custo' ? [] : aplicarRotacaoObrigatoriaEscalacao(res);
                     let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
 
                     // O que a IA devolve é um PLANO. Quem escala e inicia a partida é a aba
@@ -1655,6 +1706,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         })(),
                         alertaRotacao: alertaRotacao,
                         rotacoesAutomaticas: rotacoesAutomaticas,
+                        alertasRiscoLesao: jogadoresEmRiscoDeLesao(res.escalacao),
                         diretriz: diretrizInfo.nome,
                         criadaEm: Date.now()
                     };
