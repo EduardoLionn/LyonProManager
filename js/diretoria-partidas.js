@@ -211,6 +211,100 @@
             `).join('');
         }
 
+        // Cache de imagens que falharam na leitura da IA, guardando o base64 já convertido — o
+        // "🔄 Tentar Novamente" reenvia exatamente esse mesmo conteúdo pra IA, sem pedir pro
+        // treinador escolher o arquivo de novo (reclamação: "reduz a chance da IA não ler uma
+        // imagem, eu clico em repetir e ele lê de novo, sem precisar enviar o arquivo de novo").
+        let falhasLeituraImagem = [];
+        let falhaIdCounter = 0;
+
+        function renderizarFalhasLeituraImagem() {
+            ['falhas-leitura-jogador', 'falhas-leitura-partida'].forEach(containerId => {
+                let el = document.getElementById(containerId);
+                if (!el) return;
+                let doContainer = falhasLeituraImagem.filter(f => f.containerId === containerId);
+                el.innerHTML = doContainer.map(f => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:rgba(226,75,75,0.1); border:1px solid var(--danger); border-radius:8px; padding:8px 12px; margin-top:8px; font-size:12px;">
+                        <span>❌ ${f.descricao}</span>
+                        <button style="background:var(--danger); color:white; padding:5px 10px; font-size:11px; border:none; border-radius:5px; cursor:pointer;" onclick="tentarNovamenteLeituraImagem(${f.id})">🔄 Tentar Novamente</button>
+                    </div>`).join('');
+            });
+        }
+
+        async function tentarNovamenteLeituraImagem(id) {
+            let falha = falhasLeituraImagem.find(f => f.id === id);
+            if (!falha) return;
+            falhasLeituraImagem = falhasLeituraImagem.filter(f => f.id !== id);
+            renderizarFalhasLeituraImagem();
+            await falha.tentar();
+        }
+
+        // Lê UMA imagem (base64 já convertido) e tenta encaixar o jogador na lista temporária.
+        // Usada tanto no lote inicial quanto pelo "Tentar Novamente" — se falhar de novo, volta
+        // pra fila de falhas em vez de exigir reenvio do arquivo.
+        async function lerUmaImagemJogador(base64Data, mimeType, nomeArquivo, listaJogadores) {
+            let prompt = `Analise a tela de estatísticas do jogador.
+            ⚠️ REGRA CRÍTICA 1: IGNORE o nome grande/completo no topo esquerdo. Extraia APENAS o nome abreviado que está na tabela do lado esquerdo (Ex: "J. Carmona").
+            ⚠️ REGRA CRÍTICA 2: Verifique se há um ícone de uma pequena BOLA DE FUTEBOL ao lado do nome do jogador na lista da esquerda. Se houver a bolinha, retorne 1 no campo "mvp". Se não houver, retorne 0.
+            ⚠️ REGRA CRÍTICA 3: No painel de estatísticas à direita, "distanciaPercorrida" e "distanciaCorrida" são o PRIMEIRO número de cada linha "Distância percorr. x média do time (km)" e "Distância corrida x média do time (km)" — é a distância do PRÓPRIO jogador, não a média do time.
+            Procure o nome extraído nesta lista e retorne exatamente como está nela, se existir: [${listaJogadores}].
+            Retorne EXATAMENTE este JSON puro sem formatação markdown:
+            {"nome": "Nome Abreviado da Tabela", "overall": numero, "nota": numero, "gols": numero, "assistencias": numero, "finalizacoes": numero, "precisaoFinalizacao": numero, "passes": numero, "precisaoPasse": numero, "dribles": numero, "taxaDribles": numero, "dividas": numero, "taxaDivididas": numero, "possesGanhas": numero, "perdasPosse": numero, "faltas": numero, "defesas": numero, "distanciaPercorrida": numero, "distanciaCorrida": numero, "mvp": numero}`;
+
+            const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: mimeType, data: base64Data } } ] }] });
+            let rawText = data.candidates[0].content.parts[0].text;
+            let jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error('Resposta da IA não trouxe um JSON reconhecível.');
+
+            let stats = JSON.parse(jsonMatch[0]);
+            let nome = stats.nome || "Desconhecido";
+            let p = db[currentSave].plantel.find(x => x.nome.toLowerCase() === nome.toLowerCase());
+            if (p) nome = p.nome;
+
+            if (!jogadoresPartidaTemp.find(j => j.nome === nome)) {
+                let divTotal = stats.dividas || 0; let taxaDiv = stats.taxaDivididas || 0;
+                let dadosJogador = {
+                    idTemp: ++idTempCounter, nome: nome, nota: stats.nota || 7.0, gols: stats.gols || 0, assist: stats.assistencias || 0, fin: stats.finalizacoes || 0, precFin: stats.precisaoFinalizacao || 0, passes: stats.passes || 0, precPasse: stats.precisaoPasse || 0, dribles: stats.dribles || 0, taxaDribles: stats.taxaDribles || 0, dividasTotais: divTotal, taxaDivididas: taxaDiv, dividasGanhas: Math.round(divTotal * (taxaDiv / 100)), posses: stats.possesGanhas || 0, perdasPosse: stats.perdasPosse || 0, faltas: stats.faltas || 0, defesas: stats.defesas || 0, distanciaPercorrida: stats.distanciaPercorrida || 0, distanciaCorrida: stats.distanciaCorrida || 0, mvp: stats.mvp || 0, ovrAtualizado: stats.overall || (p ? p.ovr : 70)
+                };
+                jogadoresPartidaTemp.push(dadosJogador);
+                if (!p) db[currentSave].plantel.push({ nome: nome, posicao: 'Meio-Campo', ovr: dadosJogador.ovrAtualizado, status: 'Ativo', jogosAvaliacao: 0 });
+                else if (stats.overall && stats.overall > 0) p.ovr = stats.overall;
+            }
+        }
+
+        // Monta um item de "falha" com sua própria função de retry — se a nova tentativa falhar
+        // de novo, o item se recria (mesmo id) e volta pra fila, então "Tentar Novamente" sempre
+        // reflete o estado mais atual sem precisar de arguments.callee nem duplicar a lógica.
+        function criarFalhaLeituraJogador(base64Data, file, listaJogadores) {
+            let idFalha = ++falhaIdCounter;
+            return {
+                id: idFalha, containerId: 'falhas-leitura-jogador', descricao: `Não consegui ler "${file.name}".`,
+                tentar: async () => {
+                    let loaderRetry = document.getElementById('loader-jogador'); if (loaderRetry) loaderRetry.style.display = 'inline-block';
+                    try {
+                        await lerUmaImagemJogador(base64Data, file.type, file.name, listaJogadores);
+                        aplicarRegraMvp(); renderizarListaTemp(); preencherDatalistJogadores();
+                    } catch(e2) {
+                        console.error("Erro na nova tentativa", e2);
+                        let novaFalha = criarFalhaLeituraJogador(base64Data, file, listaJogadores);
+                        novaFalha.id = idFalha; // mantém o mesmo id, é a mesma falha
+                        falhasLeituraImagem.push(novaFalha);
+                    } finally {
+                        renderizarFalhasLeituraImagem();
+                        if (loaderRetry) loaderRetry.style.display = 'none';
+                    }
+                }
+            };
+        }
+
+        function aplicarRegraMvp() {
+            if (jogadoresPartidaTemp.length === 0) return;
+            // 1. Descobre qual é a maior nota entre os jogadores lidos
+            let maiorNota = Math.max(...jogadoresPartidaTemp.map(j => j.nota));
+            // 2. Só é MVP se tiver a bolinha (mvp == 1) E tiver a maior nota
+            jogadoresPartidaTemp.forEach(j => { j.mvp = (j.mvp === 1 && j.nota === maiorNota) ? 1 : 0; });
+        }
+
         async function lerImagensIAJogadores(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
@@ -219,68 +313,27 @@
             loader.style.display = "inline-block";
             let listaJogadores = db[currentSave].plantel.filter(p => p.status === 'Ativo').map(p => p.nome).join(', ');
 
-            // 1. ADICIONE A FUNÇÃO DE DELAY AQUI, ANTES DO LOOP
             const delay = ms => new Promise(res => setTimeout(res, ms));
 
             for (let i = 0; i < files.length; i++) {
                 let file = files[i];
                 if(loaderText) loaderText.innerText = `Lendo imagem ${i + 1} de ${files.length}... aguarde`;
-                
-                // 2. ADICIONE A PAUSA AQUI DENTRO DO LOOP (Sugiro 1000ms = 1 segundo de pausa)
                 if (i > 0) await delay(1000);
 
                 let base64Data = await new Promise((resolve) => {
                     let reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(file);
                 });
 
-                // NOVO PROMPT CORRIGIDO
-                let prompt = `Analise a tela de estatísticas do jogador. 
-                ⚠️ REGRA CRÍTICA 1: IGNORE o nome grande/completo no topo esquerdo. Extraia APENAS o nome abreviado que está na tabela do lado esquerdo (Ex: "J. Carmona").
-                ⚠️ REGRA CRÍTICA 2: Verifique se há um ícone de uma pequena BOLA DE FUTEBOL ao lado do nome do jogador na lista da esquerda. Se houver a bolinha, retorne 1 no campo "mvp". Se não houver, retorne 0.
-                Procure o nome extraído nesta lista e retorne exatamente como está nela, se existir: [${listaJogadores}].
-                Retorne EXATAMENTE este JSON puro sem formatação markdown:
-                {"nome": "Nome Abreviado da Tabela", "overall": numero, "nota": numero, "gols": numero, "assistencias": numero, "finalizacoes": numero, "precisaoFinalizacao": numero, "passes": numero, "precisaoPasse": numero, "dribles": numero, "taxaDribles": numero, "dividas": numero, "taxaDivididas": numero, "possesGanhas": numero, "perdasPosse": numero, "faltas": numero, "defesas": numero, "mvp": numero}`;
-
                 try {
-                    const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] });
-                    let rawText = data.candidates[0].content.parts[0].text;
-                    let jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                    
-                    if (jsonMatch) {
-                        let stats = JSON.parse(jsonMatch[0]);
-                        let nome = stats.nome || "Desconhecido";
-                        let p = db[currentSave].plantel.find(x => x.nome.toLowerCase() === nome.toLowerCase());
-                        if (p) nome = p.nome;
-
-                        if (!jogadoresPartidaTemp.find(j => j.nome === nome)) {
-                            let divTotal = stats.dividas || 0; let taxaDiv = stats.taxaDivididas || 0;
-                            let dadosJogador = {
-                                idTemp: ++idTempCounter, nome: nome, nota: stats.nota || 7.0, gols: stats.gols || 0, assist: stats.assistencias || 0, fin: stats.finalizacoes || 0, precFin: stats.precisaoFinalizacao || 0, passes: stats.passes || 0, precPasse: stats.precisaoPasse || 0, dribles: stats.dribles || 0, taxaDribles: stats.taxaDribles || 0, dividasTotais: divTotal, taxaDivididas: taxaDiv, dividasGanhas: Math.round(divTotal * (taxaDiv / 100)), posses: stats.possesGanhas || 0, perdasPosse: stats.perdasPosse || 0, faltas: stats.faltas || 0, defesas: stats.defesas || 0, mvp: stats.mvp || 0, ovrAtualizado: stats.overall || (p ? p.ovr : 70)
-                            };
-                            jogadoresPartidaTemp.push(dadosJogador);
-                            if (!p) db[currentSave].plantel.push({ nome: nome, posicao: 'Meio-Campo', ovr: dadosJogador.ovrAtualizado, status: 'Ativo', jogosAvaliacao: 0 });
-                            else if (stats.overall && stats.overall > 0) p.ovr = stats.overall;
-                        }
-                    }
-                } catch(e) { console.error("Erro", e); }
+                    await lerUmaImagemJogador(base64Data, file.type, file.name, listaJogadores);
+                } catch(e) {
+                    console.error("Erro ao ler imagem do jogador", e);
+                    falhasLeituraImagem.push(criarFalhaLeituraJogador(base64Data, file, listaJogadores));
+                }
             }
-            
-            // --- NOVA REGRA DO MVP ---
-            if (jogadoresPartidaTemp.length > 0) {
-                // 1. Descobre qual é a maior nota entre os jogadores lidos
-                let maiorNota = Math.max(...jogadoresPartidaTemp.map(j => j.nota));
-                
-                // 2. Aplica a regra: Só é MVP se tiver a bolinha (mvp == 1) E tiver a maior nota
-                jogadoresPartidaTemp.forEach(j => {
-                    if (j.mvp === 1 && j.nota === maiorNota) {
-                        j.mvp = 1; // Confirma que é o Melhor em Campo
-                    } else {
-                        j.mvp = 0; // Remove se a IA alucinou a bolinha ou se não tem a maior nota
-                    }
-                });
-            }
-            // --------------------------
 
+            aplicarRegraMvp();
+            renderizarFalhasLeituraImagem();
             if(loaderText) loaderText.innerText = ""; loader.style.display = "none"; renderizarListaTemp(); preencherDatalistJogadores(); event.target.value = "";
         }
 
@@ -327,39 +380,68 @@
             }
         }
 
+        async function processarLeituraPlacar(base64Data, mimeType) {
+            let prompt = `Leia estatísticas de jogo. O meu time é "${db[currentSave].nome}". Retorne EXATAMENTE este JSON: {"possePro": numero, "posseAdv": numero, "finPro": numero, "finAdv": numero, "golsPro": numero, "golsAdv": numero, "nomeAdv": "Nome", "mando": "Casa" ou "Fora"}`;
+            const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: mimeType, data: base64Data } } ] }] });
+            let rawText = data.candidates[0].content.parts[0].text;
+            let jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error('Resposta da IA não trouxe um JSON reconhecível.');
+
+            let stats = JSON.parse(jsonMatch[0]);
+            document.getElementById('gols-pro').value = stats.golsPro || 0; document.getElementById('gols-contra').value = stats.golsAdv || 0;
+            document.getElementById('posse-pro').value = stats.possePro || 0; document.getElementById('posse-adv').value = stats.posseAdv || 0;
+            document.getElementById('fin-pro').value = stats.finPro || 0; document.getElementById('fin-adv').value = stats.finAdv || 0;
+            // O adversário já foi declarado ao iniciar a partida (aba Salvar Partida);
+            // não há mais campo #adversario aqui pra sobrescrever.
+            let selMandoPrint = document.getElementById('partida-mando');
+            if(stats.mando && selMandoPrint) selMandoPrint.value = stats.mando;
+
+            // Mostra automaticamente o painel para o usuário conferir e editar a partida
+            document.getElementById('manual-partida-form').style.display = 'block';
+            let btnVid = document.getElementById('btn-toggle-video');
+            if(btnVid) {
+                btnVid.innerHTML = '👁️ Ocultar Controles';
+                btnVid.style.background = 'transparent';
+                btnVid.style.color = 'var(--primary)';
+                btnVid.style.border = '1px solid var(--primary)';
+            }
+        }
+
+        // Mesma ideia de criarFalhaLeituraJogador: guarda o base64 já convertido pra "Tentar
+        // Novamente" reenviar pra IA sem pedir o arquivo de novo.
+        function criarFalhaLeituraPlacar(base64Data, mimeType, tipo, nomeArquivo) {
+            let idFalha = ++falhaIdCounter;
+            return {
+                id: idFalha, containerId: 'falhas-leitura-partida', descricao: `Não consegui ler "${nomeArquivo}".`,
+                tentar: async () => {
+                    let loaderRetry = document.getElementById(`loader-${tipo}`); if (loaderRetry) loaderRetry.style.display = 'block';
+                    try {
+                        await processarLeituraPlacar(base64Data, mimeType);
+                    } catch(e2) {
+                        console.error("Erro na nova tentativa (placar)", e2);
+                        let novaFalha = criarFalhaLeituraPlacar(base64Data, mimeType, tipo, nomeArquivo);
+                        novaFalha.id = idFalha;
+                        falhasLeituraImagem.push(novaFalha);
+                    } finally {
+                        renderizarFalhasLeituraImagem();
+                        if (loaderRetry) loaderRetry.style.display = 'none';
+                    }
+                }
+            };
+        }
+
         async function lerImagemIA(event, tipo) {
             const file = event.target.files[0]; if(!file) return;
             let loader = document.getElementById(`loader-${tipo}`); loader.style.display = "block";
             const reader = new FileReader(); reader.readAsDataURL(file);
             reader.onload = async function () {
                 const base64Data = reader.result.split(',')[1];
-                let prompt = `Leia estatísticas de jogo. O meu time é "${db[currentSave].nome}". Retorne EXATAMENTE este JSON: {"possePro": numero, "posseAdv": numero, "finPro": numero, "finAdv": numero, "golsPro": numero, "golsAdv": numero, "nomeAdv": "Nome", "mando": "Casa" ou "Fora"}`;
                 try {
-                    const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }] });
-                    let rawText = data.candidates[0].content.parts[0].text;
-                    let jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) {
-                        let stats = JSON.parse(jsonMatch[0]);
-                        document.getElementById('gols-pro').value = stats.golsPro || 0; document.getElementById('gols-contra').value = stats.golsAdv || 0;
-                        document.getElementById('posse-pro').value = stats.possePro || 0; document.getElementById('posse-adv').value = stats.posseAdv || 0;
-                        document.getElementById('fin-pro').value = stats.finPro || 0; document.getElementById('fin-adv').value = stats.finAdv || 0;
-                        // O adversário já foi declarado ao iniciar a partida (aba Salvar Partida);
-                        // não há mais campo #adversario aqui pra sobrescrever.
-                        let selMandoPrint = document.getElementById('partida-mando');
-                        if(stats.mando && selMandoPrint) selMandoPrint.value = stats.mando;
-                    }
-                    
-                    // Mostra automaticamente o painel para o usuário conferir e editar a partida
-                    document.getElementById('manual-partida-form').style.display = 'block';
-                    let btnVid = document.getElementById('btn-toggle-video');
-                    if(btnVid) {
-                        btnVid.innerHTML = '👁️ Ocultar Controles';
-                        btnVid.style.background = 'transparent';
-                        btnVid.style.color = 'var(--primary)';
-                        btnVid.style.border = '1px solid var(--primary)';
-                    }
+                    await processarLeituraPlacar(base64Data, file.type);
                 } catch(e) {
-                    alert("Não consegui ler essa imagem. Tente novamente ou preencha os campos manualmente.");
+                    console.error("Erro ao ler imagem do placar", e);
+                    falhasLeituraImagem.push(criarFalhaLeituraPlacar(base64Data, file.type, tipo, file.name));
+                    renderizarFalhasLeituraImagem();
                 }
                 loader.style.display = "none";
             };
@@ -378,7 +460,7 @@
             
             let divTotal = Number(document.getElementById('din-div-total')?.value || 0); let taxaDiv = Number(document.getElementById('din-div-ganhas')?.value || 0);
             let dadosJogador = {
-                idTemp: ++idTempCounter, nome: nome, nota: Number(document.getElementById('jog-nota').value), gols: Number(document.getElementById('din-gols')?.value || 0), assist: Number(document.getElementById('din-assist')?.value || 0), fin: Number(document.getElementById('din-fin')?.value || 0), precFin: Number(document.getElementById('din-prec-fin')?.value || 0), passes: Number(document.getElementById('din-passes')?.value || 0), precPasse: Number(document.getElementById('din-prec-passe')?.value || 85), dribles: Number(document.getElementById('din-dribles')?.value || 0), taxaDribles: Number(document.getElementById('din-taxa-drible')?.value || 0), dividasTotais: divTotal, taxaDivididas: taxaDiv, dividasGanhas: Math.round(divTotal * (taxaDiv / 100)), posses: Number(document.getElementById('din-posses')?.value || 0), perdasPosse: Number(document.getElementById('din-perdas-posse')?.value || 0), faltas: Number(document.getElementById('din-faltas')?.value || 0), defesas: Number(document.getElementById('din-defesas')?.value || 0), mvp: document.getElementById('jog-mvp').checked ? 1 : 0
+                idTemp: ++idTempCounter, nome: nome, nota: Number(document.getElementById('jog-nota').value), gols: Number(document.getElementById('din-gols')?.value || 0), assist: Number(document.getElementById('din-assist')?.value || 0), fin: Number(document.getElementById('din-fin')?.value || 0), precFin: Number(document.getElementById('din-prec-fin')?.value || 0), passes: Number(document.getElementById('din-passes')?.value || 0), precPasse: Number(document.getElementById('din-prec-passe')?.value || 85), dribles: Number(document.getElementById('din-dribles')?.value || 0), taxaDribles: Number(document.getElementById('din-taxa-drible')?.value || 0), dividasTotais: divTotal, taxaDivididas: taxaDiv, dividasGanhas: Math.round(divTotal * (taxaDiv / 100)), posses: Number(document.getElementById('din-posses')?.value || 0), perdasPosse: Number(document.getElementById('din-perdas-posse')?.value || 0), faltas: Number(document.getElementById('din-faltas')?.value || 0), defesas: Number(document.getElementById('din-defesas')?.value || 0), distanciaPercorrida: Number(document.getElementById('din-dist-percorrida')?.value || 0), distanciaCorrida: Number(document.getElementById('din-dist-corrida')?.value || 0), mvp: document.getElementById('jog-mvp').checked ? 1 : 0
             };
             jogadoresPartidaTemp.push(dadosJogador);
             let o = Number(document.getElementById('jog-ovr-atual').value) || 70; let pos = document.getElementById('jog-pos').value;
@@ -437,6 +519,10 @@
                             <div class="linha-form"><label>Faltas</label><input type="number" id="inline-faltas-${j.idTemp}" value="${j.faltas}"></div>
                             <div class="linha-form"><label>Defesas (GL)</label><input type="number" id="inline-defesas-${j.idTemp}" value="${j.defesas}"></div>
                         </div>
+                        <div class="grid-2" style="margin-top: 5px;">
+                            <div class="linha-form"><label>Distância Percorrida (km)</label><input type="number" step="0.1" id="inline-dist-percorrida-${j.idTemp}" value="${j.distanciaPercorrida || 0}"></div>
+                            <div class="linha-form"><label>Distância Corrida/Sprint (km)</label><input type="number" step="0.1" id="inline-dist-corrida-${j.idTemp}" value="${j.distanciaCorrida || 0}"></div>
+                        </div>
                         <label style="display:flex; align-items:center; gap:8px; margin: 10px 0; color: var(--warning); font-size: 14px; font-weight:bold; cursor:pointer;">
                             <input type="checkbox" id="inline-mvp-${j.idTemp}" style="width:18px; height:18px;" ${j.mvp ? 'checked' : ''}> Eleito Melhor em Campo (MVP)
                         </label>
@@ -470,6 +556,8 @@
             jog.posses = Number(document.getElementById('inline-posses-'+idTemp).value);
             jog.faltas = Number(document.getElementById('inline-faltas-'+idTemp).value);
             jog.defesas = Number(document.getElementById('inline-defesas-'+idTemp).value);
+            jog.distanciaPercorrida = Number(document.getElementById('inline-dist-percorrida-'+idTemp).value);
+            jog.distanciaCorrida = Number(document.getElementById('inline-dist-corrida-'+idTemp).value);
             jog.mvp = document.getElementById('inline-mvp-'+idTemp).checked ? 1 : 0;
             renderizarListaTemp();
         }
@@ -522,7 +610,10 @@
                 }
             }
 
-            processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp.map(j => j.nome));
+            // Passa os objetos completos (não só os nomes) pro motor de fadiga poder usar as
+            // estatísticas físicas reais de cada jogador (distância percorrida/corrida, dividas,
+            // dribles) na fórmula de Fadiga Acumulada — ver calcularFadigaAtualizada.
+            processarCondicaoFisicaPosPartida(diasPassados, jogadoresPartidaTemp);
 
             // A ficha completa da partida vive no próprio registro: escalação do apito inicial,
             // substituições com minuto, tática aplicada e o banco. É o que a aba Dashboard abre

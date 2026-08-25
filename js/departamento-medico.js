@@ -1,8 +1,11 @@
 // =====================================================================================
-// DEPARTAMENTO MÉDICO — Motor de Condição Física, Fadiga e Rotação Inteligente
+// DEPARTAMENTO MÉDICO — Fadiga Acumulada, Recuperação e Rotação Inteligente
 // =====================================================================================
 // Este arquivo controla tudo que é "realismo físico" do elenco:
-// - Condição Física (stamina) de cada jogador, que gasta ao jogar e recupera com descanso
+// - Fadiga Acumulada (0% = descansado, 100%+ = risco crítico) de cada jogador, calculada a
+//   partir das estatísticas REAIS da partida (distância percorrida, distância corrida, dividas,
+//   dribles) e recuperada por uma curva de dias de descanso até o próximo jogo — ver
+//   calcularFadigaAtualizada().
 // - Contagem de jogos seguidos sem descanso (rodízio)
 // - Risco de lesão por desgaste (pode virar lesão real se ignorado)
 // - O "Boletim do Preparador Físico", usado pela aba Departamento Médico e também
@@ -10,78 +13,67 @@
 
 const CONDICAO_FISICA_CFG = {
     STAMINA_MAX: 100,
-    STAMINA_CUSTO_BASE: 16,            // desgaste padrão por partida jogada
-    STAMINA_CUSTO_POUCO_DESCANSO: 24,  // desgaste extra se jogou com 2 dias ou menos de descanso
-    STAMINA_CUSTO_DESCANSO_MEDIO: 19,  // desgaste com 3-4 dias de descanso
-    // Com 9/dia, quem joga a cada 3-4 dias (o normal em qualquer temporada com mais de uma
-    // competição) RECUPERAVA mais do que gastava partida a partida — o elenco nunca acumulava
-    // cansaço de verdade, só quem jogava a cada 2 dias sentia alguma coisa. Com 6/dia, jogar de 3
-    // em 3 dias já corrói a condição aos poucos (recupera 18, gasta 19) e só uma folga de verdade
-    // (uma semana cheia ou uma data FIFA) devolve o elenco fresco — cansaço agora se acumula ao
-    // longo da temporada com o calendário apertado, não só num sprint de 48h.
-    STAMINA_RECUPERACAO_DIA: 6,        // recuperação por dia de descanso (joga ou não)
-    STAMINA_ALERTA: 55,
-    STAMINA_RISCO: 35,
-    STAMINA_CRITICO: 18,
+    // Fadiga acumulada (0% descansado, acima de 100% = risco crítico de lesão/exaustão — ver
+    // calcularFadigaAtualizada). Os três limiares abaixo definem onde entra cada nível.
+    FADIGA_ALERTA: 60,
+    FADIGA_RISCO: 80,
+    FADIGA_CRITICO: 100,
     JOGOS_SEGUIDOS_ALERTA: 7,
     JOGOS_SEGUIDOS_RISCO: 10,          // "mais de 10 partidas seguidas" -> risco real
     JOGOS_SEGUIDOS_CRITICO: 14,
     CHANCE_LESAO_RISCO: 16,            // % de chance de lesão por partida jogada em risco
-    CHANCE_LESAO_CRITICO: 32,          // % de chance por partida jogada em risco crítico
-    // Multiplicador de desgaste por função em campo — corre mais quem cobre mais linha (lateral/ponta),
-    // goleiro praticamente não desgasta fisicamente, o resto (zaga/volante/meio/ataque) fica no padrão.
-    MULT_DESGASTE_GOLEIRO: 0.35,
-    MULT_DESGASTE_LATERAL_PONTA: 1.3,
-    // Desenvolvimento sem jogar (treino individual): quantos "dias de treino" acumulados (contando
-    // só quando o jogador NÃO joga e está saudável) até rolar a chance de evoluir, e a chance em si.
-    DIAS_TREINO_PARA_AVALIACAO: 15,
-    CHANCE_EVOLUCAO_TREINO: 25
+    CHANCE_LESAO_CRITICO: 32           // % de chance por partida jogada em risco crítico
 };
 
-// "Zagueiro" -> "Zagueiro", "Lateral/Defesa Direito" -> "Lateral" etc. (mesmo critério usado
-// pelo seletor de troca em chat-ia.js pra filtrar posições relevantes)
-function categoriaAmplaPosicao(p) {
-    if (!p || !p.posicao) return '';
-    return String(p.posicao).split('/')[0];
-}
-
-// Categoria ampla da posição do jogador -> grupo de função tática real do jogo (GRUPOS_FUNCAO_EA,
-// de funcoes-ea.js). O treino individual (Desenvolvimento Sem Jogar) usava uma lista de "focos"
-// inventada (Finalização/Passe/Físico/Tático) que não existia em nenhum outro lugar do jogo — o
-// treinador pediu pra treinar a FUNÇÃO real de campo (ex: um meio-campo treinando pra Armador
-// Recuado), a mesma nomenclatura que já aparece na escalação e no campinho tático.
-const GRUPO_FUNCAO_POR_CATEGORIA_AMPLA = {
-    Goleiro: 'goleiro', Zagueiro: 'zagueiro', Lateral: 'lateral', Volante: 'volante',
-    MeioCampo: 'meio_campo_central', Ponta: 'ponta', Atacante: 'atacante'
+// Divisor de recuperação por dias de descanso até a próxima partida — quanto mais dias, maior o
+// divisor (mais fadiga é dissolvida). 12 dias ou mais zera a fadiga por completo (pré-temporada,
+// data FIFA longa etc.). Ver calcularFadigaAtualizada.
+const DIVISOR_DESCANSO_FADIGA = {
+    1: 1.05, 2: 1.10, 3: 1.20, 4: 1.50, 5: 2.00,
+    6: 3.00, 7: 4.00, 8: 5.00, 9: 7.00, 10: 10.00, 11: 15.00
 };
 
-// Funções reais (nomes do EA FC) disponíveis pro jogador treinar, de acordo com a posição de
-// carteirinha dele. Goleiro fica de fora de propósito: as 3 funções de goleiro em
-// GRUPOS_FUNCAO_EA são estilos de jogo (decididos pela tática), não algo pra "treinar rumo a".
-function funcoesDisponiveisParaTreino(p) {
-    let grupoKey = GRUPO_FUNCAO_POR_CATEGORIA_AMPLA[categoriaAmplaPosicao(p)];
-    if (!grupoKey || grupoKey === 'goleiro' || typeof GRUPOS_FUNCAO_EA === 'undefined' || !GRUPOS_FUNCAO_EA[grupoKey]) return [];
-    return GRUPOS_FUNCAO_EA[grupoKey].funcoes.map(f => f.nome);
+// =====================================================================================
+// FÓRMULA DE FADIGA ACUMULADA
+// =====================================================================================
+// pontos_partida = distancia_percorrida + (distancia_corrida * 4) + (divididas / 3) + (dribles / 2)
+// fadiga_partida = pontos_partida * 2
+// fadiga_total_acumulada = fadiga_partida + fadiga_residual
+// fadiga_final_atualizada = floor(fadiga_total_acumulada / divisor_do_descanso)
+// (12+ dias de descanso zera a fadiga.) Roda tanto pra quem jogou (usando as estatísticas reais
+// da partida) quanto pra quem não jogou (fadiga_partida = 0, só a recuperação pelo descanso).
+function calcularFadigaAtualizada(entrada) {
+    entrada = entrada || {};
+    let distanciaPercorrida = Number(entrada.distanciaPercorrida) || 0;
+    let distanciaCorrida = Number(entrada.distanciaCorrida) || 0;
+    let divididas = Number(entrada.divididas) || 0;
+    let dribles = Number(entrada.dribles) || 0;
+    let fadigaResidual = Math.max(0, Number(entrada.fadigaResidual) || 0);
+    let diasDescanso = Math.max(0, Math.floor(Number(entrada.diasDescanso) || 0));
+
+    let pontosPartida = distanciaPercorrida + (distanciaCorrida * 4) + (divididas / 3) + (dribles / 2);
+    let fadigaPartida = pontosPartida * 2;
+    let fadigaTotalAcumulada = fadigaPartida + fadigaResidual;
+
+    if (diasDescanso >= 12) return 0;
+    // Sem nenhum dia de descanso (jogo em sequência no mesmo dia, ex: prorrogação/replay), não há
+    // recuperação nenhuma — divisor 1 (fadiga passa direto, sem dissolver nada).
+    let divisor = diasDescanso <= 0 ? 1 : (DIVISOR_DESCANSO_FADIGA[diasDescanso] || 1);
+    return Math.max(0, Math.floor(fadigaTotalAcumulada / divisor));
 }
 
-// Jogadores de linha lateral (laterais e pontas) correm muito mais que zagueiros/volantes/meias centrais
-// e o goleiro praticamente não desgasta — reflete isso no custo de condição física por partida.
-function multiplicadorDesgastePorPosicao(p) {
-    let categoria = categoriaAmplaPosicao(p);
-    if (categoria === 'Goleiro') return CONDICAO_FISICA_CFG.MULT_DESGASTE_GOLEIRO;
-    if (categoria === 'Lateral' || categoria === 'Ponta') return CONDICAO_FISICA_CFG.MULT_DESGASTE_LATERAL_PONTA;
-    return 1;
-}
-
-// Garante que jogadores antigos (criados antes desta atualização) ganhem os campos novos
+// Garante que jogadores antigos (criados antes desta atualização) ganhem os campos novos. Save
+// antigo que só tinha "stamina" (0-100, maior é melhor) ganha uma fadiga estimada a partir dela
+// (fadiga = 100 - stamina) na primeira leitura — depois disso, fadiga vira a fonte de verdade e
+// stamina passa a ser só um valor derivado dela (100 - fadiga), mantido pros outros lugares do
+// jogo que já leem p.stamina (moral, narrativas de lesão, prompt de escalação do Auxiliar etc.).
 function garantirCondicaoFisica(p) {
     if (!p) return p;
     if (typeof p.stamina !== 'number' || isNaN(p.stamina)) p.stamina = CONDICAO_FISICA_CFG.STAMINA_MAX;
+    if (typeof p.fadiga !== 'number' || isNaN(p.fadiga)) p.fadiga = Math.max(0, CONDICAO_FISICA_CFG.STAMINA_MAX - p.stamina);
     if (typeof p.jogosSeguidos !== 'number' || isNaN(p.jogosSeguidos)) p.jogosSeguidos = 0;
     if (typeof p.diasLesao !== 'number' || isNaN(p.diasLesao)) p.diasLesao = 0;
     if (typeof p.suspensoVermelho !== 'boolean') p.suspensoVermelho = false;
-    if (typeof p.planoTreino !== 'string') p.planoTreino = '';
-    if (typeof p.diasTreinoIndividual !== 'number' || isNaN(p.diasTreinoIndividual)) p.diasTreinoIndividual = 0;
     if (typeof p.ovrPendente !== 'number' || isNaN(p.ovrPendente)) p.ovrPendente = 0;
     return p;
 }
@@ -101,17 +93,21 @@ function condicaoJogador(p) {
     else if (p.suspensoVermelho) { indisponivel = true; motivoIndisponivel = "Suspenso (Cartão Vermelho)"; }
 
     let nivel = 'ok';
-    if (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_CRITICO || p.stamina <= cfg.STAMINA_CRITICO) nivel = 'critico';
-    else if (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_RISCO || p.stamina <= cfg.STAMINA_RISCO) nivel = 'risco';
-    else if (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_ALERTA || p.stamina <= cfg.STAMINA_ALERTA) nivel = 'alerta';
+    if (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_CRITICO || p.fadiga >= cfg.FADIGA_CRITICO) nivel = 'critico';
+    else if (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_RISCO || p.fadiga >= cfg.FADIGA_RISCO) nivel = 'risco';
+    else if (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_ALERTA || p.fadiga >= cfg.FADIGA_ALERTA) nivel = 'alerta';
 
-    return { stamina: p.stamina, jogosSeguidos: p.jogosSeguidos, nivel, indisponivel, motivoIndisponivel };
+    return { stamina: p.stamina, fadiga: p.fadiga, jogosSeguidos: p.jogosSeguidos, nivel, indisponivel, motivoIndisponivel };
 }
 
 // Motor principal: roda toda vez que uma partida é salva.
 // diasDescanso = dias até a próxima partida (já vem contando a partir de AGORA, não da próxima vez que algo for declarado)
-// nomesQueJogaram = nomes dos jogadores que estiveram em campo nesta partida
-function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
+// jogadoresQueJogaram = lista dos jogadores que estiveram em campo nesta partida. Aceita objetos
+// com as estatísticas reais ({nome, distanciaPercorrida, distanciaCorrida, dividasTotais,
+// dribles}) pra alimentar a fórmula de fadiga corretamente, ou (por compatibilidade) uma lista
+// simples de nomes — nesse caso a fadiga gerada pela partida entra como 0 (sem dado físico
+// registrado), só a recuperação pelos dias de descanso é aplicada.
+function processarCondicaoFisicaPosPartida(diasDescanso, jogadoresQueJogaram) {
     if (!db[currentSave] || !db[currentSave].plantel) return;
     let cfg = CONDICAO_FISICA_CFG;
     diasDescanso = Math.max(0, Number(diasDescanso) || 0);
@@ -120,7 +116,11 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
     // então a informação já "conta" no sistema assim que a partida é salva.
     db[currentSave].descansoAntesProxima = diasDescanso;
 
-    let setQueJogou = new Set(nomesQueJogaram || []);
+    let mapaQueJogou = new Map();
+    (jogadoresQueJogaram || []).forEach(item => {
+        if (typeof item === 'string') mapaQueJogou.set(item, {});
+        else if (item && item.nome) mapaQueJogou.set(item.nome, item);
+    });
 
     db[currentSave].plantel.filter(p => p.status === 'Ativo').forEach(p => {
         garantirCondicaoFisica(p);
@@ -131,7 +131,7 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
             if (p.diasLesao <= 0) {
                 p.diasLesao = 0;
                 p.jogosSeguidos = 0;
-                p.stamina = Math.max(p.stamina, 75);
+                p.fadiga = Math.min(p.fadiga, 25); // volta pelo menos com 75% de condição
                 if (typeof adicionarNoticiaAutomatica === 'function') {
                     adicionarNoticiaAutomatica(`🏥 DM VAZIO: ${p.nome} está de volta!`, `O atleta se recuperou de sua lesão e já treina normalmente com o resto do elenco principal.`);
                 }
@@ -139,20 +139,27 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
         }
 
         // 2. Suspensão só é cumprida quando o jogador realmente fica de fora de uma partida
-        if (p.suspensoVermelho && !setQueJogou.has(p.nome)) {
+        if (p.suspensoVermelho && !mapaQueJogou.has(p.nome)) {
             p.suspensoVermelho = false;
         }
 
-        // 3. Recuperação natural de condição física com o descanso (jogando ou não)
-        p.stamina = Math.min(cfg.STAMINA_MAX, p.stamina + diasDescanso * cfg.STAMINA_RECUPERACAO_DIA);
+        // 3. Fadiga acumulada: aplica a fórmula (ver calcularFadigaAtualizada) pra todo mundo —
+        // quem jogou soma a fadiga gerada pelas estatísticas reais da partida à fadiga residual;
+        // quem não jogou só recupera pelo descanso (fadiga da partida = 0). stamina continua
+        // existindo como valor derivado (100 - fadiga) pros outros sistemas que já leem p.stamina.
+        let statsPartida = mapaQueJogou.get(p.nome) || null;
+        p.fadiga = calcularFadigaAtualizada({
+            distanciaPercorrida: statsPartida ? statsPartida.distanciaPercorrida : 0,
+            distanciaCorrida: statsPartida ? statsPartida.distanciaCorrida : 0,
+            divididas: statsPartida ? statsPartida.dividasTotais : 0,
+            dribles: statsPartida ? statsPartida.dribles : 0,
+            fadigaResidual: p.fadiga,
+            diasDescanso: diasDescanso
+        });
+        p.stamina = Math.max(0, Math.min(cfg.STAMINA_MAX, cfg.STAMINA_MAX - p.fadiga));
 
-        // 4. Quem jogou desgasta e acumula jogos seguidos / quem descansou zera a sequência
-        if (setQueJogou.has(p.nome)) {
-            let custo = cfg.STAMINA_CUSTO_BASE;
-            if (diasDescanso <= 2) custo = cfg.STAMINA_CUSTO_POUCO_DESCANSO;
-            else if (diasDescanso <= 4) custo = cfg.STAMINA_CUSTO_DESCANSO_MEDIO;
-            custo *= multiplicadorDesgastePorPosicao(p);
-            p.stamina = Math.max(0, p.stamina - custo);
+        // 4. Quem jogou acumula jogos seguidos / quem descansou zera a sequência
+        if (mapaQueJogou.has(p.nome)) {
             p.jogosSeguidos = (p.jogosSeguidos || 0) + 1;
 
             // Escalar quem tinha descanso concedido pelo Departamento Médico queima o combinado:
@@ -168,33 +175,15 @@ function processarCondicaoFisicaPosPartida(diasDescanso, nomesQueJogaram) {
             // Ficou de fora: cumpre um dos jogos de descanso que o DM concedeu
             if (p.poupadoRestante > 0) p.poupadoRestante -= 1;
             if (p.diasLesao <= 0 && !p.suspensoVermelho) p.jogosSeguidos = 0;
-
-            // Desenvolvimento sem jogar: quem tem um foco de treino individual ativo (definido pelo
-            // Preparador Físico) e está saudável acumula dias de treino enquanto fica de fora, e a
-            // cada ciclo completo tem uma chance de evoluir — sem depender de minutos em campo. O
-            // ganho entra no mesmo saldo acumulado de OVR da aba Upgrades (ovrPendente).
-            if (p.planoTreino && p.diasLesao <= 0) {
-                p.diasTreinoIndividual = (p.diasTreinoIndividual || 0) + diasDescanso;
-                if (p.diasTreinoIndividual >= cfg.DIAS_TREINO_PARA_AVALIACAO) {
-                    p.diasTreinoIndividual -= cfg.DIAS_TREINO_PARA_AVALIACAO;
-                    if (gerarNumeroAleatorio(1, 100) <= cfg.CHANCE_EVOLUCAO_TREINO) {
-                        p.ovrPendente = (p.ovrPendente || 0) + 1;
-                        if (typeof adicionarNoticiaAutomatica === 'function') {
-                            adicionarNoticiaAutomatica(`📈 EVOLUÇÃO NO TREINO: ${p.nome} se destaca treinando pra função de ${p.planoTreino}.`,
-                                `Sem depender de minutos em campo, o atleta impressionou a comissão técnica nos treinos voltados pra atuar como ${p.planoTreino}. Um ponto de evolução (OVR) já está disponível pra aplicar na aba Upgrades.`, 'geral');
-                        }
-                    }
-                }
-            }
         }
     });
 
     // 5. Overuse real: ignorar o rodízio pode virar lesão de verdade
     db[currentSave].plantel.filter(p => p.status === 'Ativo').forEach(p => {
-        if (!setQueJogou.has(p.nome) || p.diasLesao > 0) return;
+        if (!mapaQueJogou.has(p.nome) || p.diasLesao > 0) return;
         let chance = 0;
-        let critico = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_CRITICO || p.stamina <= cfg.STAMINA_CRITICO);
-        let risco = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_RISCO || p.stamina <= cfg.STAMINA_RISCO);
+        let critico = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_CRITICO || p.fadiga >= cfg.FADIGA_CRITICO);
+        let risco = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_RISCO || p.fadiga >= cfg.FADIGA_RISCO);
         if (critico) chance = cfg.CHANCE_LESAO_CRITICO;
         else if (risco) chance = cfg.CHANCE_LESAO_RISCO;
 
@@ -255,8 +244,8 @@ function gerarRelatorioMedicoTexto() {
     let partes = [];
     if (r.lesionados.length) partes.push(`Lesionados: ${r.lesionados.map(p => `${p.nome} (${p.diasLesao}d)`).join(', ')}`);
     if (r.suspensos.length) partes.push(`Suspensos: ${r.suspensos.map(p => p.nome).join(', ')}`);
-    if (r.critico.length) partes.push(`RISCO CRÍTICO DE LESÃO (rotação obrigatória): ${r.critico.map(p => `${p.nome} (${p.jogosSeguidos} jogos seguidos, condição ${Math.round(p.stamina)}%)`).join(', ')}`);
-    if (r.risco.length) partes.push(`Risco de lesão (priorizar descanso): ${r.risco.map(p => `${p.nome} (${p.jogosSeguidos} jogos seguidos, condição ${Math.round(p.stamina)}%)`).join(', ')}`);
+    if (r.critico.length) partes.push(`RISCO CRÍTICO DE LESÃO (rotação obrigatória): ${r.critico.map(p => `${p.nome} (${p.jogosSeguidos} jogos seguidos, fadiga ${Math.round(p.fadiga)}%)`).join(', ')}`);
+    if (r.risco.length) partes.push(`Risco de lesão (priorizar descanso): ${r.risco.map(p => `${p.nome} (${p.jogosSeguidos} jogos seguidos, fadiga ${Math.round(p.fadiga)}%)`).join(', ')}`);
     if (r.alerta.length) partes.push(`Fadiga moderada: ${r.alerta.map(p => p.nome).join(', ')}`);
 
     // Descanso concedido pelo Departamento Médico é ordem, não sugestão: o Auxiliar Técnico
@@ -316,6 +305,7 @@ function forcarDescansoPreventivo(nome) {
     if (!p) return;
     garantirCondicaoFisica(p);
     p.jogosSeguidos = 0;
+    p.fadiga = 0;
     p.stamina = CONDICAO_FISICA_CFG.STAMINA_MAX;
     salvarDados();
     atualizarDepartamentoMedicoUI();
@@ -340,6 +330,7 @@ function pouparTodosSugeridos() {
     sugeridos.forEach(p => {
         garantirCondicaoFisica(p);
         p.jogosSeguidos = 0;
+        p.fadiga = 0;
         p.stamina = CONDICAO_FISICA_CFG.STAMINA_MAX;
     });
     salvarDados();
@@ -352,30 +343,13 @@ function pouparTodosSugeridos() {
     if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Poupou ${sugeridos.length} jogador(es) sugerido(s) pelo Preparador Físico`);
 }
 
-// Plano de carga: reaproveita o mesmo nível (ok/alerta/risco/crítico) já calculado pra condição
-// física, só que na linguagem de treino que um preparador físico de verdade usaria.
+// Plano de carga: reaproveita o mesmo nível (ok/alerta/risco/crítico) já calculado pra fadiga
+// acumulada, só que na linguagem de treino que um preparador físico de verdade usaria.
 function rotuloCargaSugerida(nivel) {
     if (nivel === 'critico') return { texto: '🔴 Recuperação Total — sem treino de alta intensidade', cor: 'var(--danger)' };
     if (nivel === 'risco') return { texto: '🟠 Recuperação Ativa — carga leve', cor: 'var(--danger)' };
     if (nivel === 'alerta') return { texto: '🟡 Carga Moderada — controlar volume', cor: 'var(--warning)' };
     return { texto: '🟢 Carga Plena — pronto pra alta intensidade', cor: 'var(--primary)' };
-}
-
-// Define (ou remove, com foco vazio) o plano de treino individual de um jogador — a base do
-// "desenvolvimento sem jogar": ver o acúmulo de dias e a chance de evolução em
-// processarCondicaoFisicaPosPartida.
-function definirPlanoTreino(nome, foco) {
-    if (!db[currentSave]) return;
-    let p = db[currentSave].plantel.find(x => x.nome === nome);
-    if (!p) return;
-    garantirCondicaoFisica(p);
-    p.planoTreino = foco || '';
-    p.diasTreinoIndividual = 0; // novo foco reinicia o ciclo de avaliação
-    salvarDados();
-    atualizarDepartamentoMedicoUI();
-    if (typeof registrarAcaoJogo === 'function') {
-        registrarAcaoJogo(foco ? `Plano de treino individual definido para ${nome}: ${foco}` : `Plano de treino individual removido de ${nome}`);
-    }
 }
 
 function corPorNivel(nivel) {
@@ -389,15 +363,6 @@ function rotuloPorNivel(nivel) {
     if (nivel === 'risco') return '⚠️ RISCO DE LESÃO';
     if (nivel === 'alerta') return '🟡 FADIGA MODERADA';
     return '🟢 CONDIÇÃO IDEAL';
-}
-
-// Rótulo curto explicando por que a posição do jogador desgasta mais/menos que a média —
-// mesma lógica de multiplicadorDesgastePorPosicao, só que em texto pra UI.
-function rotuloDesgastePosicao(p) {
-    let categoria = categoriaAmplaPosicao(p);
-    if (categoria === 'Goleiro') return '🧤 Baixo desgaste físico (goleiro)';
-    if (categoria === 'Lateral' || categoria === 'Ponta') return '⚡ Desgaste alto — cobre muita linha (lateral/ponta)';
-    return '';
 }
 
 function atualizarDepartamentoMedicoUI() {
@@ -454,7 +419,7 @@ function atualizarDepartamentoMedicoUI() {
 
         lista.innerHTML = ativos.map(p => {
             let c = condicaoJogador(p);
-            let corBarra = p.stamina <= CONDICAO_FISICA_CFG.STAMINA_RISCO ? 'var(--danger)' : (p.stamina <= CONDICAO_FISICA_CFG.STAMINA_ALERTA ? 'var(--warning)' : 'var(--primary)');
+            let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
             let status = c.indisponivel
                 ? `<span class="badge" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">${p.diasLesao > 0 ? '🏥' : '🟥'} ${c.motivoIndisponivel}</span>`
                 : `<span class="badge" style="background: transparent; color: ${corPorNivel(c.nivel)}; border: 1px solid ${corPorNivel(c.nivel)};">${rotuloPorNivel(c.nivel)}</span>`;
@@ -478,11 +443,10 @@ function atualizarDepartamentoMedicoUI() {
                 <div style="min-width: 160px;">
                     <strong>${p.nome}</strong><br>
                     <span style="font-size: 12px; color: var(--text-muted);">${p.posicao} • OVR ${p.ovr}</span>
-                    ${rotuloDesgastePosicao(p) ? `<br><span style="font-size: 11px; color: var(--text-muted);">${rotuloDesgastePosicao(p)}</span>` : ''}
                 </div>
                 <div style="flex: 1; min-width: 180px;">
                     <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom: 3px;">
-                        <span>Condição Física</span><span>${Math.round(p.stamina)}%</span>
+                        <span>Fadiga Acumulada</span><span>${Math.round(p.fadiga)}%</span>
                     </div>
                     <div class="stamina-bar"><div class="stamina-fill" style="width:${Math.max(0, Math.min(100, p.stamina))}%; background:${corBarra};"></div></div>
                     <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100 ${typeof rotuloMoral === 'function' ? rotuloMoral(p.moral) : ''}` : ''}</div>
@@ -493,31 +457,6 @@ function atualizarDepartamentoMedicoUI() {
                 </div>
             </div>`;
         }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
-    }
-
-    // Desenvolvimento sem jogar: cada atleta ativo e saudável pode treinar rumo a uma das funções
-    // reais de campo da própria posição (ex: um meio-campo treinando pra Armador Recuado) — as
-    // mesmas funções que já aparecem na escalação, não uma lista de "focos" inventada. Progresso
-    // pro próximo ciclo de avaliação (a evolução em si acontece em
-    // processarCondicaoFisicaPosPartida, aqui é só a UI pra definir a função-alvo e acompanhar).
-    let treinoContainer = document.getElementById('medico-treino-individual');
-    if (treinoContainer) {
-        let elegiveis = db[currentSave].plantel.filter(p => p.status === 'Ativo' && (p.diasLesao || 0) <= 0 && funcoesDisponiveisParaTreino(p).length > 0);
-        treinoContainer.innerHTML = elegiveis.map(p => {
-            let progresso = Math.min(100, Math.round(((p.diasTreinoIndividual || 0) / CONDICAO_FISICA_CFG.DIAS_TREINO_PARA_AVALIACAO) * 100));
-            let opcoesFoco = funcoesDisponiveisParaTreino(p).map(f => `<option value="${f}" ${f === p.planoTreino ? 'selected' : ''}>${f}</option>`).join('');
-            return `
-            <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
-                <div style="min-width: 160px;"><strong>${p.nome}</strong><br><span style="font-size: 12px; color: var(--text-muted);">${p.posicao} • OVR ${p.ovr}</span></div>
-                <div style="flex:1; min-width:200px;">
-                    <select onchange="definirPlanoTreino('${p.nome.replace(/'/g, "\\'")}', this.value)" style="width:100%; box-sizing:border-box; background:var(--bg-dark); font-size:12px;">
-                        <option value="">Sem função-alvo de treino</option>
-                        ${opcoesFoco}
-                    </select>
-                    ${p.planoTreino ? `<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Progresso do ciclo: ${progresso}% (${p.diasTreinoIndividual || 0}/${CONDICAO_FISICA_CFG.DIAS_TREINO_PARA_AVALIACAO} dias treinando sem jogar)</div>` : ''}
-                </div>
-            </div>`;
-        }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador saudável disponível pra treino individual agora.</p>`;
     }
 
     if (typeof atualizarSelectCondicaoAuxiliar === 'function') atualizarSelectCondicaoAuxiliar();
