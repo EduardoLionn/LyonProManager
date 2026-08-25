@@ -1073,6 +1073,11 @@ ${textoRegrasCompatibilidadePosicional()}
                 nome: 'Força Máxima Possível',
                 descricaoIA: 'Priorizar sempre os melhores jogadores tecnicamente do elenco (maior OVR + desempenho recente), deixando a fadiga interferir muito pouco na escalação — mesmo cálculo base, mas com uma penalidade por fadiga de 5º GRAU e teto reduzido (40 em vez de 60/70), que só pesa de verdade lá na reta final do cansaço (acima de 80%). Um titular tecnicamente superior segue titular mesmo bem cansado, a menos que já esteja em estado físico crítico. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
                 calcularPontuacaoEfetiva: calcularPontuacaoEfetivaForcaMaxima
+            },
+            'oportunidade-jovens': {
+                nome: 'Dar Oportunidade à Base/Jovens',
+                descricaoIA: 'Priorizar minutos pras joias da base: jogadores até 22 anos com pouca minutagem na temporada (jovens promessas, comparados à média de jogos de todo o elenco) recebem um bônus artificial enorme (+25) na pontuação efetiva — grande o bastante pra superarem titulares consagrados. O objetivo é que cerca de METADE dos relacionados desta partida (titulares + banco) seja formada por essas promessas, mesmo abrindo mão de força técnica pontualmente; o restante das vagas fica com quem sobrou de maior pontuação geral, jovem ou veterano. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                selecionarEscalacaoEBanco: montarRelacionadosOportunidadeJovens
             }
         };
 
@@ -1186,23 +1191,14 @@ ${textoRegrasCompatibilidadePosicional()}
         // Retorna {ROLE: "Nome do Jogador"} (pode ter menos de 11 chaves só se, mesmo remanejando,
         // não existir gente compatível suficiente no elenco pra alguma função) ou null se a
         // formação não existir/não houver save carregado.
-        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn) {
-            let coords = coordsFormacoes[esquema];
-            if (!coords || !db[currentSave]) return null;
-            let roles = coords.map(c => c.role);
-
-            let candidatos = db[currentSave].plantel.filter(p => {
-                if (p.status !== 'Ativo') return false;
-                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
-                if (currentSave === 'selecao' && p.convocado === false) return false;
-                return true;
-            }).map(p => ({
-                jogador: p,
-                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
-            })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
-
+        // Núcleo do algoritmo de Kuhn (busca de caminho aumentante), extraído pra um helper
+        // reutilizável: recebe candidatos JÁ ORDENADOS por pontuação efetiva (do maior pro menor)
+        // e as funções táticas da formação, e devolve {ROLE: "Nome"}. Usado tanto por
+        // selecionarEscalacaoPorPontuacao (candidatos = elenco inteiro disponível) quanto pela
+        // diretriz "Dar Oportunidade à Base/Jovens" (candidatos = só quem entrou na cota).
+        function alocarPorPosicaoKuhn(candidatosOrdenados, roles) {
             let posicaoPorNome = {};
-            candidatos.forEach(c => { posicaoPorNome[c.jogador.nome] = c.jogador.posicao; });
+            candidatosOrdenados.forEach(c => { posicaoPorNome[c.jogador.nome] = c.jogador.posicao; });
 
             let ocupantePorRole = {}; // role -> nome do jogador titular naquela função
 
@@ -1222,8 +1218,26 @@ ${textoRegrasCompatibilidadePosicional()}
                 return false;
             }
 
-            candidatos.forEach(c => tentarAlocar(c.jogador.nome, new Set()));
+            candidatosOrdenados.forEach(c => tentarAlocar(c.jogador.nome, new Set()));
             return ocupantePorRole;
+        }
+
+        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn) {
+            let coords = coordsFormacoes[esquema];
+            if (!coords || !db[currentSave]) return null;
+            let roles = coords.map(c => c.role);
+
+            let candidatos = db[currentSave].plantel.filter(p => {
+                if (p.status !== 'Ativo') return false;
+                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                if (currentSave === 'selecao' && p.convocado === false) return false;
+                return true;
+            }).map(p => ({
+                jogador: p,
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
+            })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+
+            return alocarPorPosicaoKuhn(candidatos, roles);
         }
 
         // Atalhos diretos pra cada diretriz — usados pelos testes e por quem quiser calcular uma
@@ -1289,6 +1303,158 @@ ${textoRegrasCompatibilidadePosicional()}
             return banco;
         }
 
+        // =====================================================================================
+        // DIRETRIZ "DAR OPORTUNIDADE À BASE/JOVENS" — foge do contrato genérico das outras quatro
+        // (calcularPontuacaoEfetiva + selecionarEscalacaoPorPontuacao + montarBancoReserva) porque
+        // precisa de uma COTA explícita (~50% dos relacionados), não só de um bônus na pontuação:
+        // um bônus sozinho não garante a proporção pedida, só empurra na direção certa. Por isso
+        // define seu próprio "selecionarEscalacaoEBanco(esquema) => {escalacao, banco}".
+        // =====================================================================================
+
+        // "vagas_totais" do pedido: a estrutura do banco (BANCO_RESERVA_ESTRUTURA) é sempre fixa
+        // em 9 vagas pra QUALQUER diretriz, então aqui vagas_totais é sempre 11 titulares + 9
+        // reservas = 20 (o "18 = 11+7" do pedido era só um exemplo ilustrativo do mecanismo).
+        const VAGAS_TOTAIS_RELACIONADOS_JOVENS = 11 + BANCO_RESERVA_ESTRUTURA.reduce((soma, g) => soma + g.vagas, 0);
+
+        // Quantas partidas da temporada atual o jogador já disputou — a "partidas_jogadas" do
+        // pedido, usada só nesta diretriz pra medir minutagem.
+        function partidasJogadasTemporada(p) {
+            return (db[currentSave].partidas || []).filter(partida => (partida.jogadores || []).some(j => j.nome === p.nome)).length;
+        }
+
+        // "jovem_promessa" do pedido: idade até 22 anos E partidas jogadas na temporada dentro
+        // (ou abaixo) da média de jogos de TODO o elenco.
+        function ehJovemPromessa(p, mediaJogosElenco) {
+            return Number(p.idade) <= 22 && partidasJogadasTemporada(p) <= mediaJogosElenco;
+        }
+
+        // Pedido do treinador pra diretriz "Dar Oportunidade à Base/Jovens": mesma nota_base e
+        // mesma penalidade de fadiga da Rotação Equilibrada (curva cúbica, teto 60), mas com um
+        // bônus de desenvolvimento GIGANTE (+25) pra quem é jovem promessa — grande o bastante
+        // pra um jovem de OVR bem mais baixo superar um titular consagrado na pontuação efetiva.
+        //
+        //   penalidade = (fadiga_atual / 100)^3 * 60      [igual à Rotação Equilibrada]
+        //   bonus = jovem_promessa ? 25 : 0
+        //   pontuacao_efetiva = nota_base - penalidade + bonus
+        //
+        // Validado com o cenário do pedido: Jogador A (titular consagrado, OVR 84, nota 76,
+        // fadiga 30%, NÃO jovem) dá nota_base 80, penalidade 1.6, pontuação efetiva 78.4.
+        // Jogador B (jovem da base, OVR 62, nota 60, fadiga 10%, jovem promessa) dá nota_base 61,
+        // penalidade 0.06, bônus +25, pontuação efetiva 85.9 — o jovem de OVR bem menor supera o
+        // craque absoluto na triagem, garantindo minutos pra base.
+        function calcularPontuacaoEfetivaOportunidadeJovens(ovr, notaMedia, fadigaAtual, jovemPromessa) {
+            let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
+            let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
+            let penalidade = Math.pow(fadiga / 100, 3) * 60;
+            let bonus = jovemPromessa ? 25 : 0;
+            return Math.round((notaBase - penalidade + bonus) * 10) / 10;
+        }
+
+        // Monta os RELACIONADOS (titulares + banco) da diretriz "Dar Oportunidade à
+        // Base/Jovens", aplicando a cota de ~50% de jovens promessas (pedido, passo 4): separa o
+        // elenco em Lista_Jovens/Lista_Veteranos por pontuação efetiva (que já embute o bônus),
+        // preenche metade das vagas totais com os jovens de maior pontuação e o resto com quem
+        // sobrou de maior pontuação geral (jovem ou veterano) — só DEPOIS disso organiza quem
+        // joga em qual função tática (Kuhn, igual às outras diretrizes), sempre só entre quem já
+        // entrou nos relacionados pela cota.
+        function montarRelacionadosOportunidadeJovens(esquema) {
+            let coords = coordsFormacoes[esquema];
+            if (!coords || !db[currentSave]) return null;
+            let roles = coords.map(c => c.role);
+            let plantel = db[currentSave].plantel;
+
+            let mediaJogosElenco = plantel.length
+                ? plantel.reduce((soma, p) => soma + partidasJogadasTemporada(p), 0) / plantel.length
+                : 0;
+
+            let candidatos = plantel.filter(p => {
+                if (p.status !== 'Ativo') return false;
+                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                if (currentSave === 'selecao' && p.convocado === false) return false;
+                return true;
+            }).map(p => {
+                let jovemPromessa = ehJovemPromessa(p, mediaJogosElenco);
+                return {
+                    jogador: p,
+                    jovemPromessa,
+                    pontuacaoEfetiva: calcularPontuacaoEfetivaOportunidadeJovens(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0, jovemPromessa)
+                };
+            });
+
+            let listaJovens = candidatos.filter(c => c.jovemPromessa).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+            let listaVeteranos = candidatos.filter(c => !c.jovemPromessa).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+            let listaGeralDesc = candidatos.slice().sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+
+            let vagasTotais = Math.min(VAGAS_TOTAIS_RELACIONADOS_JOVENS, candidatos.length);
+            let cotaJovens = Math.min(listaJovens.length, Math.round(vagasTotais / 2));
+
+            let relacionados = listaJovens.slice(0, cotaJovens);
+            let nomesRelacionados = new Set(relacionados.map(c => c.jogador.nome));
+
+            // Preenche o restante das vagas com quem sobrou de maior pontuação geral — jovem ou
+            // veterano, exatamente como o pedido: "os jogadores de maior pontuação geral que sobraram".
+            listaGeralDesc.forEach(c => {
+                if (relacionados.length >= vagasTotais || nomesRelacionados.has(c.jogador.nome)) return;
+                relacionados.push(c);
+                nomesRelacionados.add(c.jogador.nome);
+            });
+            relacionados.sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+
+            // Titulares: Kuhn só entre os relacionados já escolhidos pela cota — "os 11 com
+            // maiores notas efetivas assumem a titularidade, jovens ou não" (pedido, passo 4).
+            let escalacao = alocarPorPosicaoKuhn(relacionados, roles);
+
+            // Caso raro de inviabilidade posicional (a cota deixou de fora o único jogador
+            // compatível com alguma função): completa só o que sobrou vazio puxando o resto do
+            // elenco disponível, na ordem de pontuação efetiva — nunca deixa uma função tática
+            // sem titular só por causa da cota, se existir alguém compatível no elenco.
+            if (Object.keys(escalacao).length < roles.length) {
+                let foraDosRelacionados = listaGeralDesc.filter(c => !nomesRelacionados.has(c.jogador.nome));
+                escalacao = alocarPorPosicaoKuhn(relacionados.concat(foraDosRelacionados), roles);
+                Object.values(escalacao).forEach(nome => {
+                    if (!nomesRelacionados.has(nome)) {
+                        nomesRelacionados.add(nome);
+                        let extra = foraDosRelacionados.find(c => c.jogador.nome === nome);
+                        if (extra) relacionados.push(extra);
+                    }
+                });
+            }
+
+            // Banco: estrutura fixa de sempre (1 goleiro, 2 zagueiros, 1 lateral, 2 meio-campo/
+            // volante, 2 pontas, 1 atacante), priorizando quem já está nos relacionados (dentro
+            // da cota) e só recorrendo ao resto do elenco se alguma linha ficar sem candidato
+            // compatível na cota.
+            let nomesTitulares = new Set(Object.values(escalacao));
+            let poolRelacionados = relacionados.filter(c => !nomesTitulares.has(c.jogador.nome));
+            let poolResto = candidatos.filter(c => !nomesRelacionados.has(c.jogador.nome) && !nomesTitulares.has(c.jogador.nome));
+            let paraCategoria = (lista) => lista
+                .slice()
+                .sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva)
+                .map(c => ({ jogador: c.jogador, categoria: String(c.jogador.posicao).split('/')[0], pontuacaoEfetiva: c.pontuacaoEfetiva }));
+            let candidatosBanco = paraCategoria(poolRelacionados).concat(paraCategoria(poolResto));
+
+            let banco = [];
+            let usadosNoBanco = new Set();
+            BANCO_RESERVA_ESTRUTURA.forEach(grupo => {
+                candidatosBanco
+                    .filter(c => grupo.categorias.includes(c.categoria) && !usadosNoBanco.has(c.jogador.nome))
+                    .slice(0, grupo.vagas)
+                    .forEach(c => {
+                        usadosNoBanco.add(c.jogador.nome);
+                        banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: `Reserva de ${grupo.rotulo}` });
+                    });
+            });
+
+            return { escalacao, banco, relacionados, listaJovens, listaVeteranos };
+        }
+
+        // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
+        // escalação, sem os detalhes de banco/cota.
+        function selecionarEscalacaoOportunidadeJovens(esquema) {
+            let resultado = montarRelacionadosOportunidadeJovens(esquema);
+            return resultado ? resultado.escalacao : null;
+        }
+
         async function declararPartidaIA() {
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
             let diretrizId = document.getElementById('declarar-adv-diretriz').value;
@@ -1319,8 +1485,20 @@ ${textoRegrasCompatibilidadePosicional()}
             // essa escalação já pronta pra escrever a instrução/função de cada um; ela não escolhe
             // (e não pode trocar) nenhum jogador. Calculado uma vez pra cada formação candidata,
             // porque a formação em si ainda é escolhida pela IA de acordo com o adversário.
+            // A diretriz "Dar Oportunidade à Base/Jovens" foge desse contrato (precisa de uma cota
+            // explícita, não só de uma fórmula de pontuação) e define "selecionarEscalacaoEBanco"
+            // no lugar — o banco dela também já sai pronto aqui, junto com a escalação.
             let escalacoesFixasPorFormacao = {};
-            if (diretrizInfo.calcularPontuacaoEfetiva) {
+            let bancosFixosPorFormacao = {};
+            if (diretrizInfo.selecionarEscalacaoEBanco) {
+                formacoesPreferidasIA.forEach(esq => {
+                    let resultado = diretrizInfo.selecionarEscalacaoEBanco(esq);
+                    if (resultado && resultado.escalacao) {
+                        escalacoesFixasPorFormacao[esq] = resultado.escalacao;
+                        bancosFixosPorFormacao[esq] = resultado.banco;
+                    }
+                });
+            } else if (diretrizInfo.calcularPontuacaoEfetiva) {
                 formacoesPreferidasIA.forEach(esq => {
                     let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva);
                     if (fixa) escalacoesFixasPorFormacao[esq] = fixa;
@@ -1425,7 +1603,9 @@ ${textoRegrasCompatibilidadePosicional()}
                         Object.entries(escalacaoFixaEscolhida).forEach(([role, nomeFixo]) => {
                             res.escalacao[role] = Object.assign({}, res.escalacao[role], { nome: nomeFixo });
                         });
-                        if (diretrizInfo.calcularPontuacaoEfetiva) {
+                        if (diretrizInfo.selecionarEscalacaoEBanco) {
+                            res.reservas = bancosFixosPorFormacao[res.formacaoEscolhida] || [];
+                        } else if (diretrizInfo.calcularPontuacaoEfetiva) {
                             res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva);
                         }
                     }
