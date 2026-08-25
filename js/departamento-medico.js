@@ -346,10 +346,10 @@ function pouparTodosSugeridos() {
 // Plano de carga: reaproveita o mesmo nível (ok/alerta/risco/crítico) já calculado pra fadiga
 // acumulada, só que na linguagem de treino que um preparador físico de verdade usaria.
 function rotuloCargaSugerida(nivel) {
-    if (nivel === 'critico') return { texto: '🔴 Recuperação Total — sem treino de alta intensidade', cor: 'var(--danger)' };
-    if (nivel === 'risco') return { texto: '🟠 Recuperação Ativa — carga leve', cor: 'var(--danger)' };
-    if (nivel === 'alerta') return { texto: '🟡 Carga Moderada — controlar volume', cor: 'var(--warning)' };
-    return { texto: '🟢 Carga Plena — pronto pra alta intensidade', cor: 'var(--primary)' };
+    if (nivel === 'critico') return { texto: '🔴 Recuperação Total', cor: 'var(--danger)' };
+    if (nivel === 'risco') return { texto: '🟠 Recuperação Ativa', cor: 'var(--danger)' };
+    if (nivel === 'alerta') return { texto: '🟡 Carga Moderada', cor: 'var(--warning)' };
+    return { texto: '🟢 Carga Plena', cor: 'var(--primary)' };
 }
 
 function corPorNivel(nivel) {
@@ -419,42 +419,38 @@ function atualizarDepartamentoMedicoUI() {
 
         lista.innerHTML = ativos.map(p => {
             let c = condicaoJogador(p);
+            // A barra reflete FADIGA (cansaço), não fôlego: quanto mais cheia/vermelha, mais
+            // cansado o atleta está — por isso usa p.fadiga direto, nunca p.stamina.
+            let fadigaPct = Math.max(0, Math.min(100, Math.round(p.fadiga)));
             let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
-            let status = c.indisponivel
-                ? `<span class="badge" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">${p.diasLesao > 0 ? '🏥' : '🟥'} ${c.motivoIndisponivel}</span>`
-                : `<span class="badge" style="background: transparent; color: ${corPorNivel(c.nivel)}; border: 1px solid ${corPorNivel(c.nivel)};">${rotuloPorNivel(c.nivel)}</span>`;
 
-            // Plano de carga sugerido pelo Preparador Físico pra essa condição (não aparece se
-            // indisponível — lesionado/suspenso não tem "carga de treino" nenhuma a sugerir).
-            if (!c.indisponivel) {
-                let carga = rotuloCargaSugerida(c.nivel);
-                status += `<span class="badge" style="background: transparent; color: ${carga.cor}; border: 1px dashed ${carga.cor}; font-size:10px;">${carga.texto}</span>`;
-            }
+            // Um único selo por jogador (em vez de dois empilhados): pra quem está disponível,
+            // mostra direto o plano de carga sugerido — ele já carrega a cor/urgência do nível.
+            let badge = c.indisponivel
+                ? `<span class="badge medico-badge-sm" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">${p.diasLesao > 0 ? '🏥' : '🟥'} ${c.motivoIndisponivel}</span>`
+                : (carga => `<span class="badge medico-badge-sm" style="background: transparent; color: ${carga.cor}; border: 1px solid ${carga.cor};">${carga.texto}</span>`)(rotuloCargaSugerida(c.nivel));
 
-            if (p.poupadoRestante > 0) status += `<span class="badge" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 Poupado (${p.poupadoRestante} jogo(s))</span>`;
-            if (p.riscoExtraLesao > 0) status += `<span class="badge" style="background: rgba(226, 75, 75, 0.18); color: var(--danger);">⚠️ Risco extra (${p.riscoExtraLesao} jogo(s))</span>`;
+            if (p.poupadoRestante > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 ${p.poupadoRestante}j</span>`;
+            if (p.riscoExtraLesao > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(226, 75, 75, 0.18); color: var(--danger);">⚠️ ${p.riscoExtraLesao}j</span>`;
 
             let botaoDescanso = (!c.indisponivel && c.nivel !== 'ok')
-                ? `<button style="background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 6px 10px; font-size: 11px;" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤 Dar Descanso</button>`
+                ? `<button class="medico-btn-descanso" title="Dar descanso preventivo" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
                 : '';
 
+            let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''}`;
+
             return `
-            <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
-                <div style="min-width: 160px;">
-                    <strong>${p.nome}</strong><br>
-                    <span style="font-size: 12px; color: var(--text-muted);">${p.posicao} • OVR ${p.ovr}</span>
+            <div class="medico-linha" title="${dicaExtra.replace(/"/g, '&quot;')}">
+                <div class="medico-linha-nome">
+                    <strong>${p.nome}</strong>
+                    <span class="medico-linha-sub">${p.posicao} • OVR ${p.ovr}</span>
                 </div>
-                <div style="flex: 1; min-width: 180px;">
-                    <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom: 3px;">
-                        <span>Fadiga Acumulada</span><span>${Math.round(p.fadiga)}%</span>
-                    </div>
-                    <div class="stamina-bar"><div class="stamina-fill" style="width:${Math.max(0, Math.min(100, p.stamina))}%; background:${corBarra};"></div></div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100 ${typeof rotuloMoral === 'function' ? rotuloMoral(p.moral) : ''}` : ''}</div>
+                <div class="medico-linha-barra">
+                    <div class="medico-linha-barra-topo"><span>Fadiga Acumulada</span><span style="color:${corBarra};">${fadigaPct}%</span></div>
+                    <div class="stamina-bar"><div class="stamina-fill" style="width:${fadigaPct}%; background:${corBarra};"></div></div>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
-                    ${status}
-                    ${botaoDescanso}
-                </div>
+                <div class="medico-linha-status">${badge}</div>
+                ${botaoDescanso}
             </div>`;
         }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
     }
