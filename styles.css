@@ -452,9 +452,37 @@
 .btn-load-more { width: 100%; padding: 12px; background: transparent; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; transition: 0.2s; }
 .btn-load-more:hover { color: white; border-color: white; background: rgba(255,255,255,0.05); }
 
-/* --- DEPARTAMENTO MÉDICO: BARRA DE CONDIÇÃO FÍSICA --- */
-.stamina-bar { background: var(--bg-dark); height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+/* --- DEPARTAMENTO MÉDICO: BARRA DE FADIGA --- */
+.stamina-bar { background: var(--bg-dark); height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
 .stamina-fill { height: 100%; transition: width 0.4s, background 0.4s; }
+
+/* Lista compacta de condição física: uma linha por jogador em vez de cards grandes */
+.medico-linha {
+    display: grid;
+    grid-template-columns: minmax(120px, 180px) 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+}
+.medico-linha-nome strong { font-size: 13px; display: block; line-height: 1.3; }
+.medico-linha-sub { font-size: 10px; color: var(--text-muted); }
+.medico-linha-barra-topo { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+.medico-linha-barra-topo span:last-child { font-weight: bold; }
+.medico-linha-status { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.medico-badge-sm { padding: 3px 8px; font-size: 10px; }
+.medico-btn-descanso {
+    background: transparent; border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 6px; width: 30px; height: 30px; font-size: 14px; cursor: pointer; padding: 0;
+}
+.medico-btn-descanso:hover { background: rgba(75, 159, 226, 0.15); }
+@media (max-width: 720px) {
+    .medico-linha { grid-template-columns: 1fr; }
+    .medico-linha-status { justify-content: flex-start; }
+}
 
 /* --- MODAL MODERNO (substitui confirm()/prompt() do navegador) --- */
 .modal-moderno-box {
