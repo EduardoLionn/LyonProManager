@@ -1083,6 +1083,12 @@ ${textoRegrasCompatibilidadePosicional()}
                 nome: 'Titulares a Todo Custo (Risco de Lesão)',
                 descricaoIA: 'Escalar sempre os melhores jogadores puramente pela qualidade técnica (OVR + desempenho recente), IGNORANDO COMPLETAMENTE a fadiga acumulada — não existe penalidade nenhuma por cansaço nesta diretriz, o treinador decidiu arriscar tudo pela força máxima em campo. Qualquer titular com 80% de fadiga ou mais entra escalado do mesmo jeito, mas o clube registra um alerta de risco de lesão pra ele (vai pro boletim médico depois da partida). A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
                 calcularPontuacaoEfetiva: calcularPontuacaoEfetivaTitularesTodoCusto
+            },
+            'em-melhor-momento': {
+                nome: 'Em Melhor Momento',
+                descricaoIA: 'Meritocracia pura de curto prazo: o OVR do jogador é COMPLETAMENTE IGNORADO — a escalação se baseia exclusivamente na nota média das últimas 5 partidas de cada um (o momento atual em campo), com a mesma penalidade por fadiga EXPONENCIAL de 4º grau da Escalação Titular Padrão (branda até uns 60% de fadiga, agressiva a partir de 70%). Um jogador em ótima fase pode e deve tomar a vaga de um nome de peso que está mal fisicamente ou tecnicamente na temporada, mesmo tendo um OVR bem menor. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaEmMelhorMomento,
+                notaMediaFn: notaMediaUltimos5JogosJogador
             }
         };
 
@@ -1218,6 +1224,51 @@ ${textoRegrasCompatibilidadePosicional()}
             return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaTitularesTodoCusto);
         }
 
+        // Nota média do jogador só nas ÚLTIMAS 5 partidas que disputou, na escala 0-100 (ex: 7.5
+        // vira 75) — a "nota_media_ultimos_5_jogos" da diretriz "Em Melhor Momento". Diferente de
+        // notaMediaEscaladaJogador (todo o histórico, cai pro OVR sem partidas), esta função NUNCA
+        // usa o OVR — o pedido é explícito: o OVR é ignorado nesta diretriz. Sem nenhuma partida
+        // registrada ainda, cai pra 0 (mesma convenção já usada no Raio-X do jogador, em
+        // graficos-historico.js, pra essa métrica específica).
+        function notaMediaUltimos5JogosJogador(p) {
+            let notas = [];
+            (db[currentSave].partidas || []).forEach(partida => {
+                let at = (partida.jogadores || []).find(j => j.nome === p.nome);
+                if (at && typeof at.nota === 'number') notas.push(at.nota);
+            });
+            if (!notas.length) return 0;
+            let ultimas5 = notas.slice(-5);
+            return (ultimas5.reduce((a, b) => a + b, 0) / ultimas5.length) * 10;
+        }
+
+        // Pedido do treinador pra diretriz "Em Melhor Momento": meritocracia pura — a nota base
+        // NÃO divide nada com o OVR, é literalmente o momento do jogador (nota média só das
+        // últimas 5 partidas). A penalidade por fadiga segue a MESMA curva exponencial de 4º grau
+        // da Escalação Titular Padrão. O parâmetro "ovr" é recebido só pra manter o mesmo
+        // contrato das outras diretrizes, mas é ignorado de propósito.
+        //
+        //   nota_base = nota_media_ultimos_5_jogos
+        //   penalidade = (fadiga_atual / 100)^4 * 60      [igual à Escalação Titular Padrão]
+        //   pontuacao_efetiva = nota_base - penalidade
+        //
+        // Validado com o cenário do pedido: Jogador A (craque em má fase, nota últimos 5 = 62,
+        // fadiga 20%, OVR 85 ignorado) dá nota_base 62, penalidade 0.09, pontuação efetiva 61.9.
+        // Jogador B (reserva/jovem em boa fase, nota últimos 5 = 78, fadiga 40%, OVR 68 ignorado)
+        // dá nota_base 78, penalidade 1.53, pontuação efetiva 76.5 — o jogador em melhor fase
+        // folga na frente, mesmo com 17 pontos de OVR a menos.
+        function calcularPontuacaoEfetivaEmMelhorMomento(ovr, notaMediaUltimos5, fadigaAtual) {
+            let notaBase = Number(notaMediaUltimos5);
+            let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
+            let penalidade = Math.pow(fadiga / 100, 4) * 60;
+            return Math.round((notaBase - penalidade) * 10) / 10;
+        }
+
+        // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
+        // escalação, sem passar pelo catálogo.
+        function selecionarEscalacaoEmMelhorMomento(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaEmMelhorMomento, notaMediaUltimos5JogosJogador);
+        }
+
         // Monta os 11 titulares de uma diretriz de pontuação (Escalação Titular Padrão, Rotação
         // Equilibrada, ou qualquer outra futura que siga o mesmo contrato) pra uma formação:
         // calcula a pontuação efetiva de cada jogador disponível (ativo, sem lesão/suspensão,
@@ -1268,10 +1319,15 @@ ${textoRegrasCompatibilidadePosicional()}
             return ocupantePorRole;
         }
 
-        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn) {
+        // "notaMediaFn" é opcional — por padrão usa notaMediaEscaladaJogador (média de TODO o
+        // histórico, cai pro OVR sem partidas). A diretriz "Em Melhor Momento" passa uma função
+        // diferente (nota média só das últimas 5 partidas, sem fallback pro OVR) — o resto do
+        // motor (posição, Kuhn) não muda nada.
+        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn, notaMediaFn) {
             let coords = coordsFormacoes[esquema];
             if (!coords || !db[currentSave]) return null;
             let roles = coords.map(c => c.role);
+            let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
 
             let candidatos = db[currentSave].plantel.filter(p => {
                 if (p.status !== 'Ativo') return false;
@@ -1280,7 +1336,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 return true;
             }).map(p => ({
                 jogador: p,
-                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
             return alocarPorPosicaoKuhn(candidatos, roles);
@@ -1320,9 +1376,13 @@ ${textoRegrasCompatibilidadePosicional()}
         // pontua mais entre os que NÃO foram escalados titulares pega a(s) vaga(s) daquela linha —
         // quem sobra fica de fora do banco. "nomesJaEscalados" é a lista dos titulares (pra nunca
         // duplicar um jogador no banco).
-        function montarBancoReserva(nomesJaEscalados, calcularPontuacaoEfetivaFn) {
+        // "notaMediaFn" opcional — mesma lógica de selecionarEscalacaoPorPontuacao acima: por
+        // padrão notaMediaEscaladaJogador, mas a diretriz "Em Melhor Momento" passa a versão só
+        // dos últimos 5 jogos, sem fallback pro OVR.
+        function montarBancoReserva(nomesJaEscalados, calcularPontuacaoEfetivaFn, notaMediaFn) {
             if (!db[currentSave]) return [];
             let usados = new Set(nomesJaEscalados || []);
+            let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
             let candidatosBase = db[currentSave].plantel.filter(p => {
                 if (usados.has(p.nome)) return false;
                 if (p.status !== 'Ativo') return false;
@@ -1332,7 +1392,7 @@ ${textoRegrasCompatibilidadePosicional()}
             }).map(p => ({
                 jogador: p,
                 categoria: String(p.posicao).split('/')[0],
-                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
             let banco = [];
@@ -1546,7 +1606,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 });
             } else if (diretrizInfo.calcularPontuacaoEfetiva) {
                 formacoesPreferidasIA.forEach(esq => {
-                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva);
+                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
                     if (fixa) escalacoesFixasPorFormacao[esq] = fixa;
                 });
             }
@@ -1652,7 +1712,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         if (diretrizInfo.selecionarEscalacaoEBanco) {
                             res.reservas = bancosFixosPorFormacao[res.formacaoEscolhida] || [];
                         } else if (diretrizInfo.calcularPontuacaoEfetiva) {
-                            res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva);
+                            res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
                         }
                     }
 
