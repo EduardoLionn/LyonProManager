@@ -456,32 +456,39 @@
 .stamina-bar { background: var(--bg-dark); height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
 .stamina-fill { height: 100%; transition: width 0.4s, background 0.4s; }
 
-/* Lista compacta de condição física: uma linha por jogador em vez de cards grandes */
-.medico-linha {
+/* Grade de condição física: "quadrados" lado a lado (no máximo 3 por linha) em vez de
+   cards/linhas gigantes — nome, posição/OVR e a barrinha de fadiga embaixo, bem compacto. */
+.medico-grid {
     display: grid;
-    grid-template-columns: minmax(120px, 180px) 1fr auto auto;
-    align-items: center;
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.medico-card {
+    position: relative;
     background: var(--input-bg);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin-bottom: 6px;
+    border-left: 3px solid var(--primary);
+    border-radius: 8px;
+    padding: 10px 12px;
 }
-.medico-linha-nome strong { font-size: 13px; display: block; line-height: 1.3; }
-.medico-linha-sub { font-size: 10px; color: var(--text-muted); }
-.medico-linha-barra-topo { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
-.medico-linha-barra-topo span:last-child { font-weight: bold; }
-.medico-linha-status { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.medico-card-nome { font-size: 13px; display: block; line-height: 1.3; padding-right: 24px; }
+.medico-card-sub { font-size: 10px; color: var(--text-muted); margin-bottom: 6px; }
+.medico-card-barra-linha { display: flex; align-items: center; gap: 6px; }
+.medico-card-barra-linha .stamina-bar { flex: 1; }
+.medico-card-pct { font-size: 10px; font-weight: bold; min-width: 26px; text-align: right; }
+.medico-card-rodape { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .medico-badge-sm { padding: 3px 8px; font-size: 10px; }
-.medico-btn-descanso {
+.medico-card-btn {
+    position: absolute; top: 8px; right: 8px;
     background: transparent; border: 1px solid var(--accent); color: var(--accent);
-    border-radius: 6px; width: 30px; height: 30px; font-size: 14px; cursor: pointer; padding: 0;
+    border-radius: 6px; width: 22px; height: 22px; font-size: 11px; line-height: 1; cursor: pointer; padding: 0;
 }
-.medico-btn-descanso:hover { background: rgba(75, 159, 226, 0.15); }
-@media (max-width: 720px) {
-    .medico-linha { grid-template-columns: 1fr; }
-    .medico-linha-status { justify-content: flex-start; }
+.medico-card-btn:hover { background: rgba(75, 159, 226, 0.15); }
+@media (max-width: 900px) {
+    .medico-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+    .medico-grid { grid-template-columns: 1fr; }
 }
 
 /* --- MODAL MODERNO (substitui confirm()/prompt() do navegador) --- */

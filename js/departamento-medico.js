@@ -417,12 +417,16 @@ function atualizarDepartamentoMedicoUI() {
             return na - nb;
         });
 
-        lista.innerHTML = ativos.map(p => {
+        // Grade de "quadrados" (no máximo 3 por linha) em vez de uma linha inteira por jogador —
+        // cada card traz só nome, posição/OVR e a barrinha de fadiga fina embaixo, reduzindo bem
+        // a rolagem da tela com o elenco inteiro.
+        let cardsHtml = ativos.map(p => {
             let c = condicaoJogador(p);
             // A barra reflete FADIGA (cansaço), não fôlego: quanto mais cheia/vermelha, mais
             // cansado o atleta está — por isso usa p.fadiga direto, nunca p.stamina.
             let fadigaPct = Math.max(0, Math.min(100, Math.round(p.fadiga)));
             let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
+            let corBorda = c.indisponivel ? 'var(--danger)' : corBarra;
 
             // Um único selo por jogador (em vez de dois empilhados): pra quem está disponível,
             // mostra direto o plano de carga sugerido — ele já carrega a cor/urgência do nível.
@@ -434,25 +438,26 @@ function atualizarDepartamentoMedicoUI() {
             if (p.riscoExtraLesao > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(226, 75, 75, 0.18); color: var(--danger);">⚠️ ${p.riscoExtraLesao}j</span>`;
 
             let botaoDescanso = (!c.indisponivel && c.nivel !== 'ok')
-                ? `<button class="medico-btn-descanso" title="Dar descanso preventivo" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
+                ? `<button class="medico-card-btn" title="Dar descanso preventivo" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
                 : '';
 
             let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''}`;
 
             return `
-            <div class="medico-linha" title="${dicaExtra.replace(/"/g, '&quot;')}">
-                <div class="medico-linha-nome">
-                    <strong>${p.nome}</strong>
-                    <span class="medico-linha-sub">${p.posicao} • OVR ${p.ovr}</span>
-                </div>
-                <div class="medico-linha-barra">
-                    <div class="medico-linha-barra-topo"><span>Fadiga Acumulada</span><span style="color:${corBarra};">${fadigaPct}%</span></div>
-                    <div class="stamina-bar"><div class="stamina-fill" style="width:${fadigaPct}%; background:${corBarra};"></div></div>
-                </div>
-                <div class="medico-linha-status">${badge}</div>
+            <div class="medico-card" style="border-left-color:${corBorda};" title="${dicaExtra.replace(/"/g, '&quot;')}">
                 ${botaoDescanso}
+                <strong class="medico-card-nome">${p.nome}</strong>
+                <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
+                <div class="medico-card-barra-linha">
+                    <div class="stamina-bar"><div class="stamina-fill" style="width:${fadigaPct}%; background:${corBarra};"></div></div>
+                    <span class="medico-card-pct" style="color:${corBarra};">${fadigaPct}%</span>
+                </div>
+                <div class="medico-card-rodape">${badge}</div>
             </div>`;
-        }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
+        }).join('');
+        lista.innerHTML = cardsHtml
+            ? `<div class="medico-grid">${cardsHtml}</div>`
+            : `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
     }
 
     if (typeof atualizarSelectCondicaoAuxiliar === 'function') atualizarSelectCondicaoAuxiliar();
