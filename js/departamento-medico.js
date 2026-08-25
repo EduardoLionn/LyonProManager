@@ -282,23 +282,6 @@ function verificarRotacaoEscalacao(escalacao) {
 
 // ---------------------- INTERFACE (ABA DEPARTAMENTO MÉDICO) ----------------------
 
-function atualizarDescansoAtualUI() {
-    let el = document.getElementById('input-descanso-atual');
-    if (!el || !db[currentSave]) return;
-    el.value = (typeof db[currentSave].descansoAntesProxima === 'number') ? db[currentSave].descansoAntesProxima : 3;
-}
-
-function salvarDescansoManual() {
-    let el = document.getElementById('input-descanso-atual');
-    if (!el || !db[currentSave]) return;
-    let dias = Math.max(0, parseInt(el.value) || 0);
-    db[currentSave].descansoAntesProxima = dias;
-    salvarDados();
-    atualizarDepartamentoMedicoUI();
-    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Descanso ajustado para ${dias} dia(s)`);
-    alert(`✅ Descanso atualizado: ${dias} dia(s) até a próxima partida. O Auxiliar Técnico já está usando essa informação.`);
-}
-
 function forcarDescansoPreventivo(nome) {
     if (!db[currentSave]) return;
     let p = db[currentSave].plantel.find(x => x.nome === nome);
@@ -316,31 +299,29 @@ function forcarDescansoPreventivo(nome) {
     if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Descanso preventivo para ${nome}`);
 }
 
-// Pedido do treinador: "quero plano de carga, sugestão de descanso... quero me sentir em um
-// clube profissional de futebol". Em vez de precisar entrar jogador por jogador, o Preparador
-// Físico já lista quem está em risco/crítico e deixa poupar todo mundo de uma vez.
-function pouparTodosSugeridos() {
-    if (!db[currentSave]) return;
-    let sugeridos = db[currentSave].plantel.filter(p => {
-        if (p.status !== 'Ativo') return false;
-        let c = condicaoJogador(p);
-        return !c.indisponivel && (c.nivel === 'risco' || c.nivel === 'critico');
-    });
-    if (sugeridos.length === 0) return;
-    sugeridos.forEach(p => {
-        garantirCondicaoFisica(p);
-        p.jogosSeguidos = 0;
-        p.fadiga = 0;
-        p.stamina = CONDICAO_FISICA_CFG.STAMINA_MAX;
-    });
-    salvarDados();
-    atualizarDepartamentoMedicoUI();
-    if (currentSave === 'clube' && typeof atualizarPlantelUI === 'function') atualizarPlantelUI();
-    if (typeof adicionarNoticiaAutomatica === 'function') {
-        adicionarNoticiaAutomatica(`💤 RODÍZIO PREVENTIVO: comissão técnica poupa ${sugeridos.length} atleta(s) em risco.`,
-            `Seguindo a recomendação do Preparador Físico, ${sugeridos.map(p => p.nome).join(', ')} folgaram dos treinos de alta intensidade para preservar a condição física.`);
-    }
-    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Poupou ${sugeridos.length} jogador(es) sugerido(s) pelo Preparador Físico`);
+// Categoria ampla cadastrada no jogador (o texto antes da "/" em p.posicao, ex: "Volante" em
+// "Volante/Armação") -> grupo de função real do EA FC (js/funcoes-ea.js), pra saber em qual
+// catálogo de funções procurar a sugestão de desenvolvimento individual dele.
+const GRUPO_POR_CATEGORIA_JOGADOR = {
+    'Goleiro': 'goleiro', 'Zagueiro': 'zagueiro', 'Lateral': 'lateral', 'Volante': 'volante',
+    'MeioCampo': 'meio_campo_central', 'Ponta': 'ponta', 'Atacante': 'atacante'
+};
+
+// Pedido do treinador: "sugestões de desenvolvimento individual" com os planos de desenvolvimento
+// reais do EA FC (ex: Volante -> Armador Recuado), ignorando o "foco" (Defesa/Armação/etc.) —
+// só a função em si. Não é escolhida pelo usuário: é sempre derivada da posição cadastrada do
+// jogador (p.posicao), reaproveitando o mesmo motor determinístico que já existe pra escalação
+// (_escolherFuncaoBase, em js/funcoes-ea.js) — sem role/tática de partida, só a especialidade.
+// Como nunca é armazenada, muda sozinha assim que a posição do jogador muda.
+function funcaoDesenvolvimentoSugerida(p) {
+    if (!p || !p.posicao) return null;
+    if (typeof GRUPOS_FUNCAO_EA === 'undefined' || typeof _escolherFuncaoBase !== 'function') return null;
+    let grupoKey = GRUPO_POR_CATEGORIA_JOGADOR[String(p.posicao).split('/')[0]];
+    if (!grupoKey) return null;
+    let grupo = GRUPOS_FUNCAO_EA[grupoKey];
+    let funcao = _escolherFuncaoBase(grupoKey, null, p.posicao, null);
+    if (!grupo || !funcao) return null;
+    return { grupoNome: grupo.nome, funcao: funcao };
 }
 
 // Plano de carga: reaproveita o mesmo nível (ok/alerta/risco/crítico) já calculado pra fadiga
@@ -365,11 +346,23 @@ function rotuloPorNivel(nivel) {
     return '🟢 CONDIÇÃO IDEAL';
 }
 
+function toggleDesenvolvimentoIndividualPanel() {
+    let panel = document.getElementById('medico-desenvolvimento');
+    let btn = document.getElementById('btn-toggle-medico-dev');
+    if (!panel || !btn) return;
+    if (panel.style.display === 'none' || !panel.style.display) {
+        panel.style.display = 'block';
+        btn.innerText = '🎯 Ocultar Sugestões de Desenvolvimento Individual';
+    } else {
+        panel.style.display = 'none';
+        btn.innerText = '🎯 Ver Sugestões de Desenvolvimento Individual';
+    }
+}
+
 function atualizarDepartamentoMedicoUI() {
     if (!db[currentSave] || !db[currentSave].nome) return;
     garantirCondicaoFisicaTodos();
     if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
-    atualizarDescansoAtualUI();
 
     let r = gerarRelatorioMedico();
     let totalAtivos = db[currentSave].plantel.filter(p => p.status === 'Ativo').length;
@@ -388,22 +381,24 @@ function atualizarDepartamentoMedicoUI() {
     let relatorioTexto = document.getElementById('medico-relatorio-texto');
     if (relatorioTexto) relatorioTexto.innerText = gerarRelatorioMedicoTexto();
 
-    // Sugestões do Preparador Físico: quem está em risco/crítico agora, pronto pra poupar tudo de
-    // uma vez em vez de entrar jogador por jogador — "quero sugestão de descanso" de verdade.
-    let sugestoes = document.getElementById('medico-sugestoes');
-    if (sugestoes) {
-        let sugeridos = db[currentSave].plantel.filter(p => {
-            if (p.status !== 'Ativo') return false;
-            let c = condicaoJogador(p);
-            return !c.indisponivel && (c.nivel === 'risco' || c.nivel === 'critico');
-        });
-        if (sugeridos.length === 0) {
-            sugestoes.innerHTML = `<p style="margin:0; color:var(--primary);">🟢 Nenhum atleta precisa de descanso agora — pode manter a carga normal de treino.</p>`;
-        } else {
-            sugestoes.innerHTML = `
-                <p style="margin:0 0 10px 0;">⚠️ Recomendo poupar <strong>${sugeridos.length}</strong> atleta(s) no próximo jogo: ${sugeridos.map(p => p.nome).join(', ')}.</p>
-                <button style="background:var(--danger); color:white; font-weight:bold;" onclick="pouparTodosSugeridos()">💤 Poupar Todos os Sugeridos</button>`;
-        }
+    // Sugestões de Desenvolvimento Individual: função real do EA FC (catálogo de js/funcoes-ea.js)
+    // que o Preparador Físico recomenda treinar pra cada atleta, derivada direto da posição
+    // cadastrada — nunca escolhida pelo usuário, e atualiza sozinha se a posição do jogador mudar.
+    let dev = document.getElementById('medico-desenvolvimento');
+    if (dev) {
+        let ativosDev = db[currentSave].plantel.filter(p => p.status === 'Ativo');
+        dev.innerHTML = ativosDev.map(p => {
+            let sugestao = funcaoDesenvolvimentoSugerida(p);
+            if (!sugestao) return '';
+            return `
+            <div class="medico-dev-linha">
+                <div>
+                    <strong>${p.nome}</strong>
+                    <span class="medico-card-sub">${p.posicao}</span>
+                </div>
+                <div class="medico-dev-funcao" title="${sugestao.funcao.descricao.replace(/"/g, '&quot;')}">🎯 ${sugestao.grupoNome}: ${sugestao.funcao.nome}</div>
+            </div>`;
+        }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
     }
 
     let lista = document.getElementById('medico-lista');
