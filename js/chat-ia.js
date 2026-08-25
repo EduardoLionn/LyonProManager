@@ -1050,10 +1050,19 @@ ${textoRegrasCompatibilidadePosicional()}
         // determinístico de verdade, adicionado uma de cada vez — a IA deixa de decidir QUEM joga
         // e passa a só escrever a instrução tática/função de cada titular JÁ definido pelo código.
         // =====================================================================================
+        // As funções de pontuação (calcularPontuacaoEfetivaEscalacaoPadrao / ...RotacaoEquilibrada)
+        // são "function" tradicionais, içadas pro topo do escopo — podem ser referenciadas aqui
+        // mesmo estando declaradas mais abaixo no arquivo.
         const DIRETRIZES_ESTRATEGICAS = {
             'titular-padrao': {
                 nome: 'Escalação Titular Padrão (Recomendada)',
-                descricaoIA: 'Escalar sempre os titulares com a maior pontuação efetiva no momento — calculada por um algoritmo do clube a partir do OVR, do desempenho recente em campo e de uma penalidade que cresce de forma exponencial com a fadiga acumulada. Não há rodízio artificial nem preservação além do que a própria fadiga já penaliza — a escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).'
+                descricaoIA: 'Escalar sempre os titulares com a maior pontuação efetiva no momento — calculada por um algoritmo do clube a partir do OVR, do desempenho recente em campo e de uma penalidade que cresce de forma EXPONENCIAL com a fadiga acumulada (branda até uns 60% de fadiga, agressiva a partir de 70%). Não há rodízio artificial nem preservação além do que a própria fadiga já penaliza — a escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaEscalacaoPadrao
+            },
+            'rotacao-equilibrada': {
+                nome: 'Rotação Equilibrada',
+                descricaoIA: 'Escalar sempre os titulares com a maior pontuação efetiva no momento — mesmo cálculo da Escalação Titular Padrão (OVR + desempenho recente, descontada a fadiga acumulada), mas com uma penalidade por fadiga mais sensível (curva CÚBICA em vez de exponencial), que já começa a pesar por volta dos 50% de fadiga. Isso força uma rotação natural do elenco na faixa de 50%-70% de cansaço, sem descaracterizar a força do time — um titular levemente cansado pode legitimamente perder a vaga pra um reserva descansado. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRotacaoEquilibrada
             }
         };
 
@@ -1089,11 +1098,32 @@ ${textoRegrasCompatibilidadePosicional()}
             return Math.round((notaBase - penalidade) * 10) / 10;
         }
 
-        // Monta os 11 titulares da diretriz "Escalação Titular Padrão" pra uma formação: calcula a
-        // pontuação efetiva de cada jogador disponível (ativo, sem lesão/suspensão, convocado) e
-        // encontra a escalação de MAIOR pontuação total entre TODAS as combinações que respeitam a
-        // tabela de compatibilidade posicional já usada em todo o resto do jogo
-        // (POSICOES_COMPATIVEIS_POR_ROLE) — nunca escala ninguém fora de posição.
+        // Pedido do treinador pra diretriz "Rotação Equilibrada": a MESMA nota_base da Escalação
+        // Titular Padrão, mas com uma curva de penalidade CÚBICA (em vez de à 4ª potência) — mais
+        // sensível ao cansaço médio, começando a pesar de verdade já por volta dos 50% de fadiga,
+        // pra forçar uma rotação natural do elenco na faixa de 50%-70% (um titular só levemente
+        // cansado já pode perder a vaga pra um reserva descansado), sem descaracterizar o time.
+        //
+        //   penalidade = (fadiga_atual / 100)^3 * 60      [pow^3 => sobe antes e mais rápido que a padrão]
+        //
+        // Validado com o cenário do pedido: Jogador A (OVR 78, nota 74, fadiga 60%) dá nota_base
+        // 76, penalidade 12.96, pontuação efetiva 63.0. Jogador B (OVR 66, nota 66, fadiga 20%) dá
+        // nota_base 66, penalidade 0.48, pontuação efetiva 65.5 — o reserva descansado (65.5) bate
+        // o titular cansado (63.0) e leva a vaga.
+        function calcularPontuacaoEfetivaRotacaoEquilibrada(ovr, notaMedia, fadigaAtual) {
+            let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
+            let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
+            let penalidade = Math.pow(fadiga / 100, 3) * 60;
+            return Math.round((notaBase - penalidade) * 10) / 10;
+        }
+
+        // Monta os 11 titulares de uma diretriz de pontuação (Escalação Titular Padrão, Rotação
+        // Equilibrada, ou qualquer outra futura que siga o mesmo contrato) pra uma formação:
+        // calcula a pontuação efetiva de cada jogador disponível (ativo, sem lesão/suspensão,
+        // convocado) usando a função de pontuação recebida, e encontra a escalação de MAIOR
+        // pontuação total entre TODAS as combinações que respeitam a tabela de compatibilidade
+        // posicional já usada em todo o resto do jogo (POSICOES_COMPATIVEIS_POR_ROLE) — nunca
+        // escala ninguém fora de posição.
         //
         // Isso é um problema clássico de emparelhamento bipartido com peso só do lado dos
         // jogadores (cada função aceita 1 jogador, cada jogador ocupa 1 função). Resolvido com o
@@ -1106,7 +1136,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // Retorna {ROLE: "Nome do Jogador"} (pode ter menos de 11 chaves só se, mesmo remanejando,
         // não existir gente compatível suficiente no elenco pra alguma função) ou null se a
         // formação não existir/não houver save carregado.
-        function selecionarEscalacaoTitularPadrao(esquema) {
+        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn) {
             let coords = coordsFormacoes[esquema];
             if (!coords || !db[currentSave]) return null;
             let roles = coords.map(c => c.role);
@@ -1118,7 +1148,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 return true;
             }).map(p => ({
                 jogador: p,
-                pontuacaoEfetiva: calcularPontuacaoEfetivaEscalacaoPadrao(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
             let posicaoPorNome = {};
@@ -1146,6 +1176,63 @@ ${textoRegrasCompatibilidadePosicional()}
             return ocupantePorRole;
         }
 
+        // Atalhos diretos pra cada diretriz — usados pelos testes e por quem quiser calcular uma
+        // escalação específica sem passar pelo catálogo DIRETRIZES_ESTRATEGICAS.
+        function selecionarEscalacaoTitularPadrao(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaEscalacaoPadrao);
+        }
+        function selecionarEscalacaoRotacaoEquilibrada(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRotacaoEquilibrada);
+        }
+
+        // Estrutura FIXA do banco de reservas — vale pra QUALQUER diretriz (pedido do treinador:
+        // "isso serve pra todas as diretrizes"): 1 goleiro, 2 de defesa (zagueiro), 1 lateral, 2 de
+        // meio-campo/volante, 2 pontas e 1 atacante — 9 reservas no total. O que muda de diretriz
+        // pra diretriz é só QUEM preenche cada vaga (calculado com a mesma pontuação efetiva da
+        // diretriz ativa) — a composição do banco em si nunca muda.
+        const BANCO_RESERVA_ESTRUTURA = [
+            { rotulo: 'Goleiro', categorias: ['Goleiro'], vagas: 1 },
+            { rotulo: 'Defesa', categorias: ['Zagueiro'], vagas: 2 },
+            { rotulo: 'Lateral', categorias: ['Lateral'], vagas: 1 },
+            { rotulo: 'Meio-Campo/Volante', categorias: ['Volante', 'MeioCampo'], vagas: 2 },
+            { rotulo: 'Ponta', categorias: ['Ponta'], vagas: 2 },
+            { rotulo: 'Ataque', categorias: ['Atacante'], vagas: 1 }
+        ];
+
+        // Monta o banco de reservas (9 jogadores, na estrutura fixa acima) usando a pontuação
+        // efetiva da diretriz ativa: dentro de cada linha (defesa/lateral/meio/ponta/ataque), quem
+        // pontua mais entre os que NÃO foram escalados titulares pega a(s) vaga(s) daquela linha —
+        // quem sobra fica de fora do banco. "nomesJaEscalados" é a lista dos titulares (pra nunca
+        // duplicar um jogador no banco).
+        function montarBancoReserva(nomesJaEscalados, calcularPontuacaoEfetivaFn) {
+            if (!db[currentSave]) return [];
+            let usados = new Set(nomesJaEscalados || []);
+            let candidatosBase = db[currentSave].plantel.filter(p => {
+                if (usados.has(p.nome)) return false;
+                if (p.status !== 'Ativo') return false;
+                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                if (currentSave === 'selecao' && p.convocado === false) return false;
+                return true;
+            }).map(p => ({
+                jogador: p,
+                categoria: String(p.posicao).split('/')[0],
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
+            })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+
+            let banco = [];
+            let usadosNoBanco = new Set();
+            BANCO_RESERVA_ESTRUTURA.forEach(grupo => {
+                candidatosBase
+                    .filter(c => grupo.categorias.includes(c.categoria) && !usadosNoBanco.has(c.jogador.nome))
+                    .slice(0, grupo.vagas)
+                    .forEach(c => {
+                        usadosNoBanco.add(c.jogador.nome);
+                        banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: `Reserva de ${grupo.rotulo}` });
+                    });
+            });
+            return banco;
+        }
+
         async function declararPartidaIA() {
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
             let diretrizId = document.getElementById('declarar-adv-diretriz').value;
@@ -1170,21 +1257,22 @@ ${textoRegrasCompatibilidadePosicional()}
                 ? Object.entries(taticaBase.funcoesPorRoleSugeridas).map(([role, f]) => `${role}: ${f.funcao}/${f.foco}`).join(', ')
                 : 'nenhuma definida ainda — decida pela sua própria leitura do adversário';
 
-            // Diretriz "Escalação Titular Padrão": os titulares NÃO ficam mais a cargo da IA — o
+            // Toda diretriz do catálogo (Escalação Titular Padrão, Rotação Equilibrada, ...) tem sua
+            // própria calcularPontuacaoEfetiva — os titulares NÃO ficam mais a cargo da IA, o
             // algoritmo já decide, pra cada formação preferida, quem entra em campo. A IA só recebe
             // essa escalação já pronta pra escrever a instrução/função de cada um; ela não escolhe
             // (e não pode trocar) nenhum jogador. Calculado uma vez pra cada formação candidata,
             // porque a formação em si ainda é escolhida pela IA de acordo com o adversário.
             let escalacoesFixasPorFormacao = {};
-            if (diretrizId === 'titular-padrao') {
+            if (diretrizInfo.calcularPontuacaoEfetiva) {
                 formacoesPreferidasIA.forEach(esq => {
-                    let fixa = selecionarEscalacaoTitularPadrao(esq);
+                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva);
                     if (fixa) escalacoesFixasPorFormacao[esq] = fixa;
                 });
             }
             let blocoTitularesFixos = Object.keys(escalacoesFixasPorFormacao).length ? `
             🔒 TITULARES JÁ DEFINIDOS PELA DIRETRIZ "${diretrizInfo.nome}" (NÃO É MAIS DECISÃO SUA):
-            A escalação titular não é mais escolhida por você — foi calculada por um algoritmo estatístico oficial do clube (pontuação efetiva = média entre OVR e desempenho recente, descontada uma penalidade que cresce de forma exponencial com a fadiga acumulada). Para CADA formação abaixo, os titulares já estão fixados. Sua única tarefa em relação a eles é, pra CADA jogador, escrever a instrução tática específica pra ESTE adversário e escolher função/foco coerente (a regra de compatibilidade posicional abaixo continua valendo só pra função/foco, nunca pra trocar quem joga). NUNCA troque nenhum desses jogadores por outro do elenco, mesmo que pareça uma escolha melhor — a substituição, se necessário, é feita depois, manualmente.
+            A escalação titular não é mais escolhida por você — foi calculada por um algoritmo estatístico oficial do clube (${diretrizInfo.descricaoIA}). Para CADA formação abaixo, os titulares já estão fixados. Sua única tarefa em relação a eles é, pra CADA jogador, escrever a instrução tática específica pra ESTE adversário e escolher função/foco coerente (a regra de compatibilidade posicional abaixo continua valendo só pra função/foco, nunca pra trocar quem joga). NUNCA troque nenhum desses jogadores por outro do elenco, mesmo que pareça uma escolha melhor — a substituição, se necessário, é feita depois, manualmente. O BANCO DE RESERVAS também já vem pronto (9 jogadores: 1 goleiro, 2 zagueiros, 1 lateral, 2 meio-campo/volante, 2 pontas, 1 atacante) — não invente reservas diferentes.
             ${Object.entries(escalacoesFixasPorFormacao).map(([esq, mapa]) => `- ${esq}: ${Object.entries(mapa).map(([role, nome]) => `${role}=${nome}`).join(', ')}`).join('\n            ')}
             ` : '';
 
@@ -1269,15 +1357,21 @@ ${textoRegrasCompatibilidadePosicional()}
                     // A formação tem que ser uma das preferidas do treinador — nunca uma de fora da lista.
                     if (!formacoesPreferidasIA.includes(res.formacaoEscolhida)) res.formacaoEscolhida = formacoesPreferidasIA[0];
 
-                    // A diretriz "Escalação Titular Padrão" NÃO é uma sugestão pra IA seguir — o nome
-                    // de cada titular é sempre o que o algoritmo calculou, nunca o que a IA escreveu
-                    // (mesmo que ela tenha ignorado o bloco "TITULARES JÁ DEFINIDOS" do prompt).
+                    // A diretriz ativa NÃO é uma sugestão pra IA seguir — o nome de cada titular é
+                    // sempre o que o algoritmo calculou, nunca o que a IA escreveu (mesmo que ela
+                    // tenha ignorado o bloco "TITULARES JÁ DEFINIDOS" do prompt). O banco de
+                    // reservas segue a mesma regra: estrutura fixa (1 goleiro, 2 zagueiros, 1
+                    // lateral, 2 meio-campo/volante, 2 pontas, 1 atacante), preenchida por quem
+                    // pontua mais em cada linha usando a fórmula DESTA diretriz.
                     let escalacaoFixaEscolhida = escalacoesFixasPorFormacao[res.formacaoEscolhida];
                     if (escalacaoFixaEscolhida) {
                         res.escalacao = res.escalacao || {};
                         Object.entries(escalacaoFixaEscolhida).forEach(([role, nomeFixo]) => {
                             res.escalacao[role] = Object.assign({}, res.escalacao[role], { nome: nomeFixo });
                         });
+                        if (diretrizInfo.calcularPontuacaoEfetiva) {
+                            res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva);
+                        }
                     }
 
                     let rotacoesAutomaticas = aplicarRotacaoObrigatoriaEscalacao(res);
