@@ -1068,6 +1068,11 @@ ${textoRegrasCompatibilidadePosicional()}
                 nome: 'Rodízio Extremo (Poupar Titulares)',
                 descricaoIA: 'Poupar os titulares de verdade: mesmo cálculo base (OVR + desempenho recente), mas com uma penalidade por fadiga QUADRÁTICA e muito agressiva — já com uns 40% de fadiga o titular perde a vaga pra um reserva/jovem totalmente descansado, mesmo que o reserva tenha um OVR bem menor. É pra ser um rodízio de verdade, não uma escalação otimizada — a força do time cede espaço pro descanso do elenco. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
                 calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRodizioExtremo
+            },
+            'forca-maxima': {
+                nome: 'Força Máxima Possível',
+                descricaoIA: 'Priorizar sempre os melhores jogadores tecnicamente do elenco (maior OVR + desempenho recente), deixando a fadiga interferir muito pouco na escalação — mesmo cálculo base, mas com uma penalidade por fadiga de 5º GRAU e teto reduzido (40 em vez de 60/70), que só pesa de verdade lá na reta final do cansaço (acima de 80%). Um titular tecnicamente superior segue titular mesmo bem cansado, a menos que já esteja em estado físico crítico. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaForcaMaxima
             }
         };
 
@@ -1142,6 +1147,26 @@ ${textoRegrasCompatibilidadePosicional()}
             return Math.round((notaBase - penalidade) * 10) / 10;
         }
 
+        // Pedido do treinador pra diretriz "Força Máxima Possível": a MESMA nota_base, mas com uma
+        // curva de penalidade de 5º GRAU e um multiplicador máximo bem menor (40 em vez de 60/70) —
+        // a mais tolerante ao cansaço das quatro diretrizes. A fadiga quase não pesa até uns 60%-70%
+        // e só dispara de verdade na reta final (acima de 80%), simulando um "jogo decisivo": o
+        // craque titular segue em campo mesmo cansado, porque a superioridade técnica dele justifica
+        // o risco — a menos que já esteja em estado físico crítico.
+        //
+        //   penalidade = (fadiga_atual / 100)^5 * 40      [pow^5, teto 40 => a mais branda das quatro]
+        //
+        // Validado com o cenário do pedido: Jogador A (craque titular muito cansado, OVR 82, nota
+        // 78, fadiga 75%) dá nota_base 80, penalidade 9.49, pontuação efetiva 70.5. Jogador B
+        // (reserva 100% descansado, OVR 68, nota 68, fadiga 10%) dá pontuação efetiva 68.0 — o
+        // craque cansado (70.5) segue na frente do reserva descansado (68.0) e mantém a vaga.
+        function calcularPontuacaoEfetivaForcaMaxima(ovr, notaMedia, fadigaAtual) {
+            let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
+            let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
+            let penalidade = Math.pow(fadiga / 100, 5) * 40;
+            return Math.round((notaBase - penalidade) * 10) / 10;
+        }
+
         // Monta os 11 titulares de uma diretriz de pontuação (Escalação Titular Padrão, Rotação
         // Equilibrada, ou qualquer outra futura que siga o mesmo contrato) pra uma formação:
         // calcula a pontuação efetiva de cada jogador disponível (ativo, sem lesão/suspensão,
@@ -1211,6 +1236,9 @@ ${textoRegrasCompatibilidadePosicional()}
         }
         function selecionarEscalacaoRodizioExtremo(esquema) {
             return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRodizioExtremo);
+        }
+        function selecionarEscalacaoForcaMaxima(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaForcaMaxima);
         }
 
         // Estrutura FIXA do banco de reservas — vale pra QUALQUER diretriz (pedido do treinador:
