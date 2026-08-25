@@ -1063,6 +1063,11 @@ ${textoRegrasCompatibilidadePosicional()}
                 nome: 'Rotação Equilibrada',
                 descricaoIA: 'Escalar sempre os titulares com a maior pontuação efetiva no momento — mesmo cálculo da Escalação Titular Padrão (OVR + desempenho recente, descontada a fadiga acumulada), mas com uma penalidade por fadiga mais sensível (curva CÚBICA em vez de exponencial), que já começa a pesar por volta dos 50% de fadiga. Isso força uma rotação natural do elenco na faixa de 50%-70% de cansaço, sem descaracterizar a força do time — um titular levemente cansado pode legitimamente perder a vaga pra um reserva descansado. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
                 calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRotacaoEquilibrada
+            },
+            'rodizio-extremo': {
+                nome: 'Rodízio Extremo (Poupar Titulares)',
+                descricaoIA: 'Poupar os titulares de verdade: mesmo cálculo base (OVR + desempenho recente), mas com uma penalidade por fadiga QUADRÁTICA e muito agressiva — já com uns 40% de fadiga o titular perde a vaga pra um reserva/jovem totalmente descansado, mesmo que o reserva tenha um OVR bem menor. É pra ser um rodízio de verdade, não uma escalação otimizada — a força do time cede espaço pro descanso do elenco. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRodizioExtremo
             }
         };
 
@@ -1114,6 +1119,26 @@ ${textoRegrasCompatibilidadePosicional()}
             let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
             let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
             let penalidade = Math.pow(fadiga / 100, 3) * 60;
+            return Math.round((notaBase - penalidade) * 10) / 10;
+        }
+
+        // Pedido do treinador pra diretriz "Rodízio Extremo (Poupar Titulares)": a MESMA nota_base,
+        // mas com uma curva de penalidade QUADRÁTICA e um multiplicador máximo maior (70 em vez de
+        // 60) — a mais agressiva das três diretrizes. A fadiga destrói a pontuação muito rápido: já
+        // com uns 40% de fadiga o titular perde a vaga, mesmo pra um reserva de OVR bem menor. Não
+        // é uma escalação otimizada, é rodízio de verdade: o descanso do elenco pesa mais que a
+        // força do time em campo.
+        //
+        //   penalidade = (fadiga_atual / 100)^2 * 70      [pow^2, teto 70 => a mais agressiva das três]
+        //
+        // Validado com o cenário do pedido: Jogador A (craque titular, OVR 84, nota 76, fadiga 45%)
+        // dá nota_base 80, penalidade 14.17, pontuação efetiva 65.8. Jogador B (reserva/jovem, OVR
+        // 67, nota 67, totalmente descansado) dá pontuação efetiva 67.0 — o reserva de OVR bem menor
+        // (67.0) bate o craque cansado (65.8) e leva a vaga, cumprindo o rodízio.
+        function calcularPontuacaoEfetivaRodizioExtremo(ovr, notaMedia, fadigaAtual) {
+            let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
+            let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
+            let penalidade = Math.pow(fadiga / 100, 2) * 70;
             return Math.round((notaBase - penalidade) * 10) / 10;
         }
 
@@ -1183,6 +1208,9 @@ ${textoRegrasCompatibilidadePosicional()}
         }
         function selecionarEscalacaoRotacaoEquilibrada(esquema) {
             return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRotacaoEquilibrada);
+        }
+        function selecionarEscalacaoRodizioExtremo(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRodizioExtremo);
         }
 
         // Estrutura FIXA do banco de reservas — vale pra QUALQUER diretriz (pedido do treinador:
