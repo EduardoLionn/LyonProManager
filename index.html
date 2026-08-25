@@ -1503,27 +1503,20 @@
         <!-- ABA: DEPARTAMENTO MÉDICO -->
         <div id="tab-medico" class="tab-content">
             <div class="panel" style="border-left: 4px solid var(--danger);">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
-                    <div>
-                        <h2 style="margin:0;">🏥 Departamento Médico & Preparador Físico</h2>
-                        <span style="font-size: 13px; color: var(--text-muted);">Saúde e carga de treino do elenco — tudo num só lugar</span>
-                    </div>
-                    <div style="display:flex; align-items:flex-end; gap:10px;">
-                        <div class="linha-form" style="margin:0;">
-                            <label style="color:var(--accent);">Dias de Descanso Até a Próxima Partida</label>
-                            <input type="number" id="input-descanso-atual" value="3" style="width: 120px;">
-                        </div>
-                        <button onclick="salvarDescansoManual()" style="background: var(--accent); color:white;">Atualizar</button>
-                    </div>
-                </div>
-                <p style="font-size:13px; color:var(--text-muted); margin: 12px 0 0 0;">Este valor é a fonte oficial de descanso do elenco: assim que você atualiza, ele já vale imediatamente para o cálculo de fadiga e para o Auxiliar Técnico — sem precisar esperar a próxima partida ser registrada.</p>
+                <h2 style="margin:0;">🏥 Departamento Médico & Preparador Físico</h2>
+                <span style="font-size: 13px; color: var(--text-muted);">Saúde e carga de treino do elenco — tudo num só lugar</span>
             </div>
 
             <div id="medico-resumo-cards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:15px; margin-bottom:20px;"></div>
 
+            <!-- SUGESTÕES DE DESENVOLVIMENTO INDIVIDUAL — decisão do Preparador Físico, não do
+                 usuário: função real do EA FC derivada da posição de cada atleta. Fica oculta por
+                 padrão pra não poluir a aba; só abre quando o treinador clica. -->
             <div class="panel" style="border-left: 4px solid var(--warning);">
-                <h3 style="margin-top:0;">🏋️ Sugestões do Preparador Físico</h3>
-                <div id="medico-sugestoes"></div>
+                <button id="btn-toggle-medico-dev" onclick="toggleDesenvolvimentoIndividualPanel()" style="width: 100%; background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
+                    🎯 Ver Sugestões de Desenvolvimento Individual
+                </button>
+                <div id="medico-desenvolvimento" style="display:none; margin-top:15px;"></div>
             </div>
 
             <div class="panel" style="border-left: 4px solid var(--accent);">

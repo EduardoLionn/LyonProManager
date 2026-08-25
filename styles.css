@@ -491,6 +491,22 @@
     .medico-grid { grid-template-columns: 1fr; }
 }
 
+/* Sugestões de Desenvolvimento Individual: uma linha por jogador, nome à esquerda e a função
+   sugerida (EA FC) à direita — só leitura, sem nenhum campo pra editar. */
+.medico-dev-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+.medico-dev-funcao { font-size: 12px; font-weight: bold; color: var(--warning); text-align: right; }
+
 /* --- MODAL MODERNO (substitui confirm()/prompt() do navegador) --- */
 .modal-moderno-box {
     background: var(--panel-bg);
