@@ -1043,9 +1043,113 @@ ${textoRegrasCompatibilidadePosicional()}
             if (label) label.innerHTML = `📸 Print: ${tipo === 'escalacao' ? 'Escalação Provável do Adversário' : 'Predefinições Táticas do Adversário'}<input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, '${tipo}')">`;
         }
 
+        // =====================================================================================
+        // DIRETRIZES ESTRATÉGICAS — reconstruídas do zero a pedido do treinador: "existe hoje,
+        // mas não funciona" (a versão antiga era só uma frase de texto que a IA tentava seguir
+        // "literalmente", sem garantia nenhuma). A partir de agora, cada diretriz é um ALGORITMO
+        // determinístico de verdade, adicionado uma de cada vez — a IA deixa de decidir QUEM joga
+        // e passa a só escrever a instrução tática/função de cada titular JÁ definido pelo código.
+        // =====================================================================================
+        const DIRETRIZES_ESTRATEGICAS = {
+            'titular-padrao': {
+                nome: 'Escalação Titular Padrão (Recomendada)',
+                descricaoIA: 'Escalar sempre os titulares com a maior pontuação efetiva no momento — calculada por um algoritmo do clube a partir do OVR, do desempenho recente em campo e de uma penalidade que cresce de forma exponencial com a fadiga acumulada. Não há rodízio artificial nem preservação além do que a própria fadiga já penaliza — a escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).'
+            }
+        };
+
+        // Nota média do jogador nas partidas que já disputou, na escala 0-100 (ex: 7.0 vira 70,
+        // igual ao OVR) — é a "nota_media" da fórmula da diretriz. Sem nenhuma partida registrada
+        // ainda, cai pro próprio OVR: um jogador novo não é penalizado nem favorecido por falta de
+        // amostra, a nota base dele fica exatamente igual ao OVR.
+        function notaMediaEscaladaJogador(p) {
+            let notas = [];
+            (db[currentSave].partidas || []).forEach(partida => {
+                let at = (partida.jogadores || []).find(j => j.nome === p.nome);
+                if (at && typeof at.nota === 'number') notas.push(at.nota);
+            });
+            if (!notas.length) return p.ovr;
+            return (notas.reduce((a, b) => a + b, 0) / notas.length) * 10;
+        }
+
+        // Pedido do treinador pra diretriz "Escalação Titular Padrão": uma curva de penalidade
+        // EXPONENCIAL por fadiga — branda até uns 60% de fadiga, mas que dispara de forma agressiva
+        // a partir de 70%, simulando a queda física AGUDA de um atleta realmente exausto (bem
+        // diferente de uma penalidade linear, que penalizaria demais cedo demais).
+        //
+        //   nota_base  = (ovr + nota_media) / 2          [nota_media já na escala 0-100]
+        //   penalidade = (fadiga_atual / 100)^4 * 60      [pow^4 => quase zero até 60%, agressivo depois]
+        //   pontuacao_efetiva = nota_base - penalidade    [arredondada pra 1 casa decimal]
+        //
+        // Comportamento esperado (validado): fadiga 20% ≈ -0.1pt · 50% ≈ -3.7/3.8pt · 70% ≈ -14.4pt
+        // · 85% ≈ -31.3pt · 100% = -60pt (o teto: nunca desconta mais que 60 pontos).
+        function calcularPontuacaoEfetivaEscalacaoPadrao(ovr, notaMedia, fadigaAtual) {
+            let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
+            let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
+            let penalidade = Math.pow(fadiga / 100, 4) * 60;
+            return Math.round((notaBase - penalidade) * 10) / 10;
+        }
+
+        // Monta os 11 titulares da diretriz "Escalação Titular Padrão" pra uma formação: calcula a
+        // pontuação efetiva de cada jogador disponível (ativo, sem lesão/suspensão, convocado) e
+        // encontra a escalação de MAIOR pontuação total entre TODAS as combinações que respeitam a
+        // tabela de compatibilidade posicional já usada em todo o resto do jogo
+        // (POSICOES_COMPATIVEIS_POR_ROLE) — nunca escala ninguém fora de posição.
+        //
+        // Isso é um problema clássico de emparelhamento bipartido com peso só do lado dos
+        // jogadores (cada função aceita 1 jogador, cada jogador ocupa 1 função). Resolvido com o
+        // algoritmo de Kuhn (busca de caminho aumentante): processa os jogadores do MAIOR pro
+        // MENOR pontuação e, pra cada um, tenta encaixá-lo numa função compatível — remanejando
+        // quem já estava alocado ali (recursivamente) quando existe outra função livre pra ele.
+        // Processar sempre do maior pro menor garante que o resultado final é o de maior pontuação
+        // total possível respeitando as posições — não só "o primeiro que coube em cada vaga".
+        //
+        // Retorna {ROLE: "Nome do Jogador"} (pode ter menos de 11 chaves só se, mesmo remanejando,
+        // não existir gente compatível suficiente no elenco pra alguma função) ou null se a
+        // formação não existir/não houver save carregado.
+        function selecionarEscalacaoTitularPadrao(esquema) {
+            let coords = coordsFormacoes[esquema];
+            if (!coords || !db[currentSave]) return null;
+            let roles = coords.map(c => c.role);
+
+            let candidatos = db[currentSave].plantel.filter(p => {
+                if (p.status !== 'Ativo') return false;
+                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                if (currentSave === 'selecao' && p.convocado === false) return false;
+                return true;
+            }).map(p => ({
+                jogador: p,
+                pontuacaoEfetiva: calcularPontuacaoEfetivaEscalacaoPadrao(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
+            })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+
+            let posicaoPorNome = {};
+            candidatos.forEach(c => { posicaoPorNome[c.jogador.nome] = c.jogador.posicao; });
+
+            let ocupantePorRole = {}; // role -> nome do jogador titular naquela função
+
+            // Caminho aumentante clássico de Kuhn: tenta alocar "nomeJogador" numa função livre
+            // compatível; se todas as compatíveis já estiverem ocupadas, tenta primeiro liberar uma
+            // delas realocando o ocupante atual pra outra função compatível dele.
+            function tentarAlocar(nomeJogador, visitadas) {
+                for (let role of roles) {
+                    if (visitadas.has(role) || !posicaoCompativelComRole(role, posicaoPorNome[nomeJogador])) continue;
+                    visitadas.add(role);
+                    let ocupanteAtual = ocupantePorRole[role];
+                    if (!ocupanteAtual || tentarAlocar(ocupanteAtual, visitadas)) {
+                        ocupantePorRole[role] = nomeJogador;
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            candidatos.forEach(c => tentarAlocar(c.jogador.nome, new Set()));
+            return ocupantePorRole;
+        }
+
         async function declararPartidaIA() {
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
-            let diretriz = document.getElementById('declarar-adv-diretriz').value;
+            let diretrizId = document.getElementById('declarar-adv-diretriz').value;
+            let diretrizInfo = DIRETRIZES_ESTRATEGICAS[diretrizId] || { nome: diretrizId, descricaoIA: diretrizId };
             if (!nomeAdvManual && !imagemAdvEscalacao && !imagemAdvTatica) {
                 return alert('Digite o nome do adversário ou anexe pelo menos um print.');
             }
@@ -1065,6 +1169,24 @@ ${textoRegrasCompatibilidadePosicional()}
             let funcoesBaseTexto = (taticaBase.funcoesPorRoleSugeridas && Object.keys(taticaBase.funcoesPorRoleSugeridas).length)
                 ? Object.entries(taticaBase.funcoesPorRoleSugeridas).map(([role, f]) => `${role}: ${f.funcao}/${f.foco}`).join(', ')
                 : 'nenhuma definida ainda — decida pela sua própria leitura do adversário';
+
+            // Diretriz "Escalação Titular Padrão": os titulares NÃO ficam mais a cargo da IA — o
+            // algoritmo já decide, pra cada formação preferida, quem entra em campo. A IA só recebe
+            // essa escalação já pronta pra escrever a instrução/função de cada um; ela não escolhe
+            // (e não pode trocar) nenhum jogador. Calculado uma vez pra cada formação candidata,
+            // porque a formação em si ainda é escolhida pela IA de acordo com o adversário.
+            let escalacoesFixasPorFormacao = {};
+            if (diretrizId === 'titular-padrao') {
+                formacoesPreferidasIA.forEach(esq => {
+                    let fixa = selecionarEscalacaoTitularPadrao(esq);
+                    if (fixa) escalacoesFixasPorFormacao[esq] = fixa;
+                });
+            }
+            let blocoTitularesFixos = Object.keys(escalacoesFixasPorFormacao).length ? `
+            🔒 TITULARES JÁ DEFINIDOS PELA DIRETRIZ "${diretrizInfo.nome}" (NÃO É MAIS DECISÃO SUA):
+            A escalação titular não é mais escolhida por você — foi calculada por um algoritmo estatístico oficial do clube (pontuação efetiva = média entre OVR e desempenho recente, descontada uma penalidade que cresce de forma exponencial com a fadiga acumulada). Para CADA formação abaixo, os titulares já estão fixados. Sua única tarefa em relação a eles é, pra CADA jogador, escrever a instrução tática específica pra ESTE adversário e escolher função/foco coerente (a regra de compatibilidade posicional abaixo continua valendo só pra função/foco, nunca pra trocar quem joga). NUNCA troque nenhum desses jogadores por outro do elenco, mesmo que pareça uma escolha melhor — a substituição, se necessário, é feita depois, manualmente.
+            ${Object.entries(escalacoesFixasPorFormacao).map(([esq, mapa]) => `- ${esq}: ${Object.entries(mapa).map(([role, nome]) => `${role}=${nome}`).join(', ')}`).join('\n            ')}
+            ` : '';
 
             let btn = document.getElementById('btn-declarar-partida-ia');
             btn.innerText = '⏳ Analisando o adversário e montando o plano...'; btn.disabled = true;
@@ -1097,11 +1219,11 @@ ${textoRegrasCompatibilidadePosicional()}
             - Formações preferidas do treinador, em ordem de prioridade: ${formacoesPreferidasIA.join(' > ')}. A "Formação Primária" de referência é ${formacaoPri}.
             - Estilo de Jogo: ${estiloJogo}
             - Função/foco de cada posição na configuração BASE do treinador (o ponto de partida — ${funcoesBaseTexto})
-            - Diretriz: ${diretriz}
-
+            - Diretriz: ${diretrizInfo.descricaoIA}
+            ${blocoTitularesFixos}
             🏥 BOLETIM DO DEPARTAMENTO MÉDICO (LEIA COM ATENÇÃO): ${(typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "Sem novidades."}
             📚 HISTÓRICO E APRENDIZADO (o conhecimento acumulado deste treinador com este time): ${montarResumoHistoricoAuxiliarIA()}
-            ${regrasEstrategistaTexto(nomeAdvManual || 'o adversário', formacaoSec, estiloJogo, diretriz, diasDescanso)}
+            ${regrasEstrategistaTexto(nomeAdvManual || 'o adversário', formacaoSec, estiloJogo, diretrizInfo.descricaoIA, diasDescanso)}
 
             ${regrasTaticasParaIA()}
 
@@ -1146,6 +1268,18 @@ ${textoRegrasCompatibilidadePosicional()}
                     let res = JSON.parse(match[0]);
                     // A formação tem que ser uma das preferidas do treinador — nunca uma de fora da lista.
                     if (!formacoesPreferidasIA.includes(res.formacaoEscolhida)) res.formacaoEscolhida = formacoesPreferidasIA[0];
+
+                    // A diretriz "Escalação Titular Padrão" NÃO é uma sugestão pra IA seguir — o nome
+                    // de cada titular é sempre o que o algoritmo calculou, nunca o que a IA escreveu
+                    // (mesmo que ela tenha ignorado o bloco "TITULARES JÁ DEFINIDOS" do prompt).
+                    let escalacaoFixaEscolhida = escalacoesFixasPorFormacao[res.formacaoEscolhida];
+                    if (escalacaoFixaEscolhida) {
+                        res.escalacao = res.escalacao || {};
+                        Object.entries(escalacaoFixaEscolhida).forEach(([role, nomeFixo]) => {
+                            res.escalacao[role] = Object.assign({}, res.escalacao[role], { nome: nomeFixo });
+                        });
+                    }
+
                     let rotacoesAutomaticas = aplicarRotacaoObrigatoriaEscalacao(res);
                     let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
 
@@ -1191,7 +1325,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         })(),
                         alertaRotacao: alertaRotacao,
                         rotacoesAutomaticas: rotacoesAutomaticas,
-                        diretriz: diretriz,
+                        diretriz: diretrizInfo.nome,
                         criadaEm: Date.now()
                     };
                     imagemAdvEscalacao = null; imagemAdvTatica = null;
