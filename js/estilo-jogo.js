@@ -471,6 +471,66 @@ const TRANSICAOLETAL_AJUSTES_TIER3 = [
     'GL e MEI não foram mencionados nesta faixa — troquei o Goleiro pro "Goleiro" tradicional/Defesa (mais contido que o Goleiro-Líbero das faixas ofensivas) e o Meia-Atacante pro "Armador"/Equilibrado (mais contido que o "Camisa 10 Clássico"/Ataque das faixas ofensivas).'
 ];
 
+// -------------------------------------------------------------------------------------
+// FUTEBOL TOTAL DINÂMICO — mesmo mecanismo, aqui aplicado ao Futebol Total (Total Football).
+// `estrategiaFormacao` de cada Foco: Defensivo/Ext.Defensivo pesa mais defensores/linha de 5
+// ('defensiva'); Equilibrado/Segura o Jogo pesa o meio-campo mais estruturado ('equilibrada');
+// Ofensivo/Ext.Ofensivo/Tudo ou Nada pesa mais atacantes/meias ofensivos ('ofensiva') —
+// exatamente como o pedido agrupou a Seleção Dinâmica da Formação. O pedido pede pra "abominar
+// linhas de 5" nos Focos defensivos, mas a regra de ouro é genérica (compartilhada por todos os
+// presets refinados) e não trava formações específicas — se o treinador incluir uma formação de
+// linha de 5 entre as 4 preferidas, ela ainda pode ser escolhida; documentado abaixo.
+// -------------------------------------------------------------------------------------
+const FUTEBOLTOTAL_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "O Carrossel"
+    goleiro: [{ funcao: 'goleiro-libero', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }, { funcao: 'zagueiro-aberto', foco: 'apoio' }],
+    lateral: [{ funcao: 'ala-invertido', foco: 'armacao' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }, { funcao: 'armador', foco: 'deslocamento' }],
+    meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'versatil' }],
+    meia_lateral: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'ala', foco: 'versatil' }],
+    atacante: [{ funcao: 'falso-9', foco: 'armacao' }, { funcao: 'oportunista', foco: 'versatil' }]
+};
+const FUTEBOLTOTAL_AJUSTES_TIER1 = [
+    'VOL e MC são grupos diferentes no motor — o pedido junta os dois ("VOLs / MCs"). O grupo Volante não tem Box-to-Box nem Armador (só "Armador Recuado", um id diferente) — usei "Volante Oportunista"/Equilibrado, a única das 3 opções que existe de fato nesse grupo. O grupo Meio-Campo tem as outras 2 opções (Box-to-Box e Armador) — usei as duas, uma pra cada slot de MC, representando a "troca de função" que o próprio pedido descreve.',
+    'MD/ME (Meia-Lateral): "Ala" nesse grupo não tem foco Versátil (só Equilibrado/Ataque) — usei a segunda opção, "Armador Aberto"/Armação. PD/PE (Ponta) usou a primeira opção literal: "Ala"/Versátil, que existe de verdade nesse grupo.'
+];
+const FUTEBOLTOTAL_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'goleiro-libero', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'zagueiro-aberto', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala-invertido', foco: 'ataque' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'ataque' }],
+    meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'versatil' }],
+    meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'deslocamento' }],
+    atacante: [{ funcao: 'falso-9', foco: 'ataque' }, { funcao: 'oportunista', foco: 'versatil' }]
+};
+const FUTEBOLTOTAL_AJUSTES_TIER2 = [
+    'VOL e MC: mesmo caso da faixa anterior — o grupo Volante não tem Box-to-Box (nem foco Ataque em nenhuma função) — usei "Volante Oportunista"/Equilibrado. O grupo Meio-Campo tem Box-to-Box mas sem foco Ataque — usei "Armador"/Ataque.',
+    'MD/ME (Meia-Lateral): "Corta pra Dentro" não tem foco Deslocamento nesse grupo (só Ataque/Equilibrado) — usei Ataque, a opção mais agressiva disponível, coerente com a intensidade desta faixa. PD/PE (Ponta) usou o foco literal do pedido: Deslocamento, que existe de verdade nesse grupo.',
+    'GL não foi mencionado nesta faixa — mantive a escolha da faixa Equilibrado/Ofensivo ("Goleiro-Líbero"/Armação).'
+];
+const FUTEBOLTOTAL_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo
+    goleiro: [{ funcao: 'goleiro-libero', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'zagueiro-aberto', foco: 'defesa' }, { funcao: 'sai-jogando', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'deslocamento' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'apoio' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'oportunista', foco: 'apoio' }]
+};
+const FUTEBOLTOTAL_AJUSTES_TIER3 = [
+    'Formação: o pedido pede pra "abominar linhas de 5" aqui — a regra de ouro genérica ("defensiva": mais defensores, priorizando linha de 5 se alguma das 4 preferidas tiver) é compartilhada por todos os presets refinados e não trava formações específicas. Se o treinador não incluir uma formação de linha de 5 entre as 4 preferidas, o Futebol Total nunca vai parar nela.',
+    'VOL e MC: o grupo Meio-Campo tem Contenção mas sem foco Deslocamento (só Defesa/Roubada de Bola) — usei Defesa, a opção mais contida. O grupo Volante tem Contenção com foco Deslocamento normalmente, usado como no pedido.',
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo, e nenhuma das funções desse grupo tem foco Apoio — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME (Meia-Lateral) usou a opção literal: "Meia Aberto"/Apoio.',
+    'ATA: "Falso 9" não tem foco Apoio nesse grupo (só Ataque/Armação) — usei "Oportunista"/Apoio, a outra função do Cruyff já usada nas faixas ofensivas deste preset, que tem esse foco de verdade.',
+    'MEI não foi mencionado nesta faixa — troquei pro "Armador"/Equilibrado, mais contido que o "Camisa 10 Clássico"/Versátil das faixas ofensivas.'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -960,7 +1020,52 @@ const PLAYSTYLE_PRESETS = [
             ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
             atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
         },
-        ajustes: ['A predefinição "Posse de bola" trava o estilo de armação em Passe Curto — mantém a base de circulação rápida em toques curtos que sustenta as trocas de posição do Futebol Total.']
+        ajustes: ['A predefinição "Posse de bola" trava o estilo de armação em Passe Curto — mantém a base de circulação rápida em toques curtos que sustenta as trocas de posição do Futebol Total.'],
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 75,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: FUTEBOLTOTAL_FUNCOES_TIER1,
+                ajustes: FUTEBOLTOTAL_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'equilibrado', abordagemDefensiva: 85,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: FUTEBOLTOTAL_FUNCOES_TIER1,
+                ajustes: FUTEBOLTOTAL_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'equilibrado', abordagemDefensiva: 95,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: FUTEBOLTOTAL_FUNCOES_TIER2,
+                ajustes: FUTEBOLTOTAL_AJUSTES_TIER2
+            },
+            tudo_ou_nada: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: FUTEBOLTOTAL_FUNCOES_TIER2,
+                ajustes: FUTEBOLTOTAL_AJUSTES_TIER2
+            },
+            defensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 55,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: FUTEBOLTOTAL_FUNCOES_TIER3,
+                ajustes: FUTEBOLTOTAL_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 30,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: FUTEBOLTOTAL_FUNCOES_TIER3,
+                ajustes: FUTEBOLTOTAL_AJUSTES_TIER3
+            },
+            segura_o_jogo: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 60,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: FUTEBOLTOTAL_FUNCOES_TIER1,
+                ajustes: FUTEBOLTOTAL_AJUSTES_TIER1.concat(['Segura o Jogo não foi mencionado na Matriz Dinâmica de Funções (seção 3) do pedido — como a Seleção de Formação (seção 1) já agrupa esse Foco com Equilibrado, usei a mesma Matriz da faixa Equilibrado/Ofensivo.'])
+            }
+        }
     },
     {
         id: 'pressao-individual', nome: 'Pressão Alta Individual', emoji: '🐺', apelido: 'Man-to-Man High Press',
