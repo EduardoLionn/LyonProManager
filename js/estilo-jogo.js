@@ -154,6 +154,73 @@ const TIKITAKA_AJUSTES_TIER4 = [
     'Goleiro, Meio-Campo Central (MC) e Meia-Atacante (MEI) não foram mencionados nesta faixa — mantive as escolhas mais alinhadas com posse das faixas anteriores: "GL que Sai Jogando"/Armação, "Armador"/Deslocamento (MC) e "Camisa 10 Clássico"/Versátil (MEI).'
 ];
 
+// =====================================================================================
+// FUTEBOL RELACIONAL — MATRIZ DINÂMICA DE FUNÇÕES POR FOCO DA PARTIDA (pedido do treinador)
+// =====================================================================================
+// Mesmo esquema do Gegenpressing/Tiki-Taka acima: 4 faixas de Foco, cada combo função+foco
+// conferido contra GRUPOS_FUNCAO_EA — onde o pedido citava algo que não existe de verdade, a
+// alternativa válida mais próxima entra no lugar, documentada no array de ajustes ao lado.
+const RELACIONAL_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "essência relacional"
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
+    lateral: [{ funcao: 'lateral', foco: 'versatil' }],
+    volante: [{ funcao: 'contencao', foco: 'deslocamento' }, { funcao: 'armador-recuado', foco: 'deslocamento' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'versatil' }],
+    meia_lateral: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'deslocamento' }],
+    atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
+};
+const RELACIONAL_AJUSTES_TIER1 = [
+    'MD/ME (Meia-Lateral): "Corta pra Dentro" não tem foco Deslocamento nesse grupo (só Ataque/Equilibrado) — usei a alternativa já citada no pedido, "Armador Aberto"/Armação, que existe de verdade. Como Ponta (PD/PE) bate exatamente com a opção principal do pedido: "Corta pra Dentro"/Deslocamento.'
+];
+const RELACIONAL_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala', foco: 'apoio' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
+    atacante: [{ funcao: 'oportunista', foco: 'versatil' }, { funcao: 'pivo', foco: 'equilibrado' }]
+};
+const RELACIONAL_AJUSTES_TIER2 = [
+    'Goleiro: "Sai Jogando" não existe no grupo Goleiro (só existe no grupo Zagueiro) e o foco Combatividade também não existe pra nenhuma função de goleiro — mantive "GL que Sai Jogando"/Armação (igual à faixa Equilibrado/Ofensivo), o mais parecido com "goleiro que assume risco". Como Zagueiro bate exatamente com o pedido: "Sai Jogando"/Combatividade.',
+    'VOL: "Box-to-Box" não existe no grupo Volante (só existe no grupo Meio-Campo) — usei "Volante Oportunista"/Equilibrado, a função desse grupo com mais viés de infiltração ofensiva. MC (Meio-Campo) bate exatamente com o pedido: "Box-to-Box"/Equilibrado.',
+    'Meia-Lateral (MD/ME) e Ponta (PD/PE) não foram mencionados nesta faixa do pedido — mantive os mesmos da faixa Equilibrado/Ofensivo.'
+];
+const RELACIONAL_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'deslocamento' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'centroavante', foco: 'apoio' }]
+};
+const RELACIONAL_AJUSTES_TIER3 = [
+    'MC (Meio-Campo): "Armador Recuado" não tem foco Deslocamento nesse grupo (só Defesa/Armação) — usei "Armador"/Deslocamento, que tem esse foco de verdade e mantém a ideia de flutuar pra cobrir o colega. VOL (Volante) bate exatamente com o pedido: "Armador Recuado"/Deslocamento.',
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo (só existe no grupo Meia-Lateral) — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME bate exatamente com o pedido: "Meia Aberto"/Defesa.',
+    'Atacante: "Falso 9" não tem foco Apoio nesse grupo (só Ataque/Armação) — usei "Centroavante"/Apoio, que também recua pra ligar o jogo e tem esse foco de verdade.',
+    'Goleiro e Meia-Atacante (MEI) não foram mencionados nesta faixa do pedido — usei "Goleiro"/Defesa e "Armador"/Equilibrado, as opções mais condizentes com a postura defensiva.'
+];
+const RELACIONAL_FUNCOES_TIER4 = { // Foco: Segurar o Jogo — "meio pra frente" em Deslocamento/Armação
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
+    lateral: [{ funcao: 'lateral', foco: 'versatil' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'armacao' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'armacao' }],
+    meia_lateral: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
+};
+const RELACIONAL_AJUSTES_TIER4 = [
+    'O pedido só deu uma regra geral pro meio-campo pra frente ("Deslocamento ou Armação"), sem nomear função — usei as funções já validadas nas faixas anteriores que têm esses focos de verdade: "Armador Recuado"/Armação (VOL), "Armador"/Deslocamento (MC), "Armador"/Armação (MEI), "Armador Aberto"/Armação (MD/ME e PD/PE), "Falso 9"/Armação (ATA).',
+    'Goleiro, Zagueiro e Lateral não foram cobertos pela regra (que só fala "do meio pra frente") — mantive as escolhas da faixa Equilibrado/Ofensivo: "GL que Sai Jogando"/Armação, "Sai Jogando"/Armação e "Lateral"/Versátil.'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -319,7 +386,57 @@ const PLAYSTYLE_PRESETS = [
             ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
             atacante: [{ funcao: 'centroavante', foco: 'versatil' }]
         },
-        ajustes: ['Volante: "Armador" não existe nesse grupo — usei "Armador Recuado" com foco Deslocamento, a versão mais defensiva da mesma ideia.']
+        ajustes: ['Volante: "Armador" não existe nesse grupo — usei "Armador Recuado" com foco Deslocamento, a versão mais defensiva da mesma ideia.'],
+        // Ver o comentário no preset Gegenpressing sobre REFINAMENTO POR FOCO DA PARTIDA —
+        // mesmo mecanismo, aqui aplicado ao Futebol Relacional. `estrategiaFormacao` de cada
+        // Foco: Defensivo/Ext.Defensivo pesa compactação central ('defensiva'), Equilibrado/
+        // Segura o Jogo pesa meio-campo estruturado pra formar losangos ('equilibrada'),
+        // Ofensivo/Ext.Ofensivo/Tudo ou Nada pesa volume ofensivo ('ofensiva').
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'padrao', estiloArmacao: 'passe-curto', abordagemDefensiva: 60,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: RELACIONAL_FUNCOES_TIER1,
+                ajustes: RELACIONAL_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'passe-curto', abordagemDefensiva: 75,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: RELACIONAL_FUNCOES_TIER1,
+                ajustes: RELACIONAL_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'passe-curto', abordagemDefensiva: 85,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: RELACIONAL_FUNCOES_TIER2,
+                ajustes: RELACIONAL_AJUSTES_TIER2
+            },
+            tudo_ou_nada: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: RELACIONAL_FUNCOES_TIER2,
+                ajustes: RELACIONAL_AJUSTES_TIER2
+            },
+            defensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'passe-curto', abordagemDefensiva: 45,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: RELACIONAL_FUNCOES_TIER3,
+                ajustes: RELACIONAL_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 25,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: RELACIONAL_FUNCOES_TIER3,
+                ajustes: RELACIONAL_AJUSTES_TIER3
+            },
+            segura_o_jogo: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 50,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: RELACIONAL_FUNCOES_TIER4,
+                ajustes: RELACIONAL_AJUSTES_TIER4
+            }
+        }
     },
     {
         id: 'catenaccio', nome: 'Catenaccio', emoji: '🛡️', apelido: 'Retranca e Contra-Ataque Fluido',
