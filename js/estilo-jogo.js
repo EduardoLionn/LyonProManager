@@ -363,6 +363,60 @@ const PONTAS_AJUSTES_TIER4 = [
     'Goleiro, Zagueiro, Volante/Meio-Campo e Meia-Atacante não foram mencionados nesta faixa — mantive as escolhas da faixa Equilibrado/Ofensivo (a mais próxima em espírito, já que o pedido agrupa Segura o Jogo com Equilibrado na escolha da formação).'
 ];
 
+// -------------------------------------------------------------------------------------
+// LIGAÇÃO DIRETA DINÂMICA — mesmo mecanismo, aqui aplicado à Ligação Direta (Route One).
+// `estrategiaFormacao` de cada Foco: Defensivo/Ext.Defensivo pesa mais defensores/linha de
+// 5 ('defensiva'); Equilibrado/Segura o Jogo pesa o meio-campo mais estruturado
+// ('equilibrada'); Ofensivo/Ext.Ofensivo/Tudo ou Nada pesa mais atacantes/meias ofensivos
+// ('ofensiva') — exatamente como o pedido agrupou a Seleção Dinâmica da Formação.
+// -------------------------------------------------------------------------------------
+const LIGACAODIRETA_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "a essência do Route One"
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }, { funcao: 'marcador', foco: 'combatividade' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }, { funcao: 'ala', foco: 'equilibrado' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'apoio' }, { funcao: 'ala', foco: 'equilibrado' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'com-abertura' }, { funcao: 'oportunista', foco: 'ataque' }]
+};
+const LIGACAODIRETA_AJUSTES_TIER1 = [
+    'MEI (Meia-Atacante) não foi mencionado nesta faixa pelo pedido — esse grupo não tem Box-to-Box, então usei "Atacante Sombra"/Ataque, a função do grupo Meia-Atacante mais próxima de "um meia chegando muito perto do centroavante" (citado na Seleção de Formação): corridas tardias pra dentro da área buscando a 2ª bola.',
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo (só existe no grupo Meia-Lateral) — usei a segunda opção que o próprio pedido já dava, "Ala"/Equilibrado, válida nos dois grupos. MD/ME (Meia-Lateral) seguiu a divisão literal do pedido: "Meia Aberto"/Apoio pro primeiro slot e "Ala"/Equilibrado pro segundo.'
+];
+const LIGACAODIRETA_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'marcador', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala', foco: 'apoio' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'apoio' }, { funcao: 'ala', foco: 'equilibrado' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'ataque' }, { funcao: 'oportunista', foco: 'ataque' }]
+};
+const LIGACAODIRETA_AJUSTES_TIER2 = [
+    'VOL e MC são grupos diferentes no motor (VOL = Volante, MC = Meio-Campo) — o grupo Volante não tem Box-to-Box, usei "Volante Oportunista"/Equilibrado (a única função avançada desse grupo). O grupo Meio-Campo tem Box-to-Box mas sem foco Ataque (só Equilibrado/Roubada de Bola) — usei Equilibrado, o mais próximo disponível.',
+    'GL, MEI e MD/ME/PD/PE não foram mencionados nesta faixa — mantive as escolhas da faixa Equilibrado/Ofensivo.'
+];
+const LIGACAODIRETA_FUNCOES_TIER3 = { // Foco: Defensivo, Extremamente Defensivo ou Segura o Jogo
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'equilibrado' }]
+};
+const LIGACAODIRETA_AJUSTES_TIER3 = [
+    'VOL e MC: segui a divisão pedida em "Contenção (Defesa) + pelo menos 1 Box-to-Box (Equilibrado)" — "Contenção"/Defesa no grupo Volante (o corpo defensivo) e "Box-to-Box"/Equilibrado no grupo Meio-Campo (o "afasta o perigo" citado no pedido).',
+    'PD/PE (Ponta): "Meia Aberto" de novo não existe nesse grupo, e nenhuma das funções desse grupo tem foco Defesa — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME (Meia-Lateral) usou a opção literal do pedido: "Meia Aberto"/Defesa.',
+    'MEI (Meia-Atacante) não foi mencionado nesta faixa — troquei para "Armador"/Equilibrado (mais contido que o "Atacante Sombra" das faixas ofensivas, mantendo uma saída de bola em vez de pura corrida de área, coerente com a postura defensiva).'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -727,7 +781,52 @@ const PLAYSTYLE_PRESETS = [
             volante: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
             atacante: [{ funcao: 'pivo', foco: 'equilibrado' }, { funcao: 'oportunista', foco: 'ataque' }]
         },
-        ajustes: ['A predefinição "Ligação direta" só permite abordagem defensiva na faixa Equilibrada — fixei em 50/100 (a opção "Recuada" não é selecionável junto com ela no jogo).']
+        ajustes: ['A predefinição "Ligação direta" só permite abordagem defensiva na faixa Equilibrada — fixei em 50/100 (a opção "Recuada" não é selecionável junto com ela no jogo).'],
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'ligacao-direta', estiloArmacao: 'equilibrado', abordagemDefensiva: 45,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: LIGACAODIRETA_FUNCOES_TIER1,
+                ajustes: LIGACAODIRETA_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'ligacao-direta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 60,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: LIGACAODIRETA_FUNCOES_TIER1,
+                ajustes: LIGACAODIRETA_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 80,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: LIGACAODIRETA_FUNCOES_TIER2,
+                ajustes: LIGACAODIRETA_AJUSTES_TIER2.concat(['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo (é o próprio nome deste estilo), não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (transição rápida e vertical).'])
+            },
+            tudo_ou_nada: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: LIGACAODIRETA_FUNCOES_TIER2,
+                ajustes: LIGACAODIRETA_AJUSTES_TIER2.concat(['Armação: o pedido citava "Ligação Direta" de novo aqui — mesmo caso do Foco Extremamente Ofensivo, usei "Contra-ataque" ("chuveirinho no desespero" é literalmente jogo direto e vertical).'])
+            },
+            defensivo: {
+                predefinicao: 'ligacao-direta', estiloArmacao: 'equilibrado', abordagemDefensiva: 35,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: LIGACAODIRETA_FUNCOES_TIER3,
+                ajustes: LIGACAODIRETA_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 15,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: LIGACAODIRETA_FUNCOES_TIER3,
+                ajustes: LIGACAODIRETA_AJUSTES_TIER3.concat(['Armação: o pedido citava "Ligação Direta" mais uma vez — mesmo caso das outras 2 faixas, usei "Contra-ataque" (a Retranca Total já trava a linha recuada; o time ainda sai rápido assim que rouba a bola).'])
+            },
+            segura_o_jogo: {
+                predefinicao: 'ligacao-direta', estiloArmacao: 'equilibrado', abordagemDefensiva: 40,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: LIGACAODIRETA_FUNCOES_TIER3,
+                ajustes: LIGACAODIRETA_AJUSTES_TIER3
+            }
+        }
     },
     {
         id: 'transicao-letal', nome: 'Transição Ofensiva Letal', emoji: '🎯', apelido: 'Fast Counter',
