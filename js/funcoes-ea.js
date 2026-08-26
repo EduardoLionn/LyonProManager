@@ -388,6 +388,38 @@ const ESPECIALIDADES_JOGADOR = {
     }}
 };
 
+// =====================================================================================
+// CLASSIFICAÇÃO DE ESPECIALIDADE POR SCOUT (IA) — pedido do treinador: quando o site lê um
+// print do elenco/convocação pra adicionar jogadores automaticamente, a IA não deve mais
+// aplicar um mapeamento fixo de "1 sigla -> 1 especialidade sempre igual" (isso ignorava por
+// completo as outras 2-3 variantes de cada grupo posicional, ex: todo zagueiro virava
+// "Zagueiro/Rebatedor", nunca Construtor/Cobertura/Híbrido). Em vez disso, ela raciocina como
+// um scout de verdade — ritmo, passe, defesa, físico, pé bom etc., à la SoFifa — a partir do
+// Nome/Posição Base/OVR de cada jogador, e escolhe entre TODAS as especialidades daquele
+// grupo. As listas de opções vêm direto de ESPECIALIDADES_JOGADOR (nunca hardcoded soltas),
+// então nunca destoam do catálogo real usado pelo resto do jogo.
+function _especialidadesComPrefixo(prefixo) {
+    return Object.keys(ESPECIALIDADES_JOGADOR).filter(k => k.startsWith(prefixo + '/'));
+}
+function _especialidadesComSufixo(prefixo, sufixo) {
+    return _especialidadesComPrefixo(prefixo).filter(k => k.endsWith(sufixo));
+}
+
+const PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA = `Você é um Analista de Desempenho e Scout de Futebol de elite. Sua função é, pra CADA jogador, receber os dados básicos dele (Nome, Posição Base — a sigla mostrada na tela — e OVR) e classificá-lo na especialidade exata que melhor descreve seu estilo de jogo na vida real e no banco de dados do SoFifa (atributos de ritmo, passe, defesa, físico, pé bom etc.). Classifique CADA jogador em OBRIGATORIAMENTE APENAS UMA das especialidades abaixo, correspondente à Posição Base dele — nunca invente uma especialidade fora da lista daquele grupo. Se o jogador for desconhecido (regen/base), deduza a especialidade mais provável só pela Posição Base e pelo OVR.
+
+Mapeamento de Posição Base e especialidades permitidas:
+- Posição Base "GL": escolha entre ${_especialidadesComPrefixo('Goleiro').join(', ')}. Critério: bom passe = Construtor; alta velocidade/saída = Líbero; resto = Tradicional.
+- Posição Base "ZAG", "ZAD", "ZAE" ou "ZAC": escolha entre ${_especialidadesComPrefixo('Zagueiro').join(', ')}. Critério: passe alto = Construtor; ritmo alto = Cobertura; muito físico/defesa e baixo passe = Rebatedor; bons status gerais = Híbrido.
+- Posição Base "LD" ou "LAD": escolha entre ${_especialidadesComSufixo('Lateral', 'Direito').join(', ')}.
+- Posição Base "LE" ou "LAE": escolha entre ${_especialidadesComSufixo('Lateral', 'Esquerdo').join(', ')}.
+  Critério (nos dois lados): alto passe/visão = Construtor; alto ritmo/cruzamento = Ala Clássico; muito ofensivo, quase não volta pra defender = Ala Ofensivo; foco em defesa = Defensivo.
+- Posição Base "VOL": escolha entre ${_especialidadesComPrefixo('Volante').join(', ')}. Critério: alta defesa/físico = Cão de Guarda; alto passe = Organizador; alto fôlego, ataque e defesa = Motorzinho.
+- Posição Base "MC", "MCD", "MCE", "MEI", "MEID" ou "MEIE": escolha entre ${_especialidadesComPrefixo('MeioCampo').join(', ')}. Critério: alta finalização/posicionamento = Infiltrador; alto passe/visão = Armador Clássico; atributos equilibrados = Dinâmico; alto ritmo/cruzamento pelas pontas = Aberto (escolha o lado — Direito ou Esquerdo — pelo pé bom do jogador; sem essa informação visível, use Direito).
+- Posição Base "MD" ou "PD": escolha entre ${_especialidadesComSufixo('Ponta', 'Direito').join(', ')}.
+- Posição Base "ME" ou "PE": escolha entre ${_especialidadesComSufixo('Ponta', 'Esquerdo').join(', ')}.
+  Critério (nos dois lados): pé bom oposto ao lado que joga (ex: canhoto jogando na direita) e alta finalização = Invertido; alta defesa/fôlego = Operário; alto passe = Construtor; alto ritmo/cruzamento = Clássico.
+- Posição Base "ATA", "ATD" ou "ATE": escolha entre ${_especialidadesComPrefixo('Atacante').join(', ')}. Critério: alto físico/força = Pivô; alta finalização pura = Matador; alto passe = Falso 9; alto ritmo/drible = Móvel.`;
+
 // Grupo de função -> lista de siglas do campinho que usam aquele catálogo (inverso de
 // GRUPO_POR_ROLE, calculado uma vez só).
 const SIGLAS_POR_GRUPO_FUNCAO = {};
