@@ -192,29 +192,23 @@ async function lerImagensIAPlantel(event) {
                     reader.readAsDataURL(file);
                 });
 
-                // Prompt detalhado mapeando exatamente as posições solicitadas
+                // Prompt detalhado: extrai os jogadores da tela e classifica cada um numa
+                // especialidade real (não um mapeamento fixo de 1 sigla -> 1 especialidade
+                // sempre igual — ver PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA em funcoes-ea.js).
                 let prompt = `Analise a imagem da tela de "Central do Elenco" de um jogo de futebol.
 Existem colunas mostrando a Posição, Nome, GER/OVR e, se disponível, a Idade.
 Extraia TODOS os jogadores da lista visíveis na imagem.
 
-ATENÇÃO AO MAPEAMENTO DE POSIÇÕES (Você deve traduzir a sigla do jogo para as posições do nosso sistema):
-- Se a sigla for "GL" -> use "Goleiro/Tradicional"
-- Se a sigla for "ZAG", "ZAD", "ZAE", "ZAC" -> use "Zagueiro/Rebatedor"
-- Se a sigla for "LD", "LAD" -> use "Lateral/Defensivo Direito"
-- Se a sigla for "LE", "LAE" -> use "Lateral/Defensivo Esquerdo"
-- Se a sigla for "VOL" -> use "Volante/Cão de Guarda"
-- Se a sigla for "MC", "MCD", "MCE" -> use "MeioCampo/Dinâmico"
-- Se a sigla for "MD", "PD" -> use "Ponta/Clássico Direito"
-- Se a sigla for "ME", "PE" -> use "Ponta/Clássico Esquerdo"
-- Se a sigla for "ATA", "MEI", "ATD", "ATE", "SA", "CA" -> use "Atacante/Móvel"
+${PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA}
+Use o valor classificado no campo "posicao" de cada jogador.
 
 O nome deve ser copiado exatamente como está na tela (ex: O. Vlachodimos).
 Se a idade do jogador estiver visível na tela, extraia como número em "idade". Se não estiver visível, omita o campo (não invente um valor).
 Retorne APENAS um array JSON válido e puro, sem marcações markdown como \`\`\`json.
 Exemplo do formato exigido:
 [
-  {"nome": "O. Vlachodimos", "posicao": "Goleiro", "ovr": 79, "idade": 30},
-  {"nome": "Marcão", "posicao": "Defesa", "ovr": 74}
+  {"nome": "O. Vlachodimos", "posicao": "Goleiro/Tradicional", "ovr": 79, "idade": 30},
+  {"nome": "Marcão", "posicao": "Zagueiro/Rebatedor", "ovr": 74}
 ]`;
 
                 try {
@@ -228,7 +222,7 @@ Exemplo do formato exigido:
 
                         jogadoresExtraidos.forEach(j => {
                             let nomeExtraido = j.nome.trim();
-                            let posExtraida = j.posicao || "Meio-Campo";
+                            let posExtraida = ESPECIALIDADES_JOGADOR[j.posicao] ? j.posicao : "MeioCampo/Dinâmico";
                             let ovrExtraido = Number(j.ovr) || 70;
                             let idadeExtraida = j.idade ? Number(j.idade) : null;
 

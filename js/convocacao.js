@@ -73,9 +73,10 @@ async function lerImagemConvocacao(event) {
 
         let prompt = `Analise esta tela de convocação de uma seleção nacional de futebol. Extraia a lista de nomes dos jogadores convocados que aparecem na imagem.
         Pra cada nome, tente casar com esta lista de jogadores já cadastrados (retorne o nome EXATAMENTE como está nesta lista se encontrar uma correspondência): [${nomesExistentes}].
-        Se o jogador não estiver nessa lista, é um jogador novo — retorne o nome como aparece na imagem, e estime a posição (uma destas: Goleiro/Tradicional, Zagueiro/Rebatedor, Lateral/Defensivo Direito, Lateral/Defensivo Esquerdo, Volante/Cão de Guarda, MeioCampo/Armador Clássico, MeioCampo/Dinâmico, Ponta/Clássico Direito, Ponta/Clássico Esquerdo, Atacante/Móvel) e o OVR aproximado se estiver visível na tela (senão estime pelo contexto/liga do jogador).
+        Se o jogador não estiver nessa lista, é um jogador novo — retorne o nome como aparece na imagem e o OVR aproximado se estiver visível na tela (senão estime pelo contexto/liga do jogador). Pra estimar a Posição Base dele (sigla) a partir da tela ou do contexto, use-a pra classificar a especialidade dele:
+        ${PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA}
         Retorne EXATAMENTE este JSON puro, sem formatação markdown:
-        {"jogadores": [{"nome": "Nome do Jogador", "posicao": "Posição", "ovr": numero}]}`;
+        {"jogadores": [{"nome": "Nome do Jogador", "posicao": "Especialidade classificada", "ovr": numero}]}`;
 
         try {
             const data = await chamarIA({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } }] }] });
@@ -89,7 +90,8 @@ async function lerImagemConvocacao(event) {
                     if (existente) {
                         nomesConvocadosNestaLeitura.add(existente.nome);
                     } else {
-                        let novoJogador = { nome: j.nome, posicao: j.posicao || 'MeioCampo/Dinâmico', ovr: Number(j.ovr) || 70, status: 'Ativo', jogosAvaliacao: 0, convocado: true };
+                        let posicaoValida = ESPECIALIDADES_JOGADOR[j.posicao] ? j.posicao : 'MeioCampo/Dinâmico';
+                        let novoJogador = { nome: j.nome, posicao: posicaoValida, ovr: Number(j.ovr) || 70, status: 'Ativo', jogosAvaliacao: 0, convocado: true };
                         db.selecao.plantel.push(novoJogador);
                         nomesConvocadosNestaLeitura.add(novoJogador.nome);
                     }
