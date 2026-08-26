@@ -13,6 +13,77 @@
 
 const MAX_FORMACOES_PREFERIDAS = 4;
 
+// =====================================================================================
+// GEGENPRESSING — MATRIZ DINÂMICA DE FUNÇÕES POR FOCO DA PARTIDA (pedido do treinador)
+// =====================================================================================
+// O pedido descreve 4 faixas de Foco (Equilibrado/Ofensivo · Ext.Ofensivo/Tudo ou Nada ·
+// Defensivo/Ext.Defensivo · Segura o Jogo), cada uma com a função+foco exigida por grupo de
+// posição. Cada combo abaixo foi conferido contra o catálogo real (GRUPOS_FUNCAO_EA, em
+// js/funcoes-ea.js) — onde o pedido citava uma função/foco que não existe de verdade, a
+// alternativa mais próxima válida entra no lugar, documentada no array de ajustes ao lado.
+// Const em vez de literal direto dentro de PLAYSTYLE_PRESETS só pra poder reaproveitar a
+// mesma matriz nos dois Focos que o pedido agrupa junto (ex: Equilibrado e Ofensivo usam a
+// mesma Tier1) sem repetir o objeto.
+const GEGENPRESSING_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "essência do Gegenpressing"
+    goleiro: [{ funcao: 'goleiro-libero', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'marcador', foco: 'combatividade' }, { funcao: 'sai-jogando', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala-invertido', foco: 'ataque' }],
+    volante: [{ funcao: 'contencao', foco: 'roubada-de-bola' }, { funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    atacante: [{ funcao: 'falso-9', foco: 'ataque' }]
+};
+const GEGENPRESSING_AJUSTES_TIER1 = [
+    'Volante (2º slot, quando a formação tiver 2): "Box-to-Box"/Ataque não existe no grupo Volante (isso só existe no grupo Meio-Campo, e mesmo lá só com foco Equilibrado/Roubada de Bola, nunca Ataque) — usei "Volante Oportunista"/Equilibrado, a função mais avançada disponível pra esse grupo.',
+    'MCs e MEIs são grupos diferentes no motor do jogo (MC = Meio-Campo, MEI = Meia-Atacante), mesmo o pedido tratando os dois juntos — MC virou "Box-to-Box"/Equilibrado e MEI virou "Armador"/Deslocamento (a opção "Armador" do "ou" original do pedido, já que "Box-to-Box" não existe no grupo Meia-Atacante).'
+];
+const GEGENPRESSING_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'goleiro-libero', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'zagueiro-aberto', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'ataque' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_lateral: [{ funcao: 'ala', foco: 'ataque' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    atacante: [{ funcao: 'oportunista', foco: 'ataque' }, { funcao: 'pivo', foco: 'ataque' }]
+};
+const GEGENPRESSING_AJUSTES_TIER2 = [
+    '"Box-to-Box"/Ataque não existe em NENHUM grupo do jogo (Box-to-Box só tem focos Equilibrado/Roubada de Bola) — usei "Armador"/Ataque pro MC (mesma ideia de avançar ignorando a contenção) e "Volante Oportunista"/Equilibrado pro VOL (a função mais avançada que esse grupo tem, já que ele nem possui Box-to-Box).',
+    'Goleiro, Meia-Atacante (MEI) e Ponta clássica (PD/PE) não foram mencionados nesta faixa do pedido — mantive os mesmos da faixa Equilibrado/Ofensivo, coerentes com uma postura ainda mais ofensiva.'
+];
+const GEGENPRESSING_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'equilibrado' }]
+};
+const GEGENPRESSING_AJUSTES_TIER3 = [
+    'Ponta (PD/PE): "Ponta Operário" não é uma função real desse grupo (só existe como nome de especialidade cadastrável do jogador) — e nenhuma função do grupo Ponta tem foco Defesa. Usei "Ala"/Equilibrado, a opção mais contida disponível.',
+    'Goleiro e Meia-Atacante (MEI) não foram mencionados nesta faixa do pedido — usei "Goleiro"/Defesa e "Armador"/Equilibrado, as opções mais condizentes com a postura defensiva.'
+];
+const GEGENPRESSING_FUNCOES_TIER4 = { // Foco: Segurar o Jogo (Posse)
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
+    lateral: [{ funcao: 'lateral-invertido', foco: 'equilibrado' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'armacao' }],
+    meio_campo_central: [{ funcao: 'armador-recuado', foco: 'armacao' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'armacao' }],
+    meia_lateral: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
+};
+const GEGENPRESSING_AJUSTES_TIER4 = [
+    'Goleiro e Meia-Atacante (MEI) não foram mencionados nesta faixa do pedido — usei "GL que Sai Jogando"/Armação e "Armador"/Armação, coerentes com a filosofia de posse de bola.'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -29,7 +100,71 @@ const PLAYSTYLE_PRESETS = [
             meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
             atacante: [{ funcao: 'oportunista', foco: 'ataque' }]
         },
-        ajustes: ['Meia-Atacante (MEI): "Corta pra Dentro" não existe nesse grupo — usei "Atacante Sombra" com foco Ataque, mesma ideia de corrida tardia pra dentro da área.']
+        ajustes: ['Meia-Atacante (MEI): "Corta pra Dentro" não existe nesse grupo — usei "Atacante Sombra" com foco Ataque, mesma ideia de corrida tardia pra dentro da área.'],
+        // ---------------------------------------------------------------------------------
+        // REFINAMENTO POR FOCO DA PARTIDA (pedido do treinador) — pra este preset, o "Foco
+        // Tático da Partida" (declarar-partida-foco) deixa de ser inerte: passa a decidir,
+        // dinamicamente, a formação (regra de ouro), o pacote tático (predefinição/armação/
+        // linha) e a matriz de função por posição, tudo amarrado com a Diretriz Estratégica
+        // através da Regra de Afinidade Tática (selecionarEscalacaoPorAfinidadeTatica, em
+        // chat-ia.js). `refinado: true` é o sinal que declararPartidaIA() usa pra saber que
+        // este preset tem essa camada extra — os outros 10 presets continuam do jeito que
+        // sempre foram (config fixa, Foco inerte).
+        //
+        // `estrategiaFormacao` de cada Foco alimenta a "regra de ouro" da Seleção Dinâmica da
+        // Formação (escolherEsquemaPorFoco, mais abaixo): 'defensiva' (mais defensores/linha
+        // de 5, senão mais volantes), 'equilibrada' (meio-campo mais estruturado) ou
+        // 'ofensiva' (mais atacantes/meias ofensivos).
+        //
+        // Todo combo de predefinição/armação/linha abaixo já foi validado contra as travas
+        // reais de PREDEFINICOES_TATICAS (js/taticas.js) — nenhum é corrigido por
+        // corrigirTatica() em tempo de execução, mas ela roda mesmo assim como rede de
+        // segurança (igual ao preset base acima).
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'equilibrado', abordagemDefensiva: 75,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: GEGENPRESSING_FUNCOES_TIER1,
+                ajustes: GEGENPRESSING_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 85,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: GEGENPRESSING_FUNCOES_TIER1,
+                ajustes: GEGENPRESSING_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 95,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: GEGENPRESSING_FUNCOES_TIER2,
+                ajustes: GEGENPRESSING_AJUSTES_TIER2
+            },
+            tudo_ou_nada: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: GEGENPRESSING_FUNCOES_TIER2,
+                ajustes: GEGENPRESSING_AJUSTES_TIER2
+            },
+            defensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'contra-ataque', abordagemDefensiva: 50,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: GEGENPRESSING_FUNCOES_TIER3,
+                ajustes: GEGENPRESSING_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 20,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: GEGENPRESSING_FUNCOES_TIER3,
+                ajustes: GEGENPRESSING_AJUSTES_TIER3.concat(['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (sair rápido pro ataque assim que recupera a bola).'])
+            },
+            segura_o_jogo: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 45,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: GEGENPRESSING_FUNCOES_TIER4,
+                ajustes: GEGENPRESSING_AJUSTES_TIER4
+            }
+        }
     },
     {
         id: 'tiki-taka', nome: 'Tiki-Taka', emoji: '🎯', apelido: 'Juego de Posición',
@@ -231,6 +366,52 @@ function escolherEsquemaPorPrioridade(formacoesPreferidas, formacoesIdeais) {
 }
 
 // -------------------------------------------------------------------------------------
+// SELEÇÃO DINÂMICA DA FORMAÇÃO POR FOCO (pedido do treinador, só pra presets `refinado`) —
+// entre as até 4 formações priorizadas, escolhe pela "regra de ouro" do Foco ativo em vez de
+// por interseção com um "formato ideal" fixo: Defensivo/Ext.Defensivo pesa quem tem mais
+// defensores (prioriza linha de 5 se alguma tiver); Equilibrado/Segura o Jogo pesa o
+// meio-campo mais estruturado; Ofensivo/Ext.Ofensivo/Tudo ou Nada pesa quem tem mais
+// atacantes/meias ofensivos. Empate desfeito pela ordem de prioridade do treinador.
+// -------------------------------------------------------------------------------------
+function _perfilContagemFormacao(esquema) {
+    let coords = coordsFormacoes[esquema] || [];
+    let contagem = { defensores: 0, volantes: 0, meioEstruturado: 0, atacantesOuMeiasOfensivos: 0 };
+    coords.forEach(c => {
+        let grupo = grupoFuncaoDoRole(c.role);
+        if (grupo === 'zagueiro' || grupo === 'lateral') contagem.defensores++;
+        if (grupo === 'volante') contagem.volantes++;
+        if (grupo === 'volante' || grupo === 'meio_campo_central' || grupo === 'meia_atacante') contagem.meioEstruturado++;
+        if (grupo === 'atacante' || grupo === 'meia_atacante') contagem.atacantesOuMeiasOfensivos++;
+    });
+    return contagem;
+}
+
+function escolherEsquemaPorFoco(formacoesPreferidas, estrategiaFormacao) {
+    let validas = (formacoesPreferidas || []).filter(f => f && coordsFormacoes[f]).slice(0, MAX_FORMACOES_PREFERIDAS);
+    if (!validas.length) return { esquema: null, preteridas: [] };
+
+    let comContagem = validas.map((formacao, indice) => ({ formacao, indice, contagem: _perfilContagemFormacao(formacao) }));
+    let pontuadas;
+    if (estrategiaFormacao === 'defensiva') {
+        // "mais defensores ou linha de 5. Se não houver linha de 5, escolhe a que tiver mais volantes."
+        let maxDefensores = Math.max(...comContagem.map(c => c.contagem.defensores));
+        let temLinhaDeCinco = maxDefensores >= 5;
+        pontuadas = comContagem.map(c => ({ formacao: c.formacao, indice: c.indice, pontuacao: temLinhaDeCinco ? c.contagem.defensores : c.contagem.volantes }));
+    } else if (estrategiaFormacao === 'ofensiva') {
+        pontuadas = comContagem.map(c => ({ formacao: c.formacao, indice: c.indice, pontuacao: c.contagem.atacantesOuMeiasOfensivos }));
+    } else { // 'equilibrada'
+        pontuadas = comContagem.map(c => ({ formacao: c.formacao, indice: c.indice, pontuacao: c.contagem.meioEstruturado }));
+    }
+    pontuadas.sort((a, b) => b.pontuacao - a.pontuacao || a.indice - b.indice);
+    let [escolhida, ...resto] = pontuadas;
+
+    return {
+        esquema: escolhida.formacao,
+        preteridas: resto.map(p => ({ formacao: p.formacao, motivo: 'menos indicada que a escolhida pra esta postura tática' }))
+    };
+}
+
+// -------------------------------------------------------------------------------------
 // MICRO-TÁTICA — ordena os slots do mesmo grupo dentro da formação escolhida (centralidade
 // pro zagueiro, profundidade pros grupos de meio-campo, esquerda→direita nos demais) e
 // resolve função+foco de cada sigla a partir da lista do preset pra aquele grupo.
@@ -299,6 +480,62 @@ function gerarRelatorioTaticoPorPreset(formacoesPreferidas, presetId) {
         justificativa: `${preset.emoji} ${preset.nome} (${preset.apelido}): ${preset.contexto}`,
         origem: { tipo: 'preset', rotulo: preset.nome }
     };
+}
+
+// -------------------------------------------------------------------------------------
+// RELATÓRIO REFINADO POR FOCO (pedido do treinador) — só pra presets com `refinado: true`
+// (hoje só o Gegenpressing). Ponto de entrada usado por declararPartidaIA() quando o Estilo
+// de Jogo salvo é um preset refinado E o treinador escolheu um Foco Tático da Partida:
+// substitui a escolha de formação por interseção (escolherEsquemaPorPrioridade) pela regra
+// de ouro por Foco (escolherEsquemaPorFoco) e o pacote tático/matriz de função fixos do
+// preset pela faixa (porFoco[focoId]) correspondente ao Foco ativo.
+// -------------------------------------------------------------------------------------
+function gerarRelatorioTaticoRefinadoPorFoco(formacoesPreferidas, presetId, focoId) {
+    let preset = presetPorId(presetId);
+    if (!preset || !preset.refinado || !preset.porFoco || !preset.porFoco[focoId]) return null;
+    let tier = preset.porFoco[focoId];
+
+    let { esquema, preteridas } = escolherEsquemaPorFoco(formacoesPreferidas, tier.estrategiaFormacao);
+    if (!esquema) return null;
+
+    let { tatica: taticaResultante, ajustes: ajustesRegra } = corrigirTatica({
+        predefinicao: tier.predefinicao, esquema: esquema,
+        estiloArmacao: tier.estiloArmacao, abordagemDefensiva: tier.abordagemDefensiva
+    });
+
+    let presetComoFuncoes = { funcoesPorGrupo: tier.funcoesPorGrupo };
+    let funcoesPorRole = {};
+    (coordsFormacoes[esquema] || []).forEach(c => {
+        let f = resolverFuncaoDoSlot(c.role, esquema, presetComoFuncoes, taticaResultante);
+        if (f) funcoesPorRole[c.role] = f;
+    });
+
+    let nomeFoco = (typeof FOCOS_TATICOS_PARTIDA !== 'undefined' && FOCOS_TATICOS_PARTIDA[focoId]) ? FOCOS_TATICOS_PARTIDA[focoId] : focoId;
+    return {
+        esquemaEscolhido: esquema,
+        esquemaPreteridas: preteridas,
+        formacoesPreferidas: (formacoesPreferidas || []).slice(0, MAX_FORMACOES_PREFERIDAS),
+        predefinicao: taticaResultante.predefinicao,
+        estiloArmacao: taticaResultante.estiloArmacao,
+        abordagemDefensiva: taticaResultante.abordagemDefensiva,
+        funcoesPorRole: funcoesPorRole,
+        ajustesAutomaticos: (tier.ajustes || []).concat(ajustesRegra),
+        justificativa: `${preset.emoji} ${preset.nome} — Foco: ${nomeFoco}: formação e função de cada posição recalculadas pra esta postura específica.`,
+        origem: { tipo: 'preset', rotulo: preset.nome },
+        focoId: focoId,
+        estrategiaFormacao: tier.estrategiaFormacao
+    };
+}
+
+// Preset refinado (Gegenpressing hoje) ativo no save, se algum — usado por declararPartidaIA()
+// pra saber se deve rodar a camada extra de Foco (regra de ouro + Afinidade Tática) ou deixar
+// o Foco inerte como sempre foi (comportamento padrão pros outros 10 presets/texto livre).
+function presetRefinadoAtivo() {
+    let t = db[currentSave] && db[currentSave].taticas;
+    let origem = t && t.estiloJogoSelecionado;
+    if (!origem || origem.tipo !== 'preset') return null;
+    let preset = PLAYSTYLE_PRESETS.find(p => p.nome === origem.rotulo);
+    return (preset && preset.refinado) ? preset : null;
 }
 
 // -------------------------------------------------------------------------------------
