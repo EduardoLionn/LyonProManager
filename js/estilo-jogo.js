@@ -586,6 +586,63 @@ const PRESSAOINDIVIDUAL_AJUSTES_TIER3 = [
     'MEI não foi mencionado nesta faixa — mantive o substituto "Meia pelas Pontas"/Equilibrado, a mesma troca já necessária na faixa Equilibrado/Ofensivo (esse grupo não tem Box-to-Box/Contenção).'
 ];
 
+// -------------------------------------------------------------------------------------
+// PASSE VERTICAL RÁPIDO DINÂMICO (Sarriball) — mesmo mecanismo, aqui aplicado à construção
+// vertical de um/dois toques. `estrategiaFormacao` de cada Foco: Defensivo/Ext.Defensivo pesa
+// mais defensores/linha de 5 ('defensiva'); Equilibrado/Segura o Jogo pesa o meio-campo mais
+// estruturado ('equilibrada'); Ofensivo/Ext.Ofensivo/Tudo ou Nada pesa mais atacantes/meias
+// ofensivos ('ofensiva') — a mesma regra de ouro genérica compartilhada por todos os presets
+// refinados, mesmo o pedido descrevendo a formação ideal de cada faixa em termos de "meio-campo
+// denso" ou "verticalidade central" em vez de contagem literal de defensores/atacantes.
+// -------------------------------------------------------------------------------------
+const SARRIBALL_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "A Isca de De Zerbi"
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
+    lateral: [{ funcao: 'lateral-invertido', foco: 'equilibrado' }, { funcao: 'lateral', foco: 'equilibrado' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'armacao' }, { funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    atacante: [{ funcao: 'falso-9', foco: 'ataque' }, { funcao: 'oportunista', foco: 'versatil' }]
+};
+const SARRIBALL_AJUSTES_TIER1 = [
+    'LD/LE (Lateral): "Lateral Invertido" não tem foco Ataque nesse grupo (só Defesa/Equilibrado) — usei Equilibrado, a opção real mais próxima da mobilidade pedida. "Lateral" (a 2ª opção do pedido) bate literal com foco Equilibrado.',
+    'VOLs: o pedido pede uma função pra cada um dos 2 volantes ("um organiza, o outro acelera") — "Box-to-Box" não existe no grupo Volante (só existe no Meio-Campo) — usei "Volante Oportunista"/Equilibrado pro 2º slot, a única função avançada real desse grupo (sem foco Ataque/Deslocamento disponível).',
+    'MC (Meio-Campo) e MEI (Meia-Atacante) são grupos diferentes no motor — o pedido oferece "Atacante Sombra" ou "Armador" como alternativas: usei "Atacante Sombra"/Ataque pro MEI (a única função com esse nome, e que existe de verdade só nesse grupo) e "Armador"/Deslocamento pro MC (a outra opção, válida literalmente nesse grupo).'
+];
+const SARRIBALL_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'combatividade' }],
+    lateral: [{ funcao: 'lateral-invertido', foco: 'equilibrado' }, { funcao: 'lateral', foco: 'equilibrado' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'ataque' }],
+    meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    atacante: [{ funcao: 'oportunista', foco: 'ataque' }, { funcao: 'falso-9', foco: 'ataque' }]
+};
+const SARRIBALL_AJUSTES_TIER2 = [
+    'VOL e MC são grupos diferentes no motor — o pedido junta os dois em "Box-to-Box (Ataque)". O grupo Volante não tem Box-to-Box (nem foco Ataque em nenhuma função) — usei "Volante Oportunista"/Equilibrado, a única função avançada real desse grupo. O grupo Meio-Campo tem Box-to-Box mas sem foco Ataque (só Equilibrado/Roubada de Bola) — usei "Armador"/Ataque, que tem esse foco de verdade.',
+    'GL, Lateral e MEI não foram mencionados nesta faixa — mantive as escolhas da faixa Equilibrado/Ofensivo.'
+];
+const SARRIBALL_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }, { funcao: 'sai-jogando', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'defesa' }, { funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'armador-recuado', foco: 'defesa' }, { funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'armacao' }, { funcao: 'meia-aberto', foco: 'apoio' }],
+    ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    atacante: [{ funcao: 'oportunista', foco: 'apoio' }]
+};
+const SARRIBALL_AJUSTES_TIER3 = [
+    'ATA: "Falso 9" não tem foco Apoio nesse grupo (só Ataque/Armação) — usei "Oportunista"/Apoio, a outra função do falso-atacante já usada nas faixas ofensivas deste preset, que tem esse foco de verdade.',
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo (só existe no grupo Meia-Lateral) — usei "Armador Aberto"/Armação, a função mais próxima em espírito (um ponta que recua pra ajudar a armar). MD/ME (Meia-Lateral) usou a opção literal do pedido: "Meia Aberto", variando entre Armação e Apoio nos dois slots.',
+    'MEI (Meia-Atacante) não foi mencionado nesta faixa — troquei pro "Armador"/Equilibrado, mais contido que o "Atacante Sombra"/Ataque das faixas ofensivas.'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -1199,7 +1256,52 @@ const PLAYSTYLE_PRESETS = [
             ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
             atacante: [{ funcao: 'oportunista', foco: 'versatil' }]
         },
-        ajustes: []
+        ajustes: [],
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'padrao', estiloArmacao: 'passe-curto', abordagemDefensiva: 60,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: SARRIBALL_FUNCOES_TIER1,
+                ajustes: SARRIBALL_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'passe-curto', abordagemDefensiva: 70,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: SARRIBALL_FUNCOES_TIER1,
+                ajustes: SARRIBALL_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'equilibrado', abordagemDefensiva: 85,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: SARRIBALL_FUNCOES_TIER2,
+                ajustes: SARRIBALL_AJUSTES_TIER2
+            },
+            tudo_ou_nada: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: SARRIBALL_FUNCOES_TIER2,
+                ajustes: SARRIBALL_AJUSTES_TIER2
+            },
+            defensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'passe-curto', abordagemDefensiva: 50,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: SARRIBALL_FUNCOES_TIER3,
+                ajustes: SARRIBALL_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 30,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: SARRIBALL_FUNCOES_TIER3,
+                ajustes: SARRIBALL_AJUSTES_TIER3
+            },
+            segura_o_jogo: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 50,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: SARRIBALL_FUNCOES_TIER1,
+                ajustes: SARRIBALL_AJUSTES_TIER1.concat(['Segura o Jogo não foi mencionado na Matriz Dinâmica de Funções (seção 3) do pedido — como a Seleção de Formação (seção 1) já agrupa esse Foco com Equilibrado, usei a mesma Matriz da faixa Equilibrado/Ofensivo. A predefinição "Posse de Bola" trava o estilo de armação em Passe Curto — exatamente o que o pedido já pedia pra esse Foco.'])
+            }
+        }
     },
     {
         id: 'estacionar-onibus', nome: 'Estacionar o Ônibus', emoji: '🚌', apelido: 'Park the Bus',
