@@ -1087,6 +1087,40 @@ ${textoRegrasCompatibilidadePosicional()}
             }
         };
 
+        // =====================================================================================
+        // FOCO TÁTICO DA PARTIDA — pedido do treinador: por enquanto só captura a escolha (o
+        // "estado" fica salvo no save, pronto pra alimentar uma lógica futura de formação ideal,
+        // altura da linha defensiva e perfis de jogadores por posição). NENHUMA dessas
+        // diretrizes/cálculos usa este valor ainda — é só o campo + a persistência dele.
+        // =====================================================================================
+        const FOCOS_TATICOS_PARTIDA = {
+            'equilibrado': 'Equilibrado (Padrão)',
+            'ofensivo': 'Ofensivo',
+            'extremamente_ofensivo': 'Extremamente Ofensivo',
+            'tudo_ou_nada': 'Tudo ou Nada (Desespero)',
+            'defensivo': 'Defensivo',
+            'extremamente_defensivo': 'Extremamente Defensivo (Retranca)',
+            'segura_o_jogo': 'Segurar o Jogo (Matar Tempo)'
+        };
+
+        // Chamado pelo onchange do select — grava a escolha no save (currentSave) assim que o
+        // treinador muda, sem precisar de nenhum outro botão de salvar.
+        function salvarFocoPartidaSelecionado() {
+            let select = document.getElementById('declarar-partida-foco');
+            if (!select || !db[currentSave]) return;
+            db[currentSave].focoPartidaSelecionado = select.value;
+            salvarDados();
+        }
+
+        // Chamado ao entrar na aba Auxiliar — devolve o select pro valor salvo (sem isso, ele
+        // sempre voltaria pro primeiro item da lista a cada troca de aba/recarregamento).
+        function restaurarFocoPartidaSelecionado() {
+            let select = document.getElementById('declarar-partida-foco');
+            if (!select || !db[currentSave]) return;
+            let salvo = db[currentSave].focoPartidaSelecionado;
+            select.value = (salvo && FOCOS_TATICOS_PARTIDA[salvo]) ? salvo : 'equilibrado';
+        }
+
         // Nota média do jogador nas partidas que já disputou, na escala 0-100 (ex: 7.0 vira 70,
         // igual ao OVR) — é a "nota_media" da fórmula da diretriz. Sem nenhuma partida registrada
         // ainda, cai pro próprio OVR: um jogador novo não é penalizado nem favorecido por falta de
@@ -1560,6 +1594,11 @@ ${textoRegrasCompatibilidadePosicional()}
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
             let diretrizId = document.getElementById('declarar-adv-diretriz').value;
             let diretrizInfo = DIRETRIZES_ESTRATEGICAS[diretrizId] || { nome: diretrizId, descricaoIA: diretrizId };
+            // Foco Tático da Partida: por enquanto só captura e persiste a escolha (nenhuma
+            // lógica de escalação usa isso ainda — ver FOCOS_TATICOS_PARTIDA acima).
+            let focoPartidaEl = document.getElementById('declarar-partida-foco');
+            let focoPartidaId = focoPartidaEl ? focoPartidaEl.value : 'equilibrado';
+            if (db[currentSave]) db[currentSave].focoPartidaSelecionado = focoPartidaId;
             if (!nomeAdvManual && !imagemAdvEscalacao && !imagemAdvTatica) {
                 return alert('Digite o nome do adversário ou anexe pelo menos um print.');
             }
@@ -1763,6 +1802,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         rotacoesAutomaticas: rotacoesAutomaticas,
                         alertasRiscoLesao: jogadoresEmRiscoDeLesao(res.escalacao),
                         diretriz: diretrizInfo.nome,
+                        focoPartida: focoPartidaId,
                         criadaEm: Date.now()
                     };
                     imagemAdvEscalacao = null; imagemAdvTatica = null;

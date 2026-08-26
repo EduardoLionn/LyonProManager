@@ -470,7 +470,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); }
             if(abaId === 'tab-medico') { atualizarDepartamentoMedicoUI(); }
             if(abaId === 'tab-perfil-treinador') { carregarPerfilTreinador(); if (typeof renderizarSeletorEstiloJogo === 'function') renderizarSeletorEstiloJogo('perfil-'); }
-            if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarSugestaoAuxiliar(); renderizarChat('auxiliar'); }
+            if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarSugestaoAuxiliar(); renderizarChat('auxiliar'); if (typeof restaurarFocoPartidaSelecionado === 'function') restaurarFocoPartidaSelecionado(); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
             if(abaId === 'tab-convocacao') { renderizarConvocacaoUI(); }
             if(abaId === 'tab-mensagens') { renderizarCaixaMensagens(); }
