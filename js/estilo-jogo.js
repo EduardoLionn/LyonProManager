@@ -643,6 +643,32 @@ const SARRIBALL_AJUSTES_TIER3 = [
     'MEI (Meia-Atacante) não foi mencionado nesta faixa — troquei pro "Armador"/Equilibrado, mais contido que o "Atacante Sombra"/Ataque das faixas ofensivas.'
 ];
 
+// -------------------------------------------------------------------------------------
+// ESTACIONAR O ÔNIBUS DINÂMICO — mesmo mecanismo, aqui aplicado ao Estacionar o Ônibus (Park
+// the Bus). Diferente de todos os outros presets refinados, aqui o próprio pedido diz que
+// TODOS os 7 Focos usam a mesma "regra de sobrevivência" na formação (`estrategiaFormacao:
+// 'defensiva'` pra todo mundo, não só Defensivo/Ext.Defensivo) e a MESMA Matriz Dinâmica de
+// Funções ("Regra Absoluta para Qualquer Foco") — só predefinição/armação/linha mudam por Foco.
+// -------------------------------------------------------------------------------------
+const ESTACIONARONIBUS_FUNCOES = { // "Regra Absoluta" — vale pra qualquer Foco
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }, { funcao: 'zaga', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'equilibrado' }]
+};
+const ESTACIONARONIBUS_AJUSTES = [
+    'VOL: usei as duas opções que o próprio pedido já dava — "Contenção"/Defesa e "Zaga"/Defesa — uma por slot, representando o "3º/4º zagueiro" descrito no pedido.',
+    'MEI (Meia-Atacante): esse grupo não tem "Contenção" nem nenhuma função com foco Defesa — usei "Armador"/Equilibrado, a opção menos ofensiva disponível, coerente com "o meia armador desaparece" do pedido.',
+    'PD/PE (Ponta): "Ponta Operário" não é uma função do motor tático — é o nome de uma ESPECIALIDADE de jogador (cadastro), não algo que a Matriz Dinâmica de Funções possa atribuir. "Meia Aberto" também não existe nesse grupo (só existe no Meia-Lateral) — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME (Meia-Lateral) usou a opção literal do pedido: "Meia Aberto"/Defesa.',
+    'ATA: "Pivô" não tem foco Apoio nesse grupo (só Com Abertura/Equilibrado/Ataque) — usei Equilibrado, que na descrição do próprio jogo já é "segura a jogada e passa a bola pra colegas de time", batendo exatamente com o pedido (segurar a bola, sofrer falta, fazer o tempo passar).'
+];
+const ESTACIONARONIBUS_AJUSTE_ARMACAO = 'Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (chutão pra frente e sair rápido assim que sobra a bola).';
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -1317,7 +1343,52 @@ const PLAYSTYLE_PRESETS = [
             meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
             atacante: [{ funcao: 'pivo', foco: 'com-abertura' }, { funcao: 'oportunista', foco: 'ataque' }]
         },
-        ajustes: ['Volante (VOL 1 e 2): função "Zaga" — os volantes literalmente se enfiam entre os zagueiros pra formar a linha de 5/6, exatamente como pedido.', 'Atacante: com 2 pontas de ataque na formação, o 1º slot vira "Pivô" (segura a bola sozinho) e o 2º vira "Oportunista" (pronto pro rebote/contra-ataque).']
+        ajustes: ['Volante (VOL 1 e 2): função "Zaga" — os volantes literalmente se enfiam entre os zagueiros pra formar a linha de 5/6, exatamente como pedido.', 'Atacante: com 2 pontas de ataque na formação, o 1º slot vira "Pivô" (segura a bola sozinho) e o 2º vira "Oportunista" (pronto pro rebote/contra-ataque).'],
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 30,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: ESTACIONARONIBUS_FUNCOES,
+                ajustes: ESTACIONARONIBUS_AJUSTES.concat([ESTACIONARONIBUS_AJUSTE_ARMACAO])
+            },
+            ofensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 30,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: ESTACIONARONIBUS_FUNCOES,
+                ajustes: ESTACIONARONIBUS_AJUSTES.concat([ESTACIONARONIBUS_AJUSTE_ARMACAO, 'O pedido agrupa Equilibrado e Ofensivo na mesma configuração de motor (seção 2) — mantive os dois idênticos, como pedido.'])
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'contra-ataque', abordagemDefensiva: 45,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: ESTACIONARONIBUS_FUNCOES,
+                ajustes: ESTACIONARONIBUS_AJUSTES.concat([ESTACIONARONIBUS_AJUSTE_ARMACAO])
+            },
+            tudo_ou_nada: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 1,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: ESTACIONARONIBUS_FUNCOES,
+                ajustes: ESTACIONARONIBUS_AJUSTES.concat([ESTACIONARONIBUS_AJUSTE_ARMACAO])
+            },
+            defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 20,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: ESTACIONARONIBUS_FUNCOES,
+                ajustes: ESTACIONARONIBUS_AJUSTES.concat([ESTACIONARONIBUS_AJUSTE_ARMACAO])
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 10,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: ESTACIONARONIBUS_FUNCOES,
+                ajustes: ESTACIONARONIBUS_AJUSTES.concat([ESTACIONARONIBUS_AJUSTE_ARMACAO])
+            },
+            segura_o_jogo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 10,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: ESTACIONARONIBUS_FUNCOES,
+                ajustes: ESTACIONARONIBUS_AJUSTES
+            }
+        }
     }
 ];
 
