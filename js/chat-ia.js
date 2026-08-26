@@ -1732,8 +1732,10 @@ ${textoRegrasCompatibilidadePosicional()}
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
             let diretrizId = document.getElementById('declarar-adv-diretriz').value;
             let diretrizInfo = DIRETRIZES_ESTRATEGICAS[diretrizId] || { nome: diretrizId, descricaoIA: diretrizId };
-            // Foco Tático da Partida: por enquanto só captura e persiste a escolha (nenhuma
-            // lógica de escalação usa isso ainda — ver FOCOS_TATICOS_PARTIDA acima).
+            // Foco Tático da Partida: sempre captura e persiste a escolha. Pra presets `refinado`
+            // (Gegenpressing, Tiki-Taka), também dirige a formação/pacote/matriz de função — ver
+            // presetRefinadoAtivo()/gerarRelatorioTaticoRefinadoPorFoco() mais abaixo. Pros demais
+            // presets e pro texto livre, continua só sendo capturado/persistido (inerte).
             let focoPartidaEl = document.getElementById('declarar-partida-foco');
             let focoPartidaId = focoPartidaEl ? focoPartidaEl.value : 'equilibrado';
             if (db[currentSave]) db[currentSave].focoPartidaSelecionado = focoPartidaId;
