@@ -84,6 +84,76 @@ const GEGENPRESSING_AJUSTES_TIER4 = [
     'Goleiro e Meia-Atacante (MEI) não foram mencionados nesta faixa do pedido — usei "GL que Sai Jogando"/Armação e "Armador"/Armação, coerentes com a filosofia de posse de bola.'
 ];
 
+// =====================================================================================
+// TIKI-TAKA — MATRIZ DINÂMICA DE FUNÇÕES POR FOCO DA PARTIDA (pedido do treinador)
+// =====================================================================================
+// Mesmo esquema do Gegenpressing acima: 4 faixas de Foco, cada combo função+foco conferido
+// contra GRUPOS_FUNCAO_EA — onde o pedido citava algo que não existe de verdade, a
+// alternativa válida mais próxima entra no lugar, documentada no array de ajustes ao lado.
+const TIKITAKA_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "essência do Guardiola"
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
+    lateral: [{ funcao: 'lateral-invertido', foco: 'equilibrado' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'armacao' }, { funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'versatil' }],
+    meia_lateral: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
+};
+const TIKITAKA_AJUSTES_TIER1 = [
+    'Zagueiro: "Sai Jogando" não tem foco Equilibrado nesse grupo (só Defesa/Armação/Combatividade) — usei Armação, que já era citada como alternativa no pedido e é a que mais combina com "todo mundo joga com a bola".',
+    'MC e MEI são grupos diferentes no motor do jogo (MC = Meio-Campo, MEI = Meia-Atacante), mesmo o pedido tratando os dois juntos — MC virou "Armador"/Deslocamento (o grupo Meio-Campo não tem foco Armação pra Armador, só Deslocamento/Ataque) e MEI virou "Camisa 10 Clássico"/Versátil, batendo exatamente com o pedido.'
+];
+const TIKITAKA_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala-invertido', foco: 'ataque' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'ataque' }],
+    meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'ala', foco: 'ataque' }],
+    ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    atacante: [{ funcao: 'falso-9', foco: 'ataque' }, { funcao: 'oportunista', foco: 'ataque' }]
+};
+const TIKITAKA_AJUSTES_TIER2 = [
+    'MD/ME (Meia-Lateral): nem "Ala Invertido" nem "Ala Atacante" existem nesse grupo (essas duas só existem no grupo Lateral) — usei "Ala"/Ataque, a opção mais ofensiva disponível no grupo Meia-Lateral. Já como Lateral (LD/LE) bate exatamente com o pedido: "Ala Invertido"/Ataque.',
+    'VOL: foco Ataque não existe em NENHUMA função do grupo Volante — usei "Volante Oportunista"/Equilibrado, a função mais avançada que esse grupo tem. "Armador"/Ataque foi pro MC (onde existe de verdade) e "Atacante Sombra"/Ataque foi pro MEI (onde também existe de verdade) — lidos como as duas opções reais por trás do "VOL / MC: Armador (Ataque) / Atacante Sombra (Ataque)" do pedido.',
+    'Goleiro e Ponta clássica (PD/PE) não foram mencionados nesta faixa do pedido — mantive os mesmos da faixa Equilibrado/Ofensivo.'
+];
+const TIKITAKA_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo
+    goleiro: [{ funcao: 'goleiro', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }, { funcao: 'sai-jogando', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral-invertido', foco: 'defesa' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'armador-recuado', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'equilibrado' }]
+};
+const TIKITAKA_AJUSTES_TIER3 = [
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo (só existe no grupo Meia-Lateral) — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME (Meia-Lateral) bate exatamente com o pedido: "Meia Aberto"/Armação.',
+    'Atacante: "Falso 9" não tem foco Apoio nesse grupo (só Ataque/Armação) — usei a alternativa já citada no próprio pedido, "Pivô"/Equilibrado.',
+    'Meia-Atacante (MEI) não foi mencionado nesta faixa do pedido — usei "Armador"/Equilibrado, a opção mais condizente com a postura defensiva.'
+];
+const TIKITAKA_FUNCOES_TIER4 = { // Foco: Segurar o Jogo (Posse)
+    goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
+    zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
+    lateral: [{ funcao: 'ala-invertido', foco: 'armacao' }],
+    volante: [{ funcao: 'armador-recuado', foco: 'armacao' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'versatil' }],
+    meia_lateral: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'armador-aberto', foco: 'armacao' }],
+    atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
+};
+const TIKITAKA_AJUSTES_TIER4 = [
+    'Zagueiro e Volante: o pedido só pediu "função focada em Armação ou Equilibrado" sem nomear a função — usei "Sai Jogando"/Armação e "Armador Recuado"/Armação, as opções desses grupos mais alinhadas com "segurar a bola lá atrás".',
+    'LD/LE: "Lateral Invertido" não tem foco Armação nesse grupo (só Defesa/Equilibrado) — usei "Ala Invertido"/Armação, que tem esse foco de verdade e mantém a mesma ideia de avançar pro meio pra ajudar na armação.',
+    'Goleiro, Meio-Campo Central (MC) e Meia-Atacante (MEI) não foram mencionados nesta faixa — mantive as escolhas mais alinhadas com posse das faixas anteriores: "GL que Sai Jogando"/Armação, "Armador"/Deslocamento (MC) e "Camisa 10 Clássico"/Versátil (MEI).'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -181,7 +251,58 @@ const PLAYSTYLE_PRESETS = [
             ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
             atacante: [{ funcao: 'falso-9', foco: 'armacao' }]
         },
-        ajustes: ['Pontas: "Meia pelas Pontas" não existe nos grupos Meia-Lateral/Ponta — usei "Ala" com foco Equilibrado, o comportamento mais próximo disponível.']
+        ajustes: ['Pontas: "Meia pelas Pontas" não existe nos grupos Meia-Lateral/Ponta — usei "Ala" com foco Equilibrado, o comportamento mais próximo disponível.'],
+        // Ver o comentário no preset Gegenpressing acima sobre REFINAMENTO POR FOCO DA
+        // PARTIDA — mesmo mecanismo, aqui aplicado ao Tiki-Taka. `estrategiaFormacao` de
+        // cada Foco: Defensivo/Ext.Defensivo pesa concentração defensiva ('defensiva'),
+        // Equilibrado/Segura o Jogo pesa meio-campo estruturado pra criar triângulos
+        // ('equilibrada'), Ofensivo/Ext.Ofensivo/Tudo ou Nada pesa presença ofensiva
+        // ('ofensiva') — a mesma "regra de ouro" genérica de escolherEsquemaPorFoco.
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 65,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: TIKITAKA_FUNCOES_TIER1,
+                ajustes: TIKITAKA_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 75,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: TIKITAKA_FUNCOES_TIER1,
+                ajustes: TIKITAKA_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'passe-curto', abordagemDefensiva: 90,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: TIKITAKA_FUNCOES_TIER2,
+                ajustes: TIKITAKA_AJUSTES_TIER2.concat(['Abordagem defensiva: o pedido rotulou 90 como "Extremo Avançada", mas no jogo essa faixa só começa em 91 — 90 cai em "Avançada" (61-90). Mantive o número exato pedido (90); a faixa real que ele ativa é Avançada.'])
+            },
+            tudo_ou_nada: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'passe-curto', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: TIKITAKA_FUNCOES_TIER2,
+                ajustes: TIKITAKA_AJUSTES_TIER2
+            },
+            defensivo: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 45,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: TIKITAKA_FUNCOES_TIER3,
+                ajustes: TIKITAKA_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 25,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: TIKITAKA_FUNCOES_TIER3,
+                ajustes: TIKITAKA_AJUSTES_TIER3
+            },
+            segura_o_jogo: {
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 50,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: TIKITAKA_FUNCOES_TIER4,
+                ajustes: TIKITAKA_AJUSTES_TIER4
+            }
+        }
     },
     {
         id: 'futebol-relacional', nome: 'Futebol Relacional', emoji: '🌀', apelido: 'Dinizismo / Aproximação',
