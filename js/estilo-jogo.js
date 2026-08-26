@@ -289,6 +289,80 @@ const CATENACCIO_AJUSTES_TIER4 = [
     'Atacante: nem "Pivô" nem "Falso 9" têm foco Apoio — usei "Centroavante"/Apoio, que tem esse foco de verdade e também "segura" o jogo perto da linha defensiva adversária, coerente com "prender a bola... e cavar faltas".'
 ];
 
+// =====================================================================================
+// JOGO PELAS PONTAS — MATRIZ DINÂMICA DE FUNÇÕES POR FOCO DA PARTIDA (pedido do treinador)
+// =====================================================================================
+// Mesmo esquema dos presets refinados acima: 4 faixas de Foco, cada combo função+foco
+// conferido contra GRUPOS_FUNCAO_EA — onde o pedido citava algo que não existe de verdade, a
+// alternativa válida mais próxima entra no lugar, documentada no array de ajustes ao lado.
+// A predefinição "Jogadas pelas pontas" já proíbe Passe Curto nativamente (PREDEFINICOES_
+// TATICAS, js/taticas.js), então a "TRAVA ABSOLUTA" do pedido já vem garantida pelo motor
+// de regras existente — nenhum ajuste extra precisa ser feito pra isso.
+//
+// O pedido nunca menciona o grupo Meia-Atacante (MEI) em nenhuma das 4 faixas — em vez de
+// reaproveitar a escolha de outro preset, usei "Meia pelas Pontas" (id: meia-pelas-pontas),
+// que já É literalmente a função desse grupo pensada pra abrir o jogo pelas pontas, variando
+// só o foco pela agressividade de cada faixa.
+const PONTAS_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "a base dos cruzamentos"
+    goleiro: [{ funcao: 'goleiro', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'equilibrado' }, { funcao: 'sai-jogando', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala', foco: 'apoio' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'meia-pelas-pontas', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'ala', foco: 'ataque' }],
+    ponta: [{ funcao: 'ala', foco: 'ataque' }],
+    atacante: [{ funcao: 'pivo', foco: 'ataque' }]
+};
+const PONTAS_AJUSTES_TIER1 = [
+    'VOL e MC são grupos diferentes no motor (VOL = Volante, MC = Meio-Campo) — VOL virou "Contenção"/Defesa (o grupo Volante não tem função Box-to-Box) e MC virou "Box-to-Box"/Equilibrado, batendo exatamente com o pedido.'
+];
+const PONTAS_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'goleiro', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'zagueiro-aberto', foco: 'apoio' }],
+    lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'meia-pelas-pontas', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'ala', foco: 'ataque' }],
+    ponta: [{ funcao: 'ala', foco: 'ataque' }],
+    atacante: [{ funcao: 'pivo', foco: 'ataque' }, { funcao: 'oportunista', foco: 'ataque' }]
+};
+const PONTAS_AJUSTES_TIER2 = [
+    'VOL: "Box-to-Box" não existe no grupo Volante — usei "Volante Oportunista"/Equilibrado, a função mais avançada que esse grupo tem. MC: "Box-to-Box" não tem foco Ataque nesse grupo (só Equilibrado/Roubada de Bola) — usei Equilibrado, o mais próximo disponível.',
+    'Goleiro não foi mencionado nesta faixa — mantive "Goleiro"/Equilibrado, igual à faixa Equilibrado/Ofensivo.'
+];
+const PONTAS_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'meia-pelas-pontas', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'ala', foco: 'equilibrado' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'equilibrado' }]
+};
+const PONTAS_AJUSTES_TIER3 = [
+    'Goleiro e Meia-Atacante (MEI) não foram mencionados nesta faixa — usei "Goleiro"/Defesa e "Meia pelas Pontas"/Equilibrado (o grupo Meia-Atacante não tem foco Apoio pra essa função, só Equilibrado/Deslocamento/Ataque — diferente do "Meia pelas Pontas" do grupo Meio-Campo, que tem Apoio), as opções mais condizentes com a postura defensiva.'
+];
+const PONTAS_FUNCOES_TIER4 = { // Foco: Segurar o Jogo
+    goleiro: [{ funcao: 'goleiro', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'equilibrado' }, { funcao: 'sai-jogando', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala', foco: 'apoio' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'meia-pelas-pontas', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'armacao' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'centroavante', foco: 'apoio' }]
+};
+const PONTAS_AJUSTES_TIER4 = [
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo (só existe no grupo Meia-Lateral) — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME bate com o pedido: "Meia Aberto"/Armação (a opção "Defesa/Armação" que mais mantém a posse, coerente com "segurar o jogo").',
+    'Atacante: "Pivô" não tem foco Apoio nesse grupo (só Com Abertura/Equilibrado/Ataque) — usei "Centroavante"/Apoio, que tem esse foco de verdade e também segura a bola perto da linha defensiva adversária.',
+    'Goleiro, Zagueiro, Volante/Meio-Campo e Meia-Atacante não foram mencionados nesta faixa — mantive as escolhas da faixa Equilibrado/Ofensivo (a mais próxima em espírito, já que o pedido agrupa Segura o Jogo com Equilibrado na escolha da formação).'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -589,7 +663,57 @@ const PLAYSTYLE_PRESETS = [
             meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
             atacante: [{ funcao: 'pivo', foco: 'com-abertura' }, { funcao: 'centroavante', foco: 'ataque' }]
         },
-        ajustes: []
+        ajustes: [],
+        // Ver o comentário no preset Gegenpressing sobre REFINAMENTO POR FOCO DA PARTIDA —
+        // mesmo mecanismo, aqui aplicado ao Jogo pelas Pontas. `estrategiaFormacao` de cada
+        // Foco: Defensivo/Ext.Defensivo pesa concentração defensiva ('defensiva'), Equilibrado/
+        // Segura o Jogo pesa a dobradinha Lateral+Ponta ('equilibrada'), Ofensivo/Ext.Ofensivo/
+        // Tudo ou Nada pesa amplitude no terço final ('ofensiva').
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'jogadas-pelas-pontas', estiloArmacao: 'equilibrado', abordagemDefensiva: 60,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: PONTAS_FUNCOES_TIER1,
+                ajustes: PONTAS_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'jogadas-pelas-pontas', estiloArmacao: 'equilibrado', abordagemDefensiva: 75,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: PONTAS_FUNCOES_TIER1,
+                ajustes: PONTAS_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'jogadas-pelas-pontas', estiloArmacao: 'contra-ataque', abordagemDefensiva: 85,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: PONTAS_FUNCOES_TIER2,
+                ajustes: PONTAS_AJUSTES_TIER2
+            },
+            tudo_ou_nada: {
+                predefinicao: 'jogadas-pelas-pontas', estiloArmacao: 'contra-ataque', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: PONTAS_FUNCOES_TIER2,
+                ajustes: PONTAS_AJUSTES_TIER2.concat(['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (transição rápida buscando os alas).'])
+            },
+            defensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 45,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: PONTAS_FUNCOES_TIER3,
+                ajustes: PONTAS_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 25,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: PONTAS_FUNCOES_TIER3,
+                ajustes: PONTAS_AJUSTES_TIER3.concat(['Armação: o pedido citava "Ligação Direta" de novo aqui — mesmo caso do Foco Tudo ou Nada, usei "Contra-ataque" ("rebate a bola pros pontas correrem" é literalmente uma transição rápida).'])
+            },
+            segura_o_jogo: {
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 45,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: PONTAS_FUNCOES_TIER4,
+                ajustes: PONTAS_AJUSTES_TIER4
+            }
+        }
     },
     {
         id: 'ligacao-direta', nome: 'Ligação Direta', emoji: '🚀', apelido: 'Route One',
