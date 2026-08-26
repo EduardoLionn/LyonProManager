@@ -638,6 +638,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     </div>
                     ${sug.alertaRotacao ? `<p style="font-size:13px; color:var(--warning); line-height:1.6; margin:8px 0 0 0;">${sug.alertaRotacao}</p>` : ''}
                     ${(sug.rotacoesAutomaticas && sug.rotacoesAutomaticas.length) ? `<p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin:6px 0 0 0;">🔁 Rotação forçada por fadiga: ${sug.rotacoesAutomaticas.join('; ')}</p>` : ''}
+                    ${(sug.alertasAfinidadeTatica && sug.alertasAfinidadeTatica.length) ? `<p style="font-size:12px; color:var(--warning); line-height:1.6; margin:6px 0 0 0;">🎯 Afinidade Tática: ${sug.alertasAfinidadeTatica.map(a => `${a.nome} (${a.role}) não tem "${a.funcaoExigida}" no perfil — entrou mesmo assim por falta de opção melhor`).join('; ')}.</p>` : ''}
 
                     <h4 style="margin:18px 0 8px 0; font-size:14px; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Escalação sugerida <span style="font-weight:normal; color:var(--text-muted); font-size:12px; text-transform:none;">(clique num jogador pra ver a função dele)</span></h4>
                     <div class="campo-futebol-grande" id="campo-sugestao-auxiliar"></div>
@@ -1348,6 +1349,143 @@ ${textoRegrasCompatibilidadePosicional()}
             return ocupantePorRole;
         }
 
+        // =====================================================================================
+        // AFINIDADE TÁTICA (Gegenpressing Dinâmico) — pedido do treinador: quando um preset
+        // "refinado" (js/estilo-jogo.js, hoje só o Gegenpressing) está ativo com um Foco Tático
+        // da Partida selecionado, a Matriz Dinâmica de Funções exige uma função específica pra
+        // CADA posição. Um jogador cuja especialidade não cobre a função exigida NAQUELA posição
+        // leva -8 na Nota Efetiva antes da escalação ser decidida — mas ele pode cobrir a função
+        // perfeitamente numa OUTRA posição do mesmo esquema. Isso é inerentemente por-(jogador,
+        // posição), não por-jogador — o motor de Kuhn acima (alocarPorPosicaoKuhn) não serve pra
+        // isso, porque calcula UMA pontuação por jogador antes de alocar, não uma por par. É por
+        // isso que existe este motor novo e separado (Húngaro/atribuição de peso máximo), em vez
+        // de mexer no motor das 7 Diretrizes já em produção — zero risco de regressão nelas.
+        // =====================================================================================
+
+        // Algoritmo húngaro O(n³) pra atribuição de custo mínimo (n tarefas <= m agentes) — molde
+        // clássico (potenciais u/v + caminhos aumentantes), 1-indexado internamente. Devolve um
+        // array 1-indexado `resultado` onde resultado[i] é a coluna (1-indexada) atribuída à
+        // linha i, ou 0 se a linha i não recebeu nenhuma (só acontece se n > m, o que este motor
+        // nunca deixa acontecer — ver _custoMatrizPadded abaixo).
+        function _hungaroMinimo(custo, n, m) {
+            const INF = Infinity;
+            let u = new Array(n + 1).fill(0);
+            let v = new Array(m + 1).fill(0);
+            let p = new Array(m + 1).fill(0);
+            let way = new Array(m + 1).fill(0);
+            for (let i = 1; i <= n; i++) {
+                p[0] = i;
+                let j0 = 0;
+                let minv = new Array(m + 1).fill(INF);
+                let usado = new Array(m + 1).fill(false);
+                do {
+                    usado[j0] = true;
+                    let i0 = p[j0], delta = INF, j1 = -1;
+                    for (let j = 1; j <= m; j++) {
+                        if (!usado[j]) {
+                            let atual = custo[i0 - 1][j - 1] - u[i0] - v[j];
+                            if (atual < minv[j]) { minv[j] = atual; way[j] = j0; }
+                            if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+                        }
+                    }
+                    for (let j = 0; j <= m; j++) {
+                        if (usado[j]) { u[p[j]] += delta; v[j] -= delta; }
+                        else { minv[j] -= delta; }
+                    }
+                    j0 = j1;
+                } while (p[j0] !== 0);
+                do {
+                    let j1 = way[j0];
+                    p[j0] = p[j1];
+                    j0 = j1;
+                } while (j0 !== 0);
+            }
+            let porLinha = new Array(n + 1).fill(0);
+            for (let j = 1; j <= m; j++) if (p[j] > 0) porLinha[p[j]] = j;
+            return porLinha;
+        }
+
+        // Custo (pra minimizar) alto o bastante pra NUNCA ser preferido a uma atribuição real,
+        // mesmo somando todas as posições de um esquema inteiro — sinaliza "não existe ninguém
+        // compatível pra esta função" (a mesma situação em que alocarPorPosicaoKuhn simplesmente
+        // deixa a posição de fora do resultado).
+        const _CUSTO_INCOMPATIVEL_AFINIDADE = 1e6;
+
+        // Monta os 11 titulares cruzando a pontuação efetiva da diretriz ativa (empilhada, nunca
+        // substituída — "empilhar" foi a decisão confirmada) com a penalidade de -8 por posição
+        // sempre que a especialidade do jogador não cobrir a função exigida ali (funcoesPorRole,
+        // vinda da Matriz Dinâmica do Foco ativo — ver gerarRelatorioTaticoRefinadoPorFoco). Cada
+        // par (função-do-campinho, jogador) tem seu PRÓPRIO peso — daí o Húngaro em vez do Kuhn.
+        function selecionarEscalacaoPorAfinidadeTatica(esquema, funcoesPorRole, calcularPontuacaoEfetivaFn, notaMediaFn) {
+            let coords = coordsFormacoes[esquema];
+            if (!coords || !db[currentSave]) return null;
+            let roles = coords.map(c => c.role);
+            let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
+
+            let candidatos = db[currentSave].plantel.filter(p => {
+                if (p.status !== 'Ativo') return false;
+                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                if (currentSave === 'selecao' && p.convocado === false) return false;
+                return true;
+            });
+            if (!roles.length || !candidatos.length) return {};
+
+            // Peso de cada par (função-do-campinho, jogador): pontuação efetiva da diretriz,
+            // menos 8 se a especialidade do jogador não tiver a função exigida ali cadastrada.
+            function peso(role, jogador) {
+                let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0);
+                let grupo = grupoFuncaoDoRole(role);
+                let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
+                if (!funcaoExigida) return base; // Foco sem função definida pra esse grupo — sem penalidade
+                let especialidade = ESPECIALIDADES_JOGADOR[jogador.posicao];
+                let cobre = especialidade && especialidade.gruposFuncao[grupo] && especialidade.gruposFuncao[grupo].includes(funcaoExigida);
+                return cobre ? base : base - 8;
+            }
+
+            let n = roles.length, m = Math.max(candidatos.length, roles.length);
+            let custo = [];
+            for (let i = 0; i < roles.length; i++) {
+                let linha = [];
+                for (let j = 0; j < m; j++) {
+                    let jogador = candidatos[j];
+                    if (!jogador || !posicaoCompativelComRole(roles[i], jogador.posicao)) { linha.push(_CUSTO_INCOMPATIVEL_AFINIDADE); continue; }
+                    linha.push(-peso(roles[i], jogador));
+                }
+                custo.push(linha);
+            }
+
+            let porLinha = _hungaroMinimo(custo, n, m);
+            let escalacao = {};
+            for (let i = 1; i <= n; i++) {
+                let j = porLinha[i];
+                if (!j) continue;
+                let jogador = candidatos[j - 1];
+                if (!jogador || custo[i - 1][j - 1] >= _CUSTO_INCOMPATIVEL_AFINIDADE) continue; // ninguém compatível de verdade
+                escalacao[roles[i - 1]] = jogador.nome;
+            }
+            return escalacao;
+        }
+
+        // Pra cada titular escalado, verifica se ele realmente cobre a função exigida ali —
+        // devolve só quem foi barrado (entrou mesmo sem a função no perfil, por falta de opção
+        // melhor), pro Auxiliar justificar isso na sugestão, exatamente como o pedido pediu
+        // ("justificando rapidamente se alguém foi barrado pela Afinidade Tática").
+        function alertasAfinidadeTatica(escalacao, funcoesPorRole) {
+            if (!db[currentSave] || !escalacao || !funcoesPorRole) return [];
+            return Object.entries(escalacao).map(([role, nome]) => {
+                let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
+                if (!funcaoExigida) return null;
+                let jogador = db[currentSave].plantel.find(p => p.nome === nome);
+                if (!jogador) return null;
+                let grupo = grupoFuncaoDoRole(role);
+                let especialidade = ESPECIALIDADES_JOGADOR[jogador.posicao];
+                let cobre = especialidade && especialidade.gruposFuncao[grupo] && especialidade.gruposFuncao[grupo].includes(funcaoExigida);
+                if (cobre) return null;
+                let nomeFuncao = (GRUPOS_FUNCAO_EA[grupo] && GRUPOS_FUNCAO_EA[grupo].funcoes.find(f => f.id === funcaoExigida) || {}).nome || funcaoExigida;
+                return { role, nome: jogador.nome, posicao: jogador.posicao, funcaoExigida: nomeFuncao };
+            }).filter(Boolean);
+        }
+
         // "notaMediaFn" é opcional — por padrão usa notaMediaEscaladaJogador (média de TODO o
         // histórico, cai pro OVR sem partidas). A diretriz "Em Melhor Momento" passa uma função
         // diferente (nota média só das últimas 5 partidas, sem fallback pro OVR) — o resto do
@@ -1619,6 +1757,24 @@ ${textoRegrasCompatibilidadePosicional()}
                 ? Object.entries(taticaBase.funcoesPorRoleSugeridas).map(([role, f]) => `${role}: ${f.funcao}/${f.foco}`).join(', ')
                 : 'nenhuma definida ainda — decida pela sua própria leitura do adversário';
 
+            // GEGENPRESSING DINÂMICO (pedido do treinador) — só quando o Estilo de Jogo salvo é um
+            // preset "refinado" (hoje só o Gegenpressing) E um Foco Tático da Partida foi escolhido.
+            // Nesse caso, a formação/predefinição/armação/linha deixam de ser decisão da IA — a
+            // "regra de ouro" (escolherEsquemaPorFoco) e a Matriz Dinâmica de Funções da faixa do
+            // Foco ativo (gerarRelatorioTaticoRefinadoPorFoco) decidem tudo isso deterministicamente,
+            // igual ao que a diretriz já faz com os titulares. Fora daqui, o Foco continua 100%
+            // inerte, como sempre foi (comportamento padrão pros outros 10 presets/texto livre).
+            let presetRefinado = (typeof presetRefinadoAtivo === 'function') ? presetRefinadoAtivo() : null;
+            let pacoteRefinado = (presetRefinado && focoPartidaId)
+                ? gerarRelatorioTaticoRefinadoPorFoco(formacoesPreferidasIA, presetRefinado.id, focoPartidaId)
+                : null;
+            // A Regra de Afinidade Tática (o motor Húngaro abaixo) só entra pras diretrizes de
+            // pontuação genérica (calcularPontuacaoEfetiva). A diretriz "Dar Oportunidade à
+            // Base/Jovens" tem sua própria cota (selecionarEscalacaoEBanco) — o pacote
+            // tático/matriz de função do Gegenpressing ainda se aplica nesse caso (formação e
+            // função de cada titular seguem a regra de ouro/matriz normalmente), só a escolha de
+            // QUEM joga continua vindo da cota de jovens, sem o peso da Afinidade Tática.
+
             // Toda diretriz do catálogo (Escalação Titular Padrão, Rotação Equilibrada, ...) tem sua
             // própria calcularPontuacaoEfetiva — os titulares NÃO ficam mais a cargo da IA, o
             // algoritmo já decide, pra cada formação preferida, quem entra em campo. A IA só recebe
@@ -1630,7 +1786,17 @@ ${textoRegrasCompatibilidadePosicional()}
             // no lugar — o banco dela também já sai pronto aqui, junto com a escalação.
             let escalacoesFixasPorFormacao = {};
             let bancosFixosPorFormacao = {};
-            if (diretrizInfo.selecionarEscalacaoEBanco) {
+            let alertasAfinidadeAtivos = [];
+            if (pacoteRefinado && diretrizInfo.calcularPontuacaoEfetiva) {
+                // Gegenpressing Dinâmico decidiu a formação sozinho — só ELA entra como fixa (a IA
+                // não escolhe entre as outras preferidas nesse caso, a formação já não é dela).
+                let fixaAfinidade = selecionarEscalacaoPorAfinidadeTatica(pacoteRefinado.esquemaEscolhido, pacoteRefinado.funcoesPorRole, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
+                if (fixaAfinidade && Object.keys(fixaAfinidade).length) {
+                    escalacoesFixasPorFormacao[pacoteRefinado.esquemaEscolhido] = fixaAfinidade;
+                    bancosFixosPorFormacao[pacoteRefinado.esquemaEscolhido] = montarBancoReserva(Object.values(fixaAfinidade), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
+                    alertasAfinidadeAtivos = alertasAfinidadeTatica(fixaAfinidade, pacoteRefinado.funcoesPorRole);
+                }
+            } else if (diretrizInfo.selecionarEscalacaoEBanco) {
                 formacoesPreferidasIA.forEach(esq => {
                     let resultado = diretrizInfo.selecionarEscalacaoEBanco(esq);
                     if (resultado && resultado.escalacao) {
@@ -1648,6 +1814,10 @@ ${textoRegrasCompatibilidadePosicional()}
             🔒 TITULARES JÁ DEFINIDOS PELA DIRETRIZ "${diretrizInfo.nome}" (NÃO É MAIS DECISÃO SUA):
             A escalação titular não é mais escolhida por você — foi calculada por um algoritmo estatístico oficial do clube (${diretrizInfo.descricaoIA}). Para CADA formação abaixo, os titulares já estão fixados. Sua única tarefa em relação a eles é, pra CADA jogador, escrever a instrução tática específica pra ESTE adversário e escolher função/foco coerente (a regra de compatibilidade posicional abaixo continua valendo só pra função/foco, nunca pra trocar quem joga). NUNCA troque nenhum desses jogadores por outro do elenco, mesmo que pareça uma escolha melhor — a substituição, se necessário, é feita depois, manualmente. O BANCO DE RESERVAS também já vem pronto (9 jogadores: 1 goleiro, 2 zagueiros, 1 lateral, 2 meio-campo/volante, 2 pontas, 1 atacante) — não invente reservas diferentes.
             ${Object.entries(escalacoesFixasPorFormacao).map(([esq, mapa]) => `- ${esq}: ${Object.entries(mapa).map(([role, nome]) => `${role}=${nome}`).join(', ')}`).join('\n            ')}
+            ` : '';
+            let blocoGegenpressingFixo = pacoteRefinado ? `
+            🔥 GEGENPRESSING DINÂMICO ATIVO (Foco: "${FOCOS_TATICOS_PARTIDA[focoPartidaId] || focoPartidaId}") — PACOTE TÁTICO TAMBÉM JÁ DEFINIDO (NÃO É MAIS DECISÃO SUA):
+            A formação, a predefinição, o estilo de armação e a linha defensiva NÃO são mais escolha sua pra esta partida — foram calculados pela regra de ouro do Foco selecionado: formação "${pacoteRefinado.esquemaEscolhido}", predefinição "${predefinicaoPorId(pacoteRefinado.predefinicao).nome}", armação "${estiloArmacaoPorId(pacoteRefinado.estiloArmacao).nome}", linha defensiva ${pacoteRefinado.abordagemDefensiva}/100. A função/foco de CADA titular também já vem fixada pela Matriz Dinâmica do Gegenpressing — use exatamente os campos "predefinicao"/"estiloArmacao"/"abordagemDefensiva"/"formacaoEscolhida" acima no seu JSON e escreva só a "instrucao" (texto livre) de cada titular, mantendo "funcao"/"foco" como estão.
             ` : '';
 
             let btn = document.getElementById('btn-declarar-partida-ia');
@@ -1683,6 +1853,7 @@ ${textoRegrasCompatibilidadePosicional()}
             - Função/foco de cada posição na configuração BASE do treinador (o ponto de partida — ${funcoesBaseTexto})
             - Diretriz: ${diretrizInfo.descricaoIA}
             ${blocoTitularesFixos}
+            ${blocoGegenpressingFixo}
             🏥 BOLETIM DO DEPARTAMENTO MÉDICO (LEIA COM ATENÇÃO): ${(typeof gerarRelatorioMedicoTexto === 'function') ? gerarRelatorioMedicoTexto() : "Sem novidades."}
             📚 HISTÓRICO E APRENDIZADO (o conhecimento acumulado deste treinador com este time): ${montarResumoHistoricoAuxiliarIA()}
             ${regrasEstrategistaTexto(nomeAdvManual || 'o adversário', formacaoSec, estiloJogo, diretrizInfo.descricaoIA, diasDescanso)}
@@ -1728,6 +1899,16 @@ ${textoRegrasCompatibilidadePosicional()}
 
                 if (match) {
                     let res = JSON.parse(match[0]);
+
+                    // Gegenpressing Dinâmico: formação e pacote tático NÃO são mais sugestão da IA —
+                    // a regra de ouro do Foco já decidiu tudo isso antes da chamada (pacoteRefinado).
+                    // Força por cima de qualquer coisa que a IA tenha respondido.
+                    if (pacoteRefinado) {
+                        res.formacaoEscolhida = pacoteRefinado.esquemaEscolhido;
+                        res.predefinicao = pacoteRefinado.predefinicao;
+                        res.estiloArmacao = pacoteRefinado.estiloArmacao;
+                        res.abordagemDefensiva = pacoteRefinado.abordagemDefensiva;
+                    }
                     // A formação tem que ser uma das preferidas do treinador — nunca uma de fora da lista.
                     if (!formacoesPreferidasIA.includes(res.formacaoEscolhida)) res.formacaoEscolhida = formacoesPreferidasIA[0];
 
@@ -1743,11 +1924,25 @@ ${textoRegrasCompatibilidadePosicional()}
                         Object.entries(escalacaoFixaEscolhida).forEach(([role, nomeFixo]) => {
                             res.escalacao[role] = Object.assign({}, res.escalacao[role], { nome: nomeFixo });
                         });
-                        if (diretrizInfo.selecionarEscalacaoEBanco) {
+                        if (pacoteRefinado) {
+                            res.reservas = bancosFixosPorFormacao[res.formacaoEscolhida] || [];
+                        } else if (diretrizInfo.selecionarEscalacaoEBanco) {
                             res.reservas = bancosFixosPorFormacao[res.formacaoEscolhida] || [];
                         } else if (diretrizInfo.calcularPontuacaoEfetiva) {
                             res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
                         }
+                    }
+
+                    // A função/foco de cada titular também vem fixada pela Matriz Dinâmica do
+                    // Gegenpressing — não é a IA quem decide isso nesta faixa, é a Regra de
+                    // Afinidade Tática (já cravada na escolha de QUEM joga, acima).
+                    if (pacoteRefinado) {
+                        Object.entries(pacoteRefinado.funcoesPorRole).forEach(([role, f]) => {
+                            if (res.escalacao[role]) {
+                                res.escalacao[role].funcao = f.funcao;
+                                res.escalacao[role].foco = f.foco;
+                            }
+                        });
                     }
 
                     // A diretriz "Titulares a Todo Custo (Risco de Lesão)" existe justamente pra
@@ -1801,6 +1996,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         alertaRotacao: alertaRotacao,
                         rotacoesAutomaticas: rotacoesAutomaticas,
                         alertasRiscoLesao: jogadoresEmRiscoDeLesao(res.escalacao),
+                        alertasAfinidadeTatica: alertasAfinidadeAtivos,
                         diretriz: diretrizInfo.nome,
                         focoPartida: focoPartidaId,
                         criadaEm: Date.now()
