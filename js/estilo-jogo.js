@@ -417,6 +417,60 @@ const LIGACAODIRETA_AJUSTES_TIER3 = [
     'MEI (Meia-Atacante) não foi mencionado nesta faixa — troquei para "Armador"/Equilibrado (mais contido que o "Atacante Sombra" das faixas ofensivas, mantendo uma saída de bola em vez de pura corrida de área, coerente com a postura defensiva).'
 ];
 
+// -------------------------------------------------------------------------------------
+// TRANSIÇÃO OFENSIVA LETAL DINÂMICA — mesmo mecanismo, aqui aplicado à Transição Ofensiva
+// Letal (Fast Counter). `estrategiaFormacao` de cada Foco: Defensivo/Ext.Defensivo pesa mais
+// defensores/linha de 5 ('defensiva'); Equilibrado/Segura o Jogo pesa o meio-campo mais
+// estruturado ('equilibrada'); Ofensivo/Ext.Ofensivo/Tudo ou Nada pesa mais atacantes/meias
+// ofensivos ('ofensiva') — exatamente como o pedido agrupou a Seleção Dinâmica da Formação.
+// -------------------------------------------------------------------------------------
+const TRANSICAOLETAL_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "a armadilha do bloco médio"
+    goleiro: [{ funcao: 'goleiro-libero', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'zagueiro-aberto', foco: 'defesa' }, { funcao: 'marcador', foco: 'combatividade' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'ataque' }],
+    meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    atacante: [{ funcao: 'oportunista', foco: 'ataque' }]
+};
+const TRANSICAOLETAL_AJUSTES_TIER1 = [
+    'MC/MEI: no grupo Meio-Campo, "Box-to-Box" não tem foco Ataque (só Equilibrado/Roubada de Bola) — usei "Armador"/Ataque, a segunda opção que o próprio pedido já dava, e que tem esse foco de verdade. No grupo Meia-Atacante, nem Box-to-Box (não existe nesse grupo) nem Armador (só Equilibrado/Deslocamento/Armação) têm foco Ataque — usei "Camisa 10 Clássico"/Ataque, o armador ofensivo real desse grupo.',
+    'ATA: "Atacante Sombra" não existe no grupo Atacante (só existe no grupo Meia-Atacante) — usei a primeira opção que o pedido já dava, "Oportunista"/Ataque, válida nesse grupo.'
+];
+const TRANSICAOLETAL_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'goleiro-libero', foco: 'equilibrado' }],
+    zagueiro: [{ funcao: 'zagueiro-aberto', foco: 'defesa' }, { funcao: 'marcador', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'armador', foco: 'ataque' }],
+    meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'ataque' }],
+    meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
+    atacante: [{ funcao: 'oportunista', foco: 'ataque' }]
+};
+const TRANSICAOLETAL_AJUSTES_TIER2 = [
+    'LD/LE: "Ala" nesse grupo (Lateral) não tem foco Ataque (só Apoio/Equilibrado) — usei "Ala Atacante"/Ataque, a função do grupo Lateral que realmente tem esse foco (o lateral que "raramente volta pra defender").',
+    'VOL e MC: o grupo Volante não tem Box-to-Box (nem nenhuma função com foco Ataque) — usei "Volante Oportunista"/Equilibrado, a opção mais avançada disponível. O grupo Meio-Campo tem Box-to-Box mas sem foco Ataque — usei "Armador"/Ataque, igual à faixa Equilibrado/Ofensivo.',
+    'GL e ZAGs não foram mencionados nesta faixa — mantive as escolhas da faixa Equilibrado/Ofensivo.'
+];
+const TRANSICAOLETAL_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'corta-pra-dentro', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'oportunista', foco: 'apoio' }]
+};
+const TRANSICAOLETAL_AJUSTES_TIER3 = [
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo — usei a segunda opção que o próprio pedido já dava, "Corta pra Dentro"/Equilibrado, válida nesse grupo. MD/ME (Meia-Lateral) usou a opção literal: "Meia Aberto"/Defesa.',
+    'GL e MEI não foram mencionados nesta faixa — troquei o Goleiro pro "Goleiro" tradicional/Defesa (mais contido que o Goleiro-Líbero das faixas ofensivas) e o Meia-Atacante pro "Armador"/Equilibrado (mais contido que o "Camisa 10 Clássico"/Ataque das faixas ofensivas).'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -843,7 +897,52 @@ const PLAYSTYLE_PRESETS = [
             meia_atacante: [{ funcao: 'atacante-sombra', foco: 'ataque' }],
             atacante: [{ funcao: 'oportunista', foco: 'ataque' }]
         },
-        ajustes: ['Pontas na função Meia-Lateral (MD/ME): "Corta pra Dentro" não tem foco Deslocamento nesse grupo — usei Equilibrado, o mais próximo do "explorar a lacuna deixada" pedido. Já como Ponta clássica (PD/PE) o foco Deslocamento existe normalmente.']
+        ajustes: ['Pontas na função Meia-Lateral (MD/ME): "Corta pra Dentro" não tem foco Deslocamento nesse grupo — usei Equilibrado, o mais próximo do "explorar a lacuna deixada" pedido. Já como Ponta clássica (PD/PE) o foco Deslocamento existe normalmente.'],
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'contra-ataque', estiloArmacao: 'contra-ataque', abordagemDefensiva: 45,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: TRANSICAOLETAL_FUNCOES_TIER1,
+                ajustes: TRANSICAOLETAL_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'contra-ataque', estiloArmacao: 'contra-ataque', abordagemDefensiva: 55,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: TRANSICAOLETAL_FUNCOES_TIER1,
+                ajustes: TRANSICAOLETAL_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'contra-ataque', estiloArmacao: 'contra-ataque', abordagemDefensiva: 70,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: TRANSICAOLETAL_FUNCOES_TIER2,
+                ajustes: TRANSICAOLETAL_AJUSTES_TIER2
+            },
+            tudo_ou_nada: {
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 90,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: TRANSICAOLETAL_FUNCOES_TIER2,
+                ajustes: TRANSICAOLETAL_AJUSTES_TIER2.concat(['Linha Defensiva: o pedido rotulou 90 como "Extremo Avançada", mas nas faixas reais do jogo 90 cai em "Avançada" (61-90) — "Extremo Avançada" começa em 91. Mantive o valor literal (90), só corrigindo o rótulo.'])
+            },
+            defensivo: {
+                predefinicao: 'contra-ataque', estiloArmacao: 'contra-ataque', abordagemDefensiva: 35,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: TRANSICAOLETAL_FUNCOES_TIER3,
+                ajustes: TRANSICAOLETAL_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 20,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: TRANSICAOLETAL_FUNCOES_TIER3,
+                ajustes: TRANSICAOLETAL_AJUSTES_TIER3
+            },
+            segura_o_jogo: {
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 45,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: TRANSICAOLETAL_FUNCOES_TIER1,
+                ajustes: TRANSICAOLETAL_AJUSTES_TIER1.concat(['Segura o Jogo não foi mencionado na Matriz Dinâmica de Funções (seção 3) do pedido — como a Seleção de Formação (seção 1) já agrupa esse Foco com Equilibrado, usei a mesma Matriz da faixa Equilibrado/Ofensivo.'])
+            }
+        }
     },
     {
         id: 'futebol-total', nome: 'Futebol Total', emoji: '🌀', apelido: 'Total Football',
