@@ -1650,7 +1650,7 @@
                             <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, 'tatica')">
                         </label>
                     </div>
-                    <div class="grid-2" style="margin-top:15px;">
+                    <div class="grid-3" style="margin-top:15px;">
                         <div class="linha-form">
                             <label style="color:var(--accent);">Nome do Adversário</label>
                             <input type="text" id="declarar-adv-nome" placeholder="Ex: Real Madrid" style="background: var(--bg-dark);">
@@ -1666,6 +1666,22 @@
                                 <option value="titulares-todo-custo">Titulares a Todo Custo (Risco de Lesão)</option>
                                 <option value="em-melhor-momento">Em Melhor Momento</option>
                             </select>
+                        </div>
+                        <div class="linha-form">
+                            <label style="color:var(--warning); display:flex; align-items:center; gap:5px;">
+                                Foco Tático da Partida
+                                <span title="Em breve, o Foco selecionado ditará não apenas a postura do time, mas a formação ideal, a altura da linha defensiva e os perfis específicos de jogadores exigidos para cada posição." style="cursor:help; color:var(--text-muted); font-weight:bold; border:1px solid var(--text-muted); border-radius:50%; width:14px; height:14px; font-size:10px; display:inline-flex; align-items:center; justify-content:center; text-transform:none;">i</span>
+                            </label>
+                            <select id="declarar-partida-foco" style="background: var(--bg-dark);" onchange="salvarFocoPartidaSelecionado()">
+                                <option value="equilibrado">Equilibrado (Padrão)</option>
+                                <option value="ofensivo">Ofensivo</option>
+                                <option value="extremamente_ofensivo">Extremamente Ofensivo</option>
+                                <option value="tudo_ou_nada">Tudo ou Nada (Desespero)</option>
+                                <option value="defensivo">Defensivo</option>
+                                <option value="extremamente_defensivo">Extremamente Defensivo (Retranca)</option>
+                                <option value="segura_o_jogo">Segurar o Jogo (Matar Tempo)</option>
+                            </select>
+                            <p style="font-size:11px; color:var(--text-muted); margin:6px 0 0 0; text-transform:none; letter-spacing:normal; font-weight:normal;">💡 Dica: Em breve, o Foco selecionado ditará não apenas a postura do time, mas a formação ideal, a altura da linha defensiva e os perfis específicos de jogadores exigidos para cada posição.</p>
                         </div>
                     </div>
                     <button id="btn-declarar-partida-ia" onclick="declararPartidaIA()" style="width:100%; margin-top:15px; padding: 12px; font-size: 15px; background: var(--accent); color: white;">
