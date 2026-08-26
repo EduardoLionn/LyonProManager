@@ -221,6 +221,74 @@ const RELACIONAL_AJUSTES_TIER4 = [
     'Goleiro, Zagueiro e Lateral não foram cobertos pela regra (que só fala "do meio pra frente") — mantive as escolhas da faixa Equilibrado/Ofensivo: "GL que Sai Jogando"/Armação, "Sai Jogando"/Armação e "Lateral"/Versátil.'
 ];
 
+// =====================================================================================
+// CATENACCIO — MATRIZ DINÂMICA DE FUNÇÕES POR FOCO DA PARTIDA (pedido do treinador)
+// =====================================================================================
+// Mesmo esquema dos presets refinados acima: 4 faixas de Foco, cada combo função+foco
+// conferido contra GRUPOS_FUNCAO_EA — onde o pedido citava algo que não existe de verdade, a
+// alternativa válida mais próxima entra no lugar, documentada no array de ajustes ao lado.
+const CATENACCIO_FUNCOES_TIER1 = { // Foco: Equilibrado ou Ofensivo — "a armadilha do contra-ataque"
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }, { funcao: 'marcador', foco: 'combatividade' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }, { funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'oportunista', foco: 'ataque' }]
+};
+const CATENACCIO_AJUSTES_TIER1 = [
+    'MC e MEI são grupos diferentes no motor (MC = Meio-Campo, MEI = Meia-Atacante), mesmo o pedido tratando os dois juntos — MC virou "Contenção"/Defesa (a opção mais "muralha" do "ou") e MEI virou "Armador"/Deslocamento (a opção mais criativa do "ou", já que o grupo Meia-Atacante nem tem função Contenção).',
+    'PD/PE (Ponta): nem "Ponta Operário" (isso é nome de especialidade cadastrável do jogador, não função real do campinho) nem "Meia Aberto" existem nesse grupo (Meia Aberto só existe no grupo Meia-Lateral) — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME (Meia-Lateral) bate exatamente com o pedido: "Meia Aberto"/Defesa.',
+    'Atacante: "Atacante Sombra" não existe no grupo Atacante (só existe no grupo Meia-Atacante) — usei "Oportunista"/Ataque, a opção do "ou" que existe de verdade nesse grupo e também bate com "correr nas costas da zaga".'
+];
+const CATENACCIO_FUNCOES_TIER2 = { // Foco: Extremamente Ofensivo ou Tudo ou Nada
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'marcador', foco: 'combatividade' }, { funcao: 'zagueiro-aberto', foco: 'combatividade' }],
+    lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }],
+    volante: [{ funcao: 'volante-oportunista', foco: 'equilibrado' }],
+    meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
+    meia_lateral: [{ funcao: 'ala', foco: 'ataque' }],
+    atacante: [{ funcao: 'oportunista', foco: 'ataque' }, { funcao: 'pivo', foco: 'ataque' }]
+};
+const CATENACCIO_AJUSTES_TIER2 = [
+    'LD/LE (Lateral): "Ala" não tem foco Ataque nesse grupo (só Apoio/Equilibrado) — usei "Ala Atacante"/Ataque, que tem esse foco de verdade e é ainda mais ofensivo. MD/ME (Meia-Lateral) bate exatamente com o pedido: "Ala"/Ataque.',
+    'MC: "Box-to-Box" não tem foco Ataque nesse grupo (só Equilibrado/Roubada de Bola) — usei Equilibrado, o mais próximo disponível. VOL: "Box-to-Box" não existe no grupo Volante — usei "Volante Oportunista"/Equilibrado, a função mais avançada que esse grupo tem.',
+    'Ponta (PD/PE) não foi mencionada nesta faixa do pedido (só "LD/LE / MD/ME") — mantive a mesma da faixa Equilibrado/Ofensivo.'
+];
+const CATENACCIO_FUNCOES_TIER3 = { // Foco: Defensivo ou Extremamente Defensivo — "o verdadeiro Catenaccio"
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'pivo', foco: 'equilibrado' }]
+};
+const CATENACCIO_AJUSTES_TIER3 = [
+    'PD/PE (Ponta): "Meia Aberto" não existe nesse grupo (só existe no grupo Meia-Lateral) — usei "Ala"/Equilibrado, a opção mais contida disponível. MD/ME bate exatamente com o pedido: "Meia Aberto"/Defesa.',
+    'Goleiro e Meia-Atacante (MEI) não foram mencionados nesta faixa — usei "Goleiro"/Defesa e "Armador"/Equilibrado, as opções mais condizentes com o ferrolho total dessa postura.'
+];
+const CATENACCIO_FUNCOES_TIER4 = { // Foco: Segurar o Jogo — regra geral Defesa/Equilibrado, ATA em Apoio
+    goleiro: [{ funcao: 'goleiro', foco: 'defesa' }],
+    zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
+    lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+    volante: [{ funcao: 'contencao', foco: 'defesa' }],
+    meio_campo_central: [{ funcao: 'contencao', foco: 'defesa' }],
+    meia_atacante: [{ funcao: 'armador', foco: 'equilibrado' }],
+    meia_lateral: [{ funcao: 'meia-aberto', foco: 'defesa' }],
+    ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
+    atacante: [{ funcao: 'centroavante', foco: 'apoio' }]
+};
+const CATENACCIO_AJUSTES_TIER4 = [
+    'Ponta (PD/PE): a função "Ala" desse grupo não tem foco Defesa (só Versátil/Ataque/Equilibrado) — usei Equilibrado, o mais contido disponível. Todos os outros grupos bateram exatamente com a regra geral do pedido (Defesa ou Equilibrado).',
+    'Atacante: nem "Pivô" nem "Falso 9" têm foco Apoio — usei "Centroavante"/Apoio, que tem esse foco de verdade e também "segura" o jogo perto da linha defensiva adversária, coerente com "prender a bola... e cavar faltas".'
+];
+
 const PLAYSTYLE_PRESETS = [
     {
         id: 'gegenpressing', nome: 'Gegenpressing', emoji: '🔥', apelido: 'Heavy Metal Football',
@@ -456,7 +524,58 @@ const PLAYSTYLE_PRESETS = [
             'Zagueiro: 1º slot (o mais central) vira "Zagueiro"/Defesa; os demais (laterais da linha de três/cinco) viram "Zagueiro Aberto"/Defesa.',
             'Alas (Meia-Lateral/Ponta): o foco "Defesa" não existe pra função Ala nesses grupos (só Equilibrado/Ataque) — usei Equilibrado, a alternativa mais próxima.',
             'Atacante: 1º slot vira "Pivô" (alvo), 2º vira "Oportunista" (velocista).'
-        ]
+        ],
+        // Ver o comentário no preset Gegenpressing sobre REFINAMENTO POR FOCO DA PARTIDA —
+        // mesmo mecanismo, aqui aplicado ao Catenaccio. `estrategiaFormacao` de cada Foco:
+        // Defensivo/Ext.Defensivo/Segura o Jogo pesa concentração defensiva ('defensiva' —
+        // linha de 5, senão mais volantes, exatamente a regra de ouro que o pedido descreve),
+        // Equilibrado pesa meio-campo estruturado ('equilibrada'), Ofensivo/Ext.Ofensivo/
+        // Tudo ou Nada pesa presença ofensiva mantendo solidez ('ofensiva').
+        refinado: true,
+        porFoco: {
+            equilibrado: {
+                predefinicao: 'contra-ataque', estiloArmacao: 'contra-ataque', abordagemDefensiva: 35,
+                estrategiaFormacao: 'equilibrada',
+                funcoesPorGrupo: CATENACCIO_FUNCOES_TIER1,
+                ajustes: CATENACCIO_AJUSTES_TIER1
+            },
+            ofensivo: {
+                predefinicao: 'contra-ataque', estiloArmacao: 'contra-ataque', abordagemDefensiva: 50,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: CATENACCIO_FUNCOES_TIER1,
+                ajustes: CATENACCIO_AJUSTES_TIER1
+            },
+            extremamente_ofensivo: {
+                predefinicao: 'padrao', estiloArmacao: 'contra-ataque', abordagemDefensiva: 65,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: CATENACCIO_FUNCOES_TIER2,
+                ajustes: CATENACCIO_AJUSTES_TIER2
+            },
+            tudo_ou_nada: {
+                predefinicao: 'padrao', estiloArmacao: 'contra-ataque', abordagemDefensiva: 85,
+                estrategiaFormacao: 'ofensiva',
+                funcoesPorGrupo: CATENACCIO_FUNCOES_TIER2,
+                ajustes: CATENACCIO_AJUSTES_TIER2.concat(['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (jogo direto, corridas nas costas da defesa).'])
+            },
+            defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 25,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: CATENACCIO_FUNCOES_TIER3,
+                ajustes: CATENACCIO_AJUSTES_TIER3
+            },
+            extremamente_defensivo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 10,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: CATENACCIO_FUNCOES_TIER3,
+                ajustes: CATENACCIO_AJUSTES_TIER3.concat(['Armação: o pedido citava "Ligação Direta" de novo aqui — mesmo caso do Foco Tudo ou Nada, usei "Contra-ataque".'])
+            },
+            segura_o_jogo: {
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 15,
+                estrategiaFormacao: 'defensiva',
+                funcoesPorGrupo: CATENACCIO_FUNCOES_TIER4,
+                ajustes: CATENACCIO_AJUSTES_TIER4
+            }
+        }
     },
     {
         id: 'jogo-pelas-pontas', nome: 'Jogo pelas Pontas', emoji: '↔️', apelido: 'Wing Play Clássico',
