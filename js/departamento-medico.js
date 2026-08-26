@@ -300,7 +300,7 @@ function forcarDescansoPreventivo(nome) {
 }
 
 // Categoria ampla cadastrada no jogador (o texto antes da "/" em p.posicao, ex: "Volante" em
-// "Volante/Armação") -> grupo de função real do EA FC (js/funcoes-ea.js), pra saber em qual
+// "Volante/Organizador") -> grupo de função real do EA FC (js/funcoes-ea.js), pra saber em qual
 // catálogo de funções procurar a sugestão de desenvolvimento individual dele.
 const GRUPO_POR_CATEGORIA_JOGADOR = {
     'Goleiro': 'goleiro', 'Zagueiro': 'zagueiro', 'Lateral': 'lateral', 'Volante': 'volante',

@@ -198,15 +198,15 @@ Existem colunas mostrando a Posição, Nome, GER/OVR e, se disponível, a Idade.
 Extraia TODOS os jogadores da lista visíveis na imagem.
 
 ATENÇÃO AO MAPEAMENTO DE POSIÇÕES (Você deve traduzir a sigla do jogo para as posições do nosso sistema):
-- Se a sigla for "GL" -> use "Goleiro"
-- Se a sigla for "ZAG", "ZAD", "ZAE", "ZAC" -> use "Zagueiro/Defesa"
-- Se a sigla for "LD", "LAD" -> use "Lateral/Defesa Direito"
-- Se a sigla for "LE", "LAE" -> use "Lateral/Defesa Esquerdo"
-- Se a sigla for "VOL" -> use "Volante/Contenção"
-- Se a sigla for "MC", "MCD", "MCE" -> use "MeioCampo/Equilibrado"
-- Se a sigla for "MD", "PD" -> use "Ponta/Ala Direita"
-- Se a sigla for "ME", "PE" -> use "Ponta/Ala Esquerda"
-- Se a sigla for "ATA", "MEI", "ATD", "ATE", "SA", "CA" -> use "Atacante/Versátil"
+- Se a sigla for "GL" -> use "Goleiro/Tradicional"
+- Se a sigla for "ZAG", "ZAD", "ZAE", "ZAC" -> use "Zagueiro/Rebatedor"
+- Se a sigla for "LD", "LAD" -> use "Lateral/Defensivo Direito"
+- Se a sigla for "LE", "LAE" -> use "Lateral/Defensivo Esquerdo"
+- Se a sigla for "VOL" -> use "Volante/Cão de Guarda"
+- Se a sigla for "MC", "MCD", "MCE" -> use "MeioCampo/Dinâmico"
+- Se a sigla for "MD", "PD" -> use "Ponta/Clássico Direito"
+- Se a sigla for "ME", "PE" -> use "Ponta/Clássico Esquerdo"
+- Se a sigla for "ATA", "MEI", "ATD", "ATE", "SA", "CA" -> use "Atacante/Móvel"
 
 O nome deve ser copiado exatamente como está na tela (ex: O. Vlachodimos).
 Se a idade do jogador estiver visível na tela, extraia como número em "idade". Se não estiver visível, omita o campo (não invente um valor).

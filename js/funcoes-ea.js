@@ -252,68 +252,210 @@ function _semAcento(txt) {
     return String(txt || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
+// =====================================================================================
+// ESPECIALIDADES DO JOGADOR — a posição de carteirinha (p.posicao, ex: "Zagueiro/Híbrido")
+// que o treinador escolhe no cadastro. Cada especialidade define, por grupo de função do
+// campinho (as mesmas chaves de GRUPOS_FUNCAO_EA), quais funções reais daquele grupo o
+// jogador está apto a exercer — a primeira da lista é a função "padrão" dele nesse grupo.
+// Isso substitui as duas réguas que existiam separadas (compatibilidade posicional pra
+// escalação + escolha de função tática): agora as duas vêm do mesmo lugar, então nunca
+// divergem uma da outra.
+//
+// `lado` só importa pros grupos "com lado de verdade" (lateral/ponta/meia_lateral — um
+// lateral-direito não cobre a ala esquerda): 'D', 'E' ou 'ambos' (cobre os dois lados,
+// caso de especialidades sem lado fixo que ainda assim jogam de ala/lateral, ex: um
+// zagueiro híbrido que cobre qualquer lateral). Nos demais grupos o lado é só geometria
+// e essa chave é ignorada.
+//
+// `perfil` é só pra frases de flavor text (ex: motivo de um reserva entrar no lugar do
+// titular) — uma classificação grosseira (defesa/criacao/ataque/fisico/amplitude/equilibrado).
+//
+// Ajuste fino de QUAL função específica escolher dentro da lista (ex: variar com a tática
+// ativa) fica pra depois — por ora a primeira da lista é sempre a função padrão.
+// =====================================================================================
+const ESPECIALIDADES_JOGADOR = {
+    'Goleiro/Tradicional': { perfil: 'equilibrado', lado: null, gruposFuncao: {
+        goleiro: ['goleiro']
+    }},
+    'Goleiro/Construtor': { perfil: 'criacao', lado: null, gruposFuncao: {
+        goleiro: ['gl-sai-jogando', 'goleiro']
+    }},
+    'Goleiro/Líbero': { perfil: 'ataque', lado: null, gruposFuncao: {
+        goleiro: ['goleiro-libero', 'goleiro']
+    }},
+
+    'Zagueiro/Rebatedor': { perfil: 'defesa', lado: null, gruposFuncao: {
+        zagueiro: ['defesa', 'marcador']
+    }},
+    'Zagueiro/Construtor': { perfil: 'criacao', lado: null, gruposFuncao: {
+        zagueiro: ['sai-jogando', 'marcador', 'defesa'], volante: ['zaga', 'armador-recuado']
+    }},
+    'Zagueiro/Cobertura': { perfil: 'defesa', lado: 'ambos', gruposFuncao: {
+        zagueiro: ['marcador', 'zagueiro-aberto', 'defesa'], lateral: ['lateral']
+    }},
+    'Zagueiro/Híbrido': { perfil: 'equilibrado', lado: 'ambos', gruposFuncao: {
+        zagueiro: ['defesa', 'marcador', 'zagueiro-aberto', 'sai-jogando'],
+        volante: ['contencao', 'zaga', 'armador-recuado'], meio_campo_central: ['contencao'], lateral: ['lateral']
+    }},
+
+    'Lateral/Defensivo Direito': { perfil: 'defesa', lado: 'D', gruposFuncao: {
+        lateral: ['lateral'], zagueiro: ['zagueiro-aberto', 'marcador']
+    }},
+    'Lateral/Defensivo Esquerdo': { perfil: 'defesa', lado: 'E', gruposFuncao: {
+        lateral: ['lateral'], zagueiro: ['zagueiro-aberto', 'marcador']
+    }},
+    'Lateral/Construtor Direito': { perfil: 'criacao', lado: 'D', gruposFuncao: {
+        lateral: ['lateral-invertido', 'lateral'], volante: ['meia-pelas-laterais', 'armador-recuado'], meio_campo_central: ['armador-recuado']
+    }},
+    'Lateral/Construtor Esquerdo': { perfil: 'criacao', lado: 'E', gruposFuncao: {
+        lateral: ['lateral-invertido', 'lateral'], volante: ['meia-pelas-laterais', 'armador-recuado'], meio_campo_central: ['armador-recuado']
+    }},
+    'Lateral/Ala Clássico Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+        lateral: ['ala', 'lateral'], meia_lateral: ['ala', 'meia-aberto']
+    }},
+    'Lateral/Ala Clássico Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
+        lateral: ['ala', 'lateral'], meia_lateral: ['ala', 'meia-aberto']
+    }},
+    'Lateral/Ala Ofensivo Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+        lateral: ['ala-atacante', 'ala-invertido', 'ala'], ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
+    }},
+    'Lateral/Ala Ofensivo Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
+        lateral: ['ala-atacante', 'ala-invertido', 'ala'], ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
+    }},
+
+    'Volante/Cão de Guarda': { perfil: 'defesa', lado: null, gruposFuncao: {
+        volante: ['contencao', 'zaga'], zagueiro: ['defesa', 'marcador', 'zagueiro-aberto'], meio_campo_central: ['contencao']
+    }},
+    'Volante/Organizador': { perfil: 'criacao', lado: null, gruposFuncao: {
+        volante: ['armador-recuado'], meio_campo_central: ['armador-recuado', 'armador'], zagueiro: ['sai-jogando']
+    }},
+    'Volante/Motorzinho': { perfil: 'equilibrado', lado: 'ambos', gruposFuncao: {
+        volante: ['volante-oportunista', 'contencao'], meio_campo_central: ['box-to-box', 'contencao'], meia_lateral: ['meia-aberto']
+    }},
+
+    'MeioCampo/Dinâmico': { perfil: 'equilibrado', lado: null, gruposFuncao: {
+        meio_campo_central: ['box-to-box', 'contencao', 'armador-recuado'], volante: ['volante-oportunista', 'armador-recuado']
+    }},
+    'MeioCampo/Armador Clássico': { perfil: 'criacao', lado: 'ambos', gruposFuncao: {
+        meia_atacante: ['camisa-10-classico', 'armador'], meio_campo_central: ['armador', 'armador-recuado'], meia_lateral: ['armador-aberto']
+    }},
+    'MeioCampo/Infiltrador': { perfil: 'ataque', lado: 'ambos', gruposFuncao: {
+        meia_atacante: ['atacante-sombra'], meio_campo_central: ['box-to-box'], atacante: ['falso-9'], ponta: ['corta-pra-dentro']
+    }},
+    'MeioCampo/Aberto Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+        meio_campo_central: ['meia-pelas-pontas'], meia_atacante: ['meia-pelas-pontas'], meia_lateral: ['meia-aberto'], lateral: ['lateral']
+    }},
+    'MeioCampo/Aberto Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
+        meio_campo_central: ['meia-pelas-pontas'], meia_atacante: ['meia-pelas-pontas'], meia_lateral: ['meia-aberto'], lateral: ['lateral']
+    }},
+
+    'Ponta/Operário Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+        meia_lateral: ['meia-aberto', 'ala'], lateral: ['ala-atacante', 'ala', 'lateral'], ponta: ['ala']
+    }},
+    'Ponta/Operário Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
+        meia_lateral: ['meia-aberto', 'ala'], lateral: ['ala-atacante', 'ala', 'lateral'], ponta: ['ala']
+    }},
+    'Ponta/Clássico Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+        ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
+    }},
+    'Ponta/Clássico Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
+        ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
+    }},
+    'Ponta/Invertido Direito': { perfil: 'ataque', lado: 'D', gruposFuncao: {
+        ponta: ['corta-pra-dentro'], meia_lateral: ['corta-pra-dentro'], atacante: ['oportunista', 'falso-9']
+    }},
+    'Ponta/Invertido Esquerdo': { perfil: 'ataque', lado: 'E', gruposFuncao: {
+        ponta: ['corta-pra-dentro'], meia_lateral: ['corta-pra-dentro'], atacante: ['oportunista', 'falso-9']
+    }},
+    'Ponta/Construtor Direito': { perfil: 'criacao', lado: 'D', gruposFuncao: {
+        ponta: ['armador-aberto'], meia_lateral: ['armador-aberto'], meia_atacante: ['meia-pelas-pontas', 'armador'], meio_campo_central: ['armador']
+    }},
+    'Ponta/Construtor Esquerdo': { perfil: 'criacao', lado: 'E', gruposFuncao: {
+        ponta: ['armador-aberto'], meia_lateral: ['armador-aberto'], meia_atacante: ['meia-pelas-pontas', 'armador'], meio_campo_central: ['armador']
+    }},
+
+    'Atacante/Pivô': { perfil: 'fisico', lado: null, gruposFuncao: {
+        atacante: ['pivo', 'centroavante']
+    }},
+    'Atacante/Matador': { perfil: 'ataque', lado: null, gruposFuncao: {
+        atacante: ['oportunista', 'centroavante']
+    }},
+    'Atacante/Falso 9': { perfil: 'criacao', lado: null, gruposFuncao: {
+        atacante: ['falso-9', 'centroavante'], meia_atacante: ['atacante-sombra', 'camisa-10-classico', 'armador']
+    }},
+    'Atacante/Móvel': { perfil: 'ataque', lado: 'ambos', gruposFuncao: {
+        atacante: ['oportunista', 'falso-9', 'centroavante', 'pivo'], ponta: ['corta-pra-dentro'], meia_atacante: ['atacante-sombra']
+    }}
+};
+
+// Grupo de função -> lista de siglas do campinho que usam aquele catálogo (inverso de
+// GRUPO_POR_ROLE, calculado uma vez só).
+const SIGLAS_POR_GRUPO_FUNCAO = {};
+Object.entries(GRUPO_POR_ROLE).forEach(([sigla, grupo]) => {
+    (SIGLAS_POR_GRUPO_FUNCAO[grupo] = SIGLAS_POR_GRUPO_FUNCAO[grupo] || []).push(sigla);
+});
+
+// Grupos onde o lado (D/E) muda a elegibilidade de verdade — um lateral/ponta/meia-lateral
+// direito não cobre o lado esquerdo. Nos demais grupos (zagueiro/volante/meio-campo/meia-
+// atacante/atacante) o lado da sigla é só geometria, então uma especialidade sem lado fixo
+// (lado: null) já cobre todas as siglas daquele grupo.
+const GRUPOS_COM_LADO = new Set(['lateral', 'ponta', 'meia_lateral']);
+const LADO_DA_SIGLA = { LAD: 'D', ALD: 'D', LAE: 'E', ALE: 'E', MD: 'D', ME: 'E', PD: 'D', PE: 'E' };
+
+// Pra cada especialidade, pré-computa o conjunto de siglas do campinho em que ela é aceita —
+// evita recalcular isso toda vez que o seletor de troca ou a escalação automática precisam
+// checar compatibilidade (o que acontece bastante vezes por partida).
+Object.values(ESPECIALIDADES_JOGADOR).forEach(especialidade => {
+    let siglas = new Set();
+    Object.keys(especialidade.gruposFuncao).forEach(grupoKey => {
+        let todasSiglas = SIGLAS_POR_GRUPO_FUNCAO[grupoKey] || [];
+        if (GRUPOS_COM_LADO.has(grupoKey)) {
+            todasSiglas.forEach(sigla => {
+                if (especialidade.lado === 'ambos' || especialidade.lado === LADO_DA_SIGLA[sigla]) siglas.add(sigla);
+            });
+        } else {
+            todasSiglas.forEach(sigla => siglas.add(sigla));
+        }
+    });
+    especialidade._siglasCompativeis = siglas;
+});
+
+// true se a posição de carteirinha do jogador é aceita na função do campinho (sigla) informada.
+// Fonte única pra escalação automática, pro seletor de troca e pro prompt de escalação da IA.
+function posicaoCompativelComRole(role, posicaoJogador) {
+    let especialidade = ESPECIALIDADES_JOGADOR[posicaoJogador];
+    return !!(especialidade && especialidade._siglasCompativeis.has(role));
+}
+
+// Texto curto de classificação da especialidade (defesa/criacao/ataque/fisico/amplitude/
+// equilibrado) — só pra frases de flavor text, nunca pra travar nada.
+function perfilTaticoEspecialidade(posicaoJogador) {
+    let especialidade = ESPECIALIDADES_JOGADOR[posicaoJogador];
+    return especialidade ? especialidade.perfil : 'equilibrado';
+}
+
+// Função neutra de cada grupo, usada quando não há especialidade de jogador pra consultar
+// (ex: o assistente de Estilo de Jogo monta um preset de função por sigla ANTES de qualquer
+// jogador estar escalado, chamando escolherFuncaoJogador com posicaoJogador null).
+const FUNCAO_PADRAO_POR_GRUPO = {
+    goleiro: 'goleiro', zagueiro: 'defesa', lateral: 'lateral', volante: 'contencao',
+    meio_campo_central: 'box-to-box', meia_atacante: 'camisa-10-classico', meia_lateral: 'meia-aberto',
+    ponta: 'ala', atacante: 'centroavante'
+};
+
 // Escolhe a função (dentro do grupo da posição) a partir da especialidade cadastrada do
-// jogador (ex: "Zagueiro/Construtor" puxa pra "Sai Jogando"). Goleiro não tem especialidade
-// cadastrada, então usa a tática pra decidir entre os 3 estilos de goleiro do jogo.
+// jogador (ex: "Zagueiro/Construtor" -> zagueiro que Sai Jogando). A primeira função listada
+// pra aquele grupo em ESPECIALIDADES_JOGADOR é sempre a escolhida (variar por tática fica
+// pra depois). Goleiro não depende da tática mais — a diferença entre os 3 estilos agora
+// vem só da especialidade cadastrada.
 function _escolherFuncaoBase(grupoKey, role, posicaoJogador, tatica) {
     let grupo = GRUPOS_FUNCAO_EA[grupoKey];
     if (!grupo) return null;
-    let porId = id => grupo.funcoes.find(f => f.id === id) || grupo.funcoes[0];
-    let pos = _semAcento(posicaoJogador);
-
-    if (grupoKey === 'goleiro') {
-        let abordagem = (tatica && typeof tatica.abordagemDefensiva === 'number') ? tatica.abordagemDefensiva : 50;
-        let estilo = tatica ? tatica.estiloArmacao : '';
-        if (estilo === 'passe-curto' || (tatica && (tatica.predefinicao === 'posse-bola' || tatica.predefinicao === 'pressao-alta'))) return porId('gl-sai-jogando');
-        if (abordagem >= 91) return porId('goleiro-libero');
-        return porId('goleiro');
-    }
-    if (grupoKey === 'zagueiro') {
-        if (pos.includes('construtor')) return porId('sai-jogando');
-        if (pos.includes('lateral')) return porId('zagueiro-aberto');
-        if (pos.includes('versatil')) return porId('marcador');
-        return porId('defesa');
-    }
-    if (grupoKey === 'lateral') {
-        let avancado = role === 'ALD' || role === 'ALE';
-        if (pos.includes('construtor')) return porId(avancado ? 'ala-invertido' : 'lateral-invertido');
-        if (pos.includes('ala')) return porId(avancado ? 'ala-atacante' : 'ala');
-        return porId('lateral');
-    }
-    if (grupoKey === 'volante') {
-        if (pos.includes('zaga')) return porId('zaga');
-        if (pos.includes('armacao') || pos.includes('armação')) return porId('armador-recuado');
-        return porId('contencao');
-    }
-    if (grupoKey === 'meio_campo_central') {
-        if (pos.includes('armador')) return porId('armador');
-        if (pos.includes('abertura')) return porId('meia-pelas-pontas');
-        return porId('box-to-box');
-    }
-    if (grupoKey === 'meia_atacante') {
-        if (pos.includes('armador')) return porId('armador');
-        if (pos.includes('abertura')) return porId('meia-pelas-pontas');
-        if (pos.includes('ataque')) return porId('atacante-sombra');
-        return porId('camisa-10-classico');
-    }
-    if (grupoKey === 'meia_lateral') {
-        if (pos.includes('invertido')) return porId('corta-pra-dentro');
-        if (pos.includes('armador')) return porId('armador-aberto');
-        if (pos.includes('ala')) return porId('ala');
-        return porId('meia-aberto');
-    }
-    if (grupoKey === 'ponta') {
-        if (pos.includes('invertido')) return porId('corta-pra-dentro');
-        if (pos.includes('armador')) return porId('armador-aberto');
-        return porId('ala');
-    }
-    if (grupoKey === 'atacante') {
-        if (pos.includes('fisico') || pos.includes('físico')) return porId('pivo');
-        if (pos.includes('armador')) return porId('falso-9');
-        if (pos.includes('velocidade')) return porId('oportunista');
-        return porId('centroavante');
-    }
-    return grupo.funcoes[0];
+    let especialidade = ESPECIALIDADES_JOGADOR[posicaoJogador];
+    let candidatos = especialidade && especialidade.gruposFuncao[grupoKey];
+    if (candidatos && candidatos.length) return grupo.funcoes.find(f => f.id === candidatos[0]) || grupo.funcoes[0];
+    let padraoId = FUNCAO_PADRAO_POR_GRUPO[grupoKey];
+    return (padraoId && grupo.funcoes.find(f => f.id === padraoId)) || grupo.funcoes[0];
 }
 
 // Dado o "abordagem defensiva" (0-100) e o "estilo de armação" da tática ativa, escolhe entre

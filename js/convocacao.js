@@ -73,7 +73,7 @@ async function lerImagemConvocacao(event) {
 
         let prompt = `Analise esta tela de convocação de uma seleção nacional de futebol. Extraia a lista de nomes dos jogadores convocados que aparecem na imagem.
         Pra cada nome, tente casar com esta lista de jogadores já cadastrados (retorne o nome EXATAMENTE como está nesta lista se encontrar uma correspondência): [${nomesExistentes}].
-        Se o jogador não estiver nessa lista, é um jogador novo — retorne o nome como aparece na imagem, e estime a posição (uma destas: Goleiro, Zagueiro/Defesa, Lateral/Defesa Direito, Lateral/Defesa Esquerdo, Volante/Contenção, MeioCampo/Armador, MeioCampo/Equilibrado, Ponta/Ala Direita, Ponta/Ala Esquerda, Atacante/Versátil) e o OVR aproximado se estiver visível na tela (senão estime pelo contexto/liga do jogador).
+        Se o jogador não estiver nessa lista, é um jogador novo — retorne o nome como aparece na imagem, e estime a posição (uma destas: Goleiro/Tradicional, Zagueiro/Rebatedor, Lateral/Defensivo Direito, Lateral/Defensivo Esquerdo, Volante/Cão de Guarda, MeioCampo/Armador Clássico, MeioCampo/Dinâmico, Ponta/Clássico Direito, Ponta/Clássico Esquerdo, Atacante/Móvel) e o OVR aproximado se estiver visível na tela (senão estime pelo contexto/liga do jogador).
         Retorne EXATAMENTE este JSON puro, sem formatação markdown:
         {"jogadores": [{"nome": "Nome do Jogador", "posicao": "Posição", "ovr": numero}]}`;
 
@@ -89,7 +89,7 @@ async function lerImagemConvocacao(event) {
                     if (existente) {
                         nomesConvocadosNestaLeitura.add(existente.nome);
                     } else {
-                        let novoJogador = { nome: j.nome, posicao: j.posicao || 'MeioCampo/Equilibrado', ovr: Number(j.ovr) || 70, status: 'Ativo', jogosAvaliacao: 0, convocado: true };
+                        let novoJogador = { nome: j.nome, posicao: j.posicao || 'MeioCampo/Dinâmico', ovr: Number(j.ovr) || 70, status: 'Ativo', jogosAvaliacao: 0, convocado: true };
                         db.selecao.plantel.push(novoJogador);
                         nomesConvocadosNestaLeitura.add(novoJogador.nome);
                     }

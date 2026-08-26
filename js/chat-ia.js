@@ -784,18 +784,13 @@ ${textoRegrasCompatibilidadePosicional()}
 
         // Clique num reserva do banco só-leitura: mostra em quais posições do esquema atual ele
         // pode entrar e a função que faria em cada uma — não abre nenhuma troca de verdade.
-        // Perfil tático de uma especialidade cadastrada (Zagueiro/Construtor, Volante/Contenção...)
+        // Perfil tático de uma especialidade cadastrada (Zagueiro/Híbrido, Volante/Organizador...)
         // — usado pra comparar reserva x titular e dar um motivo de entrada REAL, não um texto
         // genérico igual pra qualquer jogador do mesmo grupo. Baseado só na posição de carteirinha
-        // (nunca em atributos escondidos, que o jogo não expõe pra IA/motor).
+        // (nunca em atributos escondidos, que o jogo não expõe pra IA/motor). O perfil de cada
+        // especialidade vem de ESPECIALIDADES_JOGADOR, em js/funcoes-ea.js.
         function _perfilTaticoDaPosicao(posicao) {
-            let p = _semAcento(String(posicao || '').toLowerCase());
-            if (p.includes('defesa') || p.includes('contencao') || p.includes('zaga')) return 'defesa';
-            if (p.includes('construtor') || p.includes('armador') || p.includes('armacao') || p.includes('abertura')) return 'criacao';
-            if (p.includes('fisico')) return 'fisico';
-            if (p.includes('velocidade') || p.includes('ataque') || p.includes('invertido') || p.includes('aberto')) return 'ataque';
-            if (p.includes('ala')) return 'amplitude';
-            return 'equilibrado';
+            return (typeof perfilTaticoEspecialidade === 'function') ? perfilTaticoEspecialidade(posicao) : 'equilibrado';
         }
 
         const MOTIVO_POR_PERFIL_TATICO = {
@@ -1790,52 +1785,10 @@ ${textoRegrasCompatibilidadePosicional()}
 
         // Quem pode jogar em cada função do campinho, além da posição "de carteirinha" — reflete como
         // times de verdade improvisam peças parecidas. Usada pro seletor de troca (clique no jogador),
-        // pra rotação automática por fadiga e pro próprio prompt de escalação da IA (regrasEstrategistaTexto),
-        // então as três coisas seguem exatamente a mesma régua de compatibilidade posicional.
-        const POS_ZAGUEIRO_TODOS = ['Zagueiro/Construtor', 'Zagueiro/Lateral', 'Zagueiro/Versatil', 'Zagueiro/Defesa'];
-        const POS_VOLANTE_TODOS = ['Volante/Zaga', 'Volante/Contenção', 'Volante/Armação'];
-        const POS_MEIOCAMPO_TODOS = ['MeioCampo/Equilibrado', 'MeioCampo/Armador', 'MeioCampo/Abertura', 'MeioCampo/Ataque', 'MeioCampo/Versátil'];
-        const POS_PONTA_TODOS = ['Ponta/Ala Direita', 'Ponta/Ala Esquerda', 'Ponta/Invertido', 'Ponta/Armador', 'Ponta/Versátil'];
-        const POS_ATACANTE_TODOS = ['Atacante/Aberto', 'Atacante/Fisico', 'Atacante/Armador', 'Atacante/Velocidade', 'Atacante/Versátil'];
-        const POS_LATERAL_VERSATIL = ['Lateral/Defesa Versatil', 'Lateral/Ala Versatil', 'Lateral/Construtor Versatil'];
-        const POS_LATERAL_DIREITO = ['Lateral/Defesa Direito', 'Lateral/Ala Direito', 'Lateral/Construtor Direito'];
-        const POS_LATERAL_ESQUERDO = ['Lateral/Defesa Esquerdo', 'Lateral/Ala Esquerdo', 'Lateral/Construtor Esquerdo'];
-        const POS_LATERAL_CONSTRUTOR = ['Lateral/Construtor Direito', 'Lateral/Construtor Esquerdo', 'Lateral/Construtor Versatil'];
-        const POS_LATERAL_DEFESA = ['Lateral/Defesa Direito', 'Lateral/Defesa Esquerdo', 'Lateral/Defesa Versatil'];
-        const POS_LATERAL_ALA = ['Lateral/Ala Direito', 'Lateral/Ala Esquerdo', 'Lateral/Ala Versatil'];
-
-        const ZAGUEIRO_COMPATIVEL = [...POS_ZAGUEIRO_TODOS, ...POS_LATERAL_DEFESA, 'Volante/Zaga'];
-        const LATERAL_DIREITO_COMPATIVEL = [...POS_LATERAL_DIREITO, ...POS_LATERAL_VERSATIL, 'Ponta/Ala Direita'];
-        const LATERAL_ESQUERDO_COMPATIVEL = [...POS_LATERAL_ESQUERDO, ...POS_LATERAL_VERSATIL, 'Ponta/Ala Esquerda'];
-        const VOLANTE_COMPATIVEL = [...POS_VOLANTE_TODOS, 'MeioCampo/Armador', 'MeioCampo/Equilibrado', 'MeioCampo/Versátil', ...POS_LATERAL_CONSTRUTOR, 'Zagueiro/Construtor', 'Zagueiro/Versatil'];
-        const MEIOCAMPO_COMPATIVEL = [...POS_MEIOCAMPO_TODOS, ...POS_VOLANTE_TODOS, ...POS_LATERAL_CONSTRUTOR];
-        const MEIA_ARMADOR_COMPATIVEL = [...POS_MEIOCAMPO_TODOS, 'Ponta/Armador', 'Ponta/Invertido', 'Atacante/Armador', 'Atacante/Versátil', 'Ponta/Versátil'];
-        // PD/MD e PE/ME são todos "pontas" (ala ofensiva) — a única diferença entre eles é o lado do
-        // lateral/ala aceito, já que um lateral/ala destro não cobre a ala esquerda e vice-versa.
-        const PONTA_DIREITA_COMPATIVEL = [...POS_PONTA_TODOS, 'MeioCampo/Abertura', 'MeioCampo/Versátil', 'Lateral/Ala Direito', 'Lateral/Ala Versatil', 'Atacante/Aberto', 'Atacante/Versátil'];
-        const PONTA_ESQUERDA_COMPATIVEL = [...POS_PONTA_TODOS, 'MeioCampo/Abertura', 'MeioCampo/Versátil', 'Lateral/Ala Esquerdo', 'Lateral/Ala Versatil', 'Atacante/Aberto', 'Atacante/Versátil'];
-        const ATACANTE_COMPATIVEL = [...POS_ATACANTE_TODOS, 'Ponta/Invertido', 'Ponta/Versátil', 'MeioCampo/Ataque', 'MeioCampo/Versátil'];
-
-        // Sigla de cada função no campinho -> lista de posições de carteirinha aceitas nela.
-        const POSICOES_COMPATIVEIS_POR_ROLE = {
-            GOL: ['Goleiro'],
-            ZAD: ZAGUEIRO_COMPATIVEL, ZAE: ZAGUEIRO_COMPATIVEL, ZAC: ZAGUEIRO_COMPATIVEL,
-            LAD: LATERAL_DIREITO_COMPATIVEL, ALD: LATERAL_DIREITO_COMPATIVEL,
-            LAE: LATERAL_ESQUERDO_COMPATIVEL, ALE: LATERAL_ESQUERDO_COMPATIVEL,
-            VOL: VOLANTE_COMPATIVEL, VOLD: VOLANTE_COMPATIVEL, VOLE: VOLANTE_COMPATIVEL,
-            MCD: MEIOCAMPO_COMPATIVEL, MCE: MEIOCAMPO_COMPATIVEL, MC: MEIOCAMPO_COMPATIVEL,
-            MEI: MEIA_ARMADOR_COMPATIVEL, MEID: MEIA_ARMADOR_COMPATIVEL, MEIE: MEIA_ARMADOR_COMPATIVEL,
-            PD: PONTA_DIREITA_COMPATIVEL, MD: PONTA_DIREITA_COMPATIVEL,
-            PE: PONTA_ESQUERDA_COMPATIVEL, ME: PONTA_ESQUERDA_COMPATIVEL,
-            ATA: ATACANTE_COMPATIVEL, ATD: ATACANTE_COMPATIVEL, ATE: ATACANTE_COMPATIVEL
-        };
-
-        // true se a posição de carteirinha do jogador é aceita na função do campinho (sigla) informada.
-        function posicaoCompativelComRole(role, posicaoJogador) {
-            if (!posicaoJogador) return false;
-            let lista = POSICOES_COMPATIVEIS_POR_ROLE[role];
-            return Array.isArray(lista) && lista.includes(posicaoJogador);
-        }
+        // pra rotação automática por fadiga e pro próprio prompt de escalação da IA (regrasEstrategistaTexto).
+        // A régua em si (ESPECIALIDADES_JOGADOR) e a função posicaoCompativelComRole() vivem em
+        // js/funcoes-ea.js — fonte única de verdade, compartilhada também com a escolha de função
+        // tática (escolherFuncaoJogador), pra nunca divergir uma da outra.
 
         // =====================================================================================
         // APRENDIZADO POSICIONAL — como o Auxiliar aprende, com o histórico, em quais posições
@@ -1903,19 +1856,30 @@ ${textoRegrasCompatibilidadePosicional()}
                 .join(', ');
         }
 
-        // Texto pronto pra alimentar o prompt de escalação da IA — a mesma régua de compatibilidade
-        // usada no seletor de troca, mas em formato de regra pra IA seguir exatamente, sem "inventar" improvisos.
+        // Grupos de sigla representativos pra montar o texto de regras — um representante por
+        // "família" de função (ZAD cobre ZAD/ZAE/ZAC, LAD cobre LAD/ALD, etc.), já que dentro da
+        // mesma família a compatibilidade é idêntica (ver ESPECIALIDADES_JOGADOR em funcoes-ea.js).
+        const GRUPOS_TEXTO_COMPATIBILIDADE = [
+            { rotulo: 'Goleiro (GOL)', role: 'GOL' },
+            { rotulo: 'Zagueiro (ZAD/ZAE/ZAC)', role: 'ZAD' },
+            { rotulo: 'Lateral Direito (LAD/ALD)', role: 'LAD' },
+            { rotulo: 'Lateral Esquerdo (LAE/ALE)', role: 'LAE' },
+            { rotulo: 'Volante (VOL/VOLD/VOLE)', role: 'VOL' },
+            { rotulo: 'Meio-Campo genérico (MC/MCD/MCE)', role: 'MC' },
+            { rotulo: 'Meia Armador (MEI/MEID/MEIE)', role: 'MEI' },
+            { rotulo: 'Ponta Direita (PD/MD)', role: 'PD' },
+            { rotulo: 'Ponta Esquerda (PE/ME)', role: 'PE' },
+            { rotulo: 'Atacante (ATA/ATD/ATE)', role: 'ATA' }
+        ];
+
+        // Texto pronto pra alimentar o prompt de escalação da IA — gerado a partir da mesma régua
+        // de compatibilidade usada no seletor de troca (ESPECIALIDADES_JOGADOR, em js/funcoes-ea.js),
+        // então nunca fica desatualizado em relação a ela, mesmo quando as especialidades mudam.
         function textoRegrasCompatibilidadePosicional() {
-            return `- Zagueiro (ZAD/ZAE/ZAC): aceita zagueiro de qualquer variação, lateral/defesa (direito, esquerdo ou versátil) e volante/zaga.
-            - Lateral Direito (LAD/ALD): aceita lateral direito de qualquer variação (defesa, ala, construtor) e lateral versátil de qualquer variação, além de ponta/ala direita.
-            - Lateral Esquerdo (LAE/ALE): aceita lateral esquerdo de qualquer variação (defesa, ala, construtor) e lateral versátil de qualquer variação, além de ponta/ala esquerda.
-            - Volante (VOL/VOLD/VOLE): aceita volante de qualquer variação, meio-campo/armador, meio-campo/equilibrado, meio-campo/versátil, lateral/construtor (direito, esquerdo ou versátil), zagueiro/construtor e zagueiro/versátil.
-            - Meio-Campo genérico (MCD/MCE/MC): aceita meio-campo de qualquer variação, volante de qualquer variação e lateral/construtor (direito, esquerdo ou versátil).
-            - Meia Armador (MEI/MEID/MEIE): aceita meio-campo de qualquer variação, ponta/armador, ponta/invertido, atacante/armador, atacante/versátil e ponta/versátil.
-            - Ponta Direita (PD/MD): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil, lateral/ala direito, lateral/ala versátil, atacante/aberto e atacante/versátil.
-            - Ponta Esquerda (PE/ME): aceita ponta de qualquer variação, meio-campo/abertura, meio-campo/versátil, lateral/ala esquerdo, lateral/ala versátil, atacante/aberto e atacante/versátil.
-            - Atacante (ATA/ATD/ATE): aceita atacante de qualquer variação, ponta/invertido, ponta/versátil, meio-campo/ataque e meio-campo/versátil.
-            - Goleiro (GOL): só aceita goleiro.`;
+            return GRUPOS_TEXTO_COMPATIBILIDADE.map(g => {
+                let aceitos = Object.keys(ESPECIALIDADES_JOGADOR).filter(pos => posicaoCompativelComRole(g.role, pos));
+                return `- ${g.rotulo}: aceita ${aceitos.join(', ')}.`;
+            }).join('\n            ');
         }
 
         // Rede de segurança pra rotação obrigatória: o prompt já instrui a IA a poupar quem está em

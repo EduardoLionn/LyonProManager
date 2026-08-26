@@ -54,6 +54,39 @@ function obterIdSaveAtivo() {
     return localStorage.getItem(ACTIVE_SAVE_KEY);
 }
 
+// Reformulação das posições de carteirinha (ago/2026): as especialidades antigas viraram um
+// catálogo novo e mais detalhado (ver ESPECIALIDADES_JOGADOR em js/funcoes-ea.js). Melhor
+// equivalente pra cada posição antiga — não é exato (o novo catálogo é mais rico), mas evita
+// que saves existentes percam a posição dos jogadores já cadastrados. Quem quiser afinar, edita
+// o jogador manualmente depois; posição não reconhecida (nem antiga nem nova) fica como está.
+const MIGRACAO_POSICOES_ANTIGAS = {
+    'Goleiro': 'Goleiro/Tradicional',
+    'Zagueiro/Construtor': 'Zagueiro/Construtor', 'Zagueiro/Lateral': 'Zagueiro/Cobertura',
+    'Zagueiro/Versatil': 'Zagueiro/Híbrido', 'Zagueiro/Defesa': 'Zagueiro/Rebatedor',
+    'Lateral/Defesa Direito': 'Lateral/Defensivo Direito', 'Lateral/Defesa Esquerdo': 'Lateral/Defensivo Esquerdo',
+    'Lateral/Ala Direito': 'Lateral/Ala Clássico Direito', 'Lateral/Ala Esquerdo': 'Lateral/Ala Clássico Esquerdo',
+    'Lateral/Construtor Direito': 'Lateral/Construtor Direito', 'Lateral/Construtor Esquerdo': 'Lateral/Construtor Esquerdo',
+    'Lateral/Defesa Versatil': 'Lateral/Defensivo Direito', 'Lateral/Ala Versatil': 'Lateral/Ala Clássico Direito', 'Lateral/Construtor Versatil': 'Lateral/Construtor Direito',
+    'Volante/Zaga': 'Volante/Cão de Guarda', 'Volante/Contenção': 'Volante/Cão de Guarda', 'Volante/Armação': 'Volante/Organizador',
+    'MeioCampo/Equilibrado': 'MeioCampo/Dinâmico', 'MeioCampo/Armador': 'MeioCampo/Armador Clássico',
+    'MeioCampo/Abertura': 'MeioCampo/Aberto Direito', 'MeioCampo/Ataque': 'MeioCampo/Infiltrador', 'MeioCampo/Versátil': 'MeioCampo/Dinâmico',
+    'Ponta/Ala Direita': 'Ponta/Clássico Direito', 'Ponta/Ala Esquerda': 'Ponta/Clássico Esquerdo',
+    'Ponta/Invertido': 'Ponta/Invertido Direito', 'Ponta/Armador': 'Ponta/Construtor Direito', 'Ponta/Versátil': 'Ponta/Clássico Direito',
+    'Atacante/Aberto': 'Atacante/Móvel', 'Atacante/Fisico': 'Atacante/Pivô', 'Atacante/Armador': 'Atacante/Falso 9',
+    'Atacante/Velocidade': 'Atacante/Matador', 'Atacante/Versátil': 'Atacante/Móvel'
+};
+
+// Aplica MIGRACAO_POSICOES_ANTIGAS no plantel de um save recém-carregado — chamado uma vez
+// por load, então nunca reprocessa posições que já estão no catálogo novo.
+function _migrarPosicoesAntigasDoSave(dbObj) {
+    [dbObj.clube, dbObj.selecao].forEach(save => {
+        (save && save.plantel || []).forEach(p => {
+            let nova = MIGRACAO_POSICOES_ANTIGAS[p.posicao];
+            if (nova) p.posicao = nova;
+        });
+    });
+}
+
 // Carrega um save existente pelo id, substituindo o `db` em memória, e marca como ativo.
 function carregarSave(id) {
     let raw = localStorage.getItem(_chaveDadosSave(id));
@@ -64,6 +97,7 @@ function carregarSave(id) {
     db = dbPadrao();
     if (carregado.clube) Object.assign(db.clube, carregado.clube);
     if (carregado.selecao) Object.assign(db.selecao, carregado.selecao);
+    _migrarPosicoesAntigasDoSave(db);
     saveAtualId = id;
     localStorage.setItem(ACTIVE_SAVE_KEY, id);
     return true;
@@ -101,6 +135,7 @@ function importarSaveDeBackup(dbImportado, nomeSugerido) {
     let dbNovo = dbPadrao();
     if (dbImportado.clube) Object.assign(dbNovo.clube, dbImportado.clube);
     if (dbImportado.selecao) Object.assign(dbNovo.selecao, dbImportado.selecao);
+    _migrarPosicoesAntigasDoSave(dbNovo);
 
     let id = _gerarIdSave();
     let agora = Date.now();
