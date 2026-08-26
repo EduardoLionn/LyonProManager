@@ -11,14 +11,14 @@
         let postsVisiveisSocial = 10; // <-- ADICIONE ESTA LINHA 
         
         let ordemAtualPlantel = { coluna: 'ovr', ascendente: false };
-        let ordemPosicoes = { 
-    'Goleiro': 1, 
-    'Zagueiro/Construtor': 2, 'Zagueiro/Lateral': 2, 'Zagueiro/Versatil': 2, 'Zagueiro/Defesa': 2, 
-    'Lateral/Defesa Direito': 3, 'Lateral/Defesa Esquerdo': 3, 'Lateral/Ala Direito': 3, 'Lateral/Ala Esquerdo': 3, 'Lateral/Construtor Direito': 3, 'Lateral/Construtor Esquerdo': 3, 'Lateral/Defesa Versatil': 3, 'Lateral/Ala Versatil': 3, 'Lateral/Construtor Versatil': 3, 
-    'Volante/Zaga': 4, 'Volante/Contenção': 4, 'Volante/Armação': 4, 
-    'MeioCampo/Equilibrado': 5, 'MeioCampo/Armador': 5, 'MeioCampo/Abertura': 5, 'MeioCampo/Ataque': 5, 'MeioCampo/Versátil': 5, 
-    'Ponta/Ala Direita': 6, 'Ponta/Ala Esquerda': 6, 'Ponta/Invertido': 6, 'Ponta/Armador': 6, 'Ponta/Versátil': 6, 
-    'Atacante/Aberto': 7, 'Atacante/Fisico': 7, 'Atacante/Armador': 7, 'Atacante/Velocidade': 7, 'Atacante/Versátil': 7 
+        let ordemPosicoes = {
+    'Goleiro/Tradicional': 1, 'Goleiro/Construtor': 1, 'Goleiro/Líbero': 1,
+    'Zagueiro/Rebatedor': 2, 'Zagueiro/Construtor': 2, 'Zagueiro/Cobertura': 2, 'Zagueiro/Híbrido': 2,
+    'Lateral/Defensivo Direito': 3, 'Lateral/Defensivo Esquerdo': 3, 'Lateral/Construtor Direito': 3, 'Lateral/Construtor Esquerdo': 3, 'Lateral/Ala Clássico Direito': 3, 'Lateral/Ala Clássico Esquerdo': 3, 'Lateral/Ala Ofensivo Direito': 3, 'Lateral/Ala Ofensivo Esquerdo': 3,
+    'Volante/Cão de Guarda': 4, 'Volante/Organizador': 4, 'Volante/Motorzinho': 4,
+    'MeioCampo/Dinâmico': 5, 'MeioCampo/Armador Clássico': 5, 'MeioCampo/Infiltrador': 5, 'MeioCampo/Aberto Direito': 5, 'MeioCampo/Aberto Esquerdo': 5,
+    'Ponta/Operário Direito': 6, 'Ponta/Operário Esquerdo': 6, 'Ponta/Clássico Direito': 6, 'Ponta/Clássico Esquerdo': 6, 'Ponta/Invertido Direito': 6, 'Ponta/Invertido Esquerdo': 6, 'Ponta/Construtor Direito': 6, 'Ponta/Construtor Esquerdo': 6,
+    'Atacante/Pivô': 7, 'Atacante/Matador': 7, 'Atacante/Falso 9': 7, 'Atacante/Móvel': 7
 };
 
         // Fábrica de um save em branco. Usada tanto para o primeiro carregamento quanto para

@@ -288,7 +288,7 @@
             let radarRealData = []; // Criamos essa nova lista para guardar os valores reais
 
             // Separação entre Goleiro e Linha
-            if (oPos === 'Goleiro') {
+            if (String(oPos).split('/')[0] === 'Goleiro') {
                 let defesasJogo = (realDefesas * pesoDefesas).toFixed(1);
                 
                 // Removidos os textos (x1), (x7), etc.
