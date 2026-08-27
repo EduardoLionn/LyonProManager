@@ -475,6 +475,10 @@ async function wizardFinalizar() {
         db[currentSave].taticas.formacoesPreferidas = r.formacoesPreferidas || [];
         db[currentSave].taticas.estiloJogoSelecionado = r.origem;
         db[currentSave].taticas.funcoesPorRoleSugeridas = r.funcoesPorRole;
+        // Mesma persistência de aplicarRelatorioTaticoNoSave() (js/estilo-jogo.js) — sem isso, o
+        // resumo salvo na aba Perfil do Treinador não conseguiria explicar por que o esquema em
+        // uso pode não ser a 1ª formação preferida, pra saves criados aqui no assistente.
+        db[currentSave].taticas.esquemaPreteridas = r.esquemaPreteridas || [];
         window._wizardRelatorioEstiloJogo = null;
     }
 
