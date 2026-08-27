@@ -348,18 +348,6 @@ function lerTexto(texto) {
             }
         }
 
-        function toggleHistoricoAuxiliarPanel() {
-            let panel = document.getElementById('auxiliar-historico-partidas');
-            let btn = document.getElementById('btn-toggle-historico-aux');
-            if (panel.style.display === 'none' || !panel.style.display) {
-                panel.style.display = 'block';
-                btn.innerText = '📂 Ocultar Histórico de Partidas';
-            } else {
-                panel.style.display = 'none';
-                btn.innerText = '📂 Ver Histórico de Partidas';
-            }
-        }
-
      // As escolhas táticas agora vivem em js/taticas.js (modelo espelhado no jogo, com as
      // travas de cada predefinição). Esta função só garante que o save tem o formato novo.
      function salvarPreferenciasTaticas() {
