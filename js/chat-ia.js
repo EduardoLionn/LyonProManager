@@ -1733,9 +1733,9 @@ ${textoRegrasCompatibilidadePosicional()}
             let diretrizId = document.getElementById('declarar-adv-diretriz').value;
             let diretrizInfo = DIRETRIZES_ESTRATEGICAS[diretrizId] || { nome: diretrizId, descricaoIA: diretrizId };
             // Foco Tático da Partida: sempre captura e persiste a escolha. Pra presets `refinado`
-            // (Gegenpressing, Tiki-Taka), também dirige a formação/pacote/matriz de função — ver
-            // presetRefinadoAtivo()/gerarRelatorioTaticoRefinadoPorFoco() mais abaixo. Pros demais
-            // presets e pro texto livre, continua só sendo capturado/persistido (inerte).
+            // E pro Estilo "Personalizado" (texto livre), também dirige a formação/pacote/matriz
+            // de função — ver presetRefinadoAtivo()/personalizadoAtivo() mais abaixo. Pros demais
+            // presets, continua só sendo capturado/persistido (inerte).
             let focoPartidaEl = document.getElementById('declarar-partida-foco');
             let focoPartidaId = focoPartidaEl ? focoPartidaEl.value : 'equilibrado';
             if (db[currentSave]) db[currentSave].focoPartidaSelecionado = focoPartidaId;
@@ -1759,21 +1759,41 @@ ${textoRegrasCompatibilidadePosicional()}
                 ? Object.entries(taticaBase.funcoesPorRoleSugeridas).map(([role, f]) => `${role}: ${f.funcao}/${f.foco}`).join(', ')
                 : 'nenhuma definida ainda — decida pela sua própria leitura do adversário';
 
-            // GEGENPRESSING DINÂMICO (pedido do treinador) — só quando o Estilo de Jogo salvo é um
-            // preset "refinado" (hoje só o Gegenpressing) E um Foco Tático da Partida foi escolhido.
-            // Nesse caso, a formação/predefinição/armação/linha deixam de ser decisão da IA — a
-            // "regra de ouro" (escolherEsquemaPorFoco) e a Matriz Dinâmica de Funções da faixa do
-            // Foco ativo (gerarRelatorioTaticoRefinadoPorFoco) decidem tudo isso deterministicamente,
-            // igual ao que a diretriz já faz com os titulares. Fora daqui, o Foco continua 100%
-            // inerte, como sempre foi (comportamento padrão pros outros 10 presets/texto livre).
+            // FOCO TÁTICO DINÂMICO (pedido do treinador) — dois jeitos de ativar a mesma camada
+            // extra de Foco (regra de ouro na formação + Matriz Dinâmica de Funções + Regra de
+            // Afinidade Tática nos titulares), dependendo do que o treinador escolheu como Estilo
+            // de Jogo:
+            //   1. Um preset "refinado" (Gegenpressing, Tiki-Taka, ...) — a Matriz é uma tabela
+            //      fixa escrita à mão pra cada Foco (gerarRelatorioTaticoRefinadoPorFoco, síncrono).
+            //   2. "Personalizado" (texto livre) — não existe tabela fixa: a IA é chamada de novo
+            //      AGORA, ANTES da análise do adversário, só pra traduzir a descrição original do
+            //      treinador + o Foco ativo pra um pacote tático + Matriz sob medida
+            //      (gerarRelatorioTaticoPersonalizadoPorFoco, assíncrono — por isso o botão já
+            //      trava aqui, antes dessa chamada extra).
+            // Os dois devolvem exatamente o mesmo formato (`pacoteRefinado`), então todo o resto
+            // desta função trata as duas situações de forma idêntica dali em diante. Fora daqui —
+            // nenhum preset refinado, nem Personalizado — o Foco continua 100% inerte.
+            let btn = document.getElementById('btn-declarar-partida-ia');
+            btn.innerText = '⏳ Analisando o adversário e montando o plano...'; btn.disabled = true;
+
             let presetRefinado = (typeof presetRefinadoAtivo === 'function') ? presetRefinadoAtivo() : null;
-            let pacoteRefinado = (presetRefinado && focoPartidaId)
-                ? gerarRelatorioTaticoRefinadoPorFoco(formacoesPreferidasIA, presetRefinado.id, focoPartidaId)
-                : null;
+            let descricaoPersonalizada = (!presetRefinado && typeof personalizadoAtivo === 'function') ? personalizadoAtivo() : null;
+            let pacoteRefinado = null;
+            if (presetRefinado && focoPartidaId) {
+                pacoteRefinado = gerarRelatorioTaticoRefinadoPorFoco(formacoesPreferidasIA, presetRefinado.id, focoPartidaId);
+            } else if (descricaoPersonalizada && focoPartidaId) {
+                btn.innerText = '⏳ Traduzindo seu estilo personalizado pro Foco desta partida...';
+                try {
+                    pacoteRefinado = await gerarRelatorioTaticoPersonalizadoPorFoco(formacoesPreferidasIA, descricaoPersonalizada, focoPartidaId);
+                } catch (e) {
+                    pacoteRefinado = null; // se a tradução falhar, o Foco cai pro comportamento inerte de sempre — a análise principal ainda roda normalmente
+                }
+                btn.innerText = '⏳ Analisando o adversário e montando o plano...';
+            }
             // A Regra de Afinidade Tática (o motor Húngaro abaixo) só entra pras diretrizes de
             // pontuação genérica (calcularPontuacaoEfetiva). A diretriz "Dar Oportunidade à
             // Base/Jovens" tem sua própria cota (selecionarEscalacaoEBanco) — o pacote
-            // tático/matriz de função do Gegenpressing ainda se aplica nesse caso (formação e
+            // tático/matriz de função do Foco ativo ainda se aplica nesse caso (formação e
             // função de cada titular seguem a regra de ouro/matriz normalmente), só a escolha de
             // QUEM joga continua vindo da cota de jovens, sem o peso da Afinidade Tática.
 
@@ -1818,12 +1838,9 @@ ${textoRegrasCompatibilidadePosicional()}
             ${Object.entries(escalacoesFixasPorFormacao).map(([esq, mapa]) => `- ${esq}: ${Object.entries(mapa).map(([role, nome]) => `${role}=${nome}`).join(', ')}`).join('\n            ')}
             ` : '';
             let blocoGegenpressingFixo = pacoteRefinado ? `
-            🔥 GEGENPRESSING DINÂMICO ATIVO (Foco: "${FOCOS_TATICOS_PARTIDA[focoPartidaId] || focoPartidaId}") — PACOTE TÁTICO TAMBÉM JÁ DEFINIDO (NÃO É MAIS DECISÃO SUA):
-            A formação, a predefinição, o estilo de armação e a linha defensiva NÃO são mais escolha sua pra esta partida — foram calculados pela regra de ouro do Foco selecionado: formação "${pacoteRefinado.esquemaEscolhido}", predefinição "${predefinicaoPorId(pacoteRefinado.predefinicao).nome}", armação "${estiloArmacaoPorId(pacoteRefinado.estiloArmacao).nome}", linha defensiva ${pacoteRefinado.abordagemDefensiva}/100. A função/foco de CADA titular também já vem fixada pela Matriz Dinâmica do Gegenpressing — use exatamente os campos "predefinicao"/"estiloArmacao"/"abordagemDefensiva"/"formacaoEscolhida" acima no seu JSON e escreva só a "instrucao" (texto livre) de cada titular, mantendo "funcao"/"foco" como estão.
+            ${presetRefinado ? `🔥 ${presetRefinado.emoji || ''} ${presetRefinado.nome.toUpperCase()} DINÂMICO ATIVO` : `🎨 ESTILO PERSONALIZADO ATIVO ("${descricaoPersonalizada}")`} (Foco: "${FOCOS_TATICOS_PARTIDA[focoPartidaId] || focoPartidaId}") — PACOTE TÁTICO TAMBÉM JÁ DEFINIDO (NÃO É MAIS DECISÃO SUA):
+            A formação, a predefinição, o estilo de armação e a linha defensiva NÃO são mais escolha sua pra esta partida — foram calculados${presetRefinado ? ' pela regra de ouro do Foco selecionado' : ' pelo próprio Auxiliar, traduzindo a descrição acima pra este Foco'}: formação "${pacoteRefinado.esquemaEscolhido}", predefinição "${predefinicaoPorId(pacoteRefinado.predefinicao).nome}", armação "${estiloArmacaoPorId(pacoteRefinado.estiloArmacao).nome}", linha defensiva ${pacoteRefinado.abordagemDefensiva}/100. A função/foco de CADA titular também já vem fixada${presetRefinado ? ' pela Matriz Dinâmica do preset' : ' pela Matriz sob medida criada pra esta ideia'} — use exatamente os campos "predefinicao"/"estiloArmacao"/"abordagemDefensiva"/"formacaoEscolhida" acima no seu JSON e escreva só a "instrucao" (texto livre) de cada titular, mantendo "funcao"/"foco" como estão.
             ` : '';
-
-            let btn = document.getElementById('btn-declarar-partida-ia');
-            btn.innerText = '⏳ Analisando o adversário e montando o plano...'; btn.disabled = true;
 
             let plantelInfo = montarResumoPlantelIA();
 
