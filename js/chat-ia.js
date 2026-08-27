@@ -1120,6 +1120,81 @@ ${textoRegrasCompatibilidadePosicional()}
             select.value = (salvo && FOCOS_TATICOS_PARTIDA[salvo]) ? salvo : 'equilibrado';
         }
 
+        // Fase 1 do fluxo "Pedir Plano de Jogo" (pedido do treinador): antes de qualquer coisa,
+        // o Auxiliar lê o contexto do time (metas da temporada, momento atual, retrospecto contra
+        // o adversário, se é jogo de volta de mata-mata) e RECOMENDA a Diretriz Estratégica e o
+        // Foco Tático — sem ainda montar a escalação. O treinador pode aceitar ou trocar a
+        // recomendação na Fase 2, que só então libera o botão "Prosseguir com Escalação"
+        // (declararPartidaIA, sem nenhuma alteração).
+        async function gerarSugestaoDiretrizFoco() {
+            let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
+            if (!nomeAdvManual) return alert('Digite o nome do adversário antes de pedir a sugestão.');
+            let competicaoEl = document.getElementById('declarar-competicao');
+            let competicaoSelecionada = competicaoEl ? competicaoEl.value : '';
+
+            let btn = document.getElementById('btn-gerar-sugestao-diretriz-foco');
+            if (btn) { btn.innerText = '⏳ Analisando o contexto do time...'; btn.disabled = true; }
+            if (typeof mostrarCarregandoIA === 'function') mostrarCarregandoIA('🧠 O Auxiliar está lendo o contexto da temporada...');
+
+            // Padrão seguro caso a IA falhe ou devolva algo inválido — o treinador ainda pode
+            // ajustar tudo manualmente na Fase 2, então uma falha aqui nunca trava o fluxo.
+            let diretrizRecomendada = 'titular-padrao';
+            let focoRecomendado = 'equilibrado';
+            let justificativa = 'Não consegui montar uma recomendação personalizada agora — seguindo a diretriz e o foco padrão. Você pode ajustar livremente abaixo.';
+
+            try {
+                let resumoContexto = (typeof gerarResumoContexto === 'function') ? gerarResumoContexto() : '';
+                let retrospecto = (typeof retrospectoContraAdversario === 'function') ? retrospectoContraAdversario(nomeAdvManual) : '';
+                let mataMata = (typeof contextoMataMataIA === 'function') ? contextoMataMataIA(nomeAdvManual, competicaoSelecionada) : '';
+
+                let catalogoDiretrizes = Object.entries(DIRETRIZES_ESTRATEGICAS).map(([id, info]) => `- "${id}": ${info.nome} — ${info.descricaoIA}`).join('\n            ');
+                let catalogoFocos = Object.entries(FOCOS_TATICOS_PARTIDA).map(([id, nome]) => `- "${id}": ${nome}`).join('\n            ');
+
+                let promptIA = `Você é ${nomeAuxiliarExibicao()}, o Analista de Desempenho e Estrategista do "${db[currentSave].nome}". Antes de montar a escalação completa pro próximo jogo contra ${nomeAdvManual}${competicaoSelecionada ? ` (${competicaoSelecionada})` : ''}, o treinador quer sua RECOMENDAÇÃO de Diretriz Estratégica (quem joga) e Foco Tático (postura da partida) — a escalação em si só vem depois, se ele confirmar ou ajustar sua recomendação.
+
+                ${resumoContexto}
+                ${retrospecto ? `\n[RETROSPECTO CONTRA ESTE ADVERSÁRIO: ${retrospecto}]` : ''}
+                ${mataMata ? `\n[ATENÇÃO — MATA-MATA: ${mataMata}]` : ''}
+
+                CATÁLOGO DE DIRETRIZES ESTRATÉGICAS (escolha exatamente um "id" da lista abaixo):
+                ${catalogoDiretrizes}
+
+                CATÁLOGO DE FOCOS TÁTICOS DA PARTIDA (escolha exatamente um "id" da lista abaixo):
+                ${catalogoFocos}
+
+                Leve em conta principalmente: (1) a prioridade da meta da temporada — se o time está muito distante do objetivo declarado, o jogo é de alta prioridade e pede mais risco; se a meta já está garantida ou tranquila, dá pra poupar/rotacionar; (2) o momento atual (sequência de resultados, fase); (3) se ESTE é o jogo de volta de um mata-mata — nesse caso o placar agregado dita se a postura certa é segurar o resultado ou arriscar tudo; (4) o retrospecto direto contra este adversário específico.
+
+                Responda APENAS com um JSON puro, sem nenhum texto fora dele, exatamente neste formato:
+                { "diretrizRecomendada": "<um id do catálogo de diretrizes>", "focoRecomendado": "<um id do catálogo de focos>", "justificativa": "<2-4 frases em português explicando o raciocínio por trás da escolha>" }`;
+
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
+                let bruto = (data.candidates[0].content.parts[0].text || '').trim();
+                let match = bruto.match(/\{[\s\S]*\}/);
+                if (match) {
+                    let json = JSON.parse(match[0]);
+                    if (json.diretrizRecomendada && DIRETRIZES_ESTRATEGICAS[json.diretrizRecomendada]) diretrizRecomendada = json.diretrizRecomendada;
+                    if (json.focoRecomendado && FOCOS_TATICOS_PARTIDA[json.focoRecomendado]) focoRecomendado = json.focoRecomendado;
+                    if (json.justificativa) justificativa = String(json.justificativa).trim();
+                }
+            } catch (e) {
+                // Falha na IA (rede, JSON inválido, etc.) não trava o fluxo — cai pro padrão já
+                // definido acima, com uma justificativa genérica.
+            }
+
+            if (typeof esconderCarregandoIA === 'function') esconderCarregandoIA();
+            if (btn) { btn.innerText = '🧠 Gerar Sugestão de Diretriz e Foco'; btn.disabled = false; }
+
+            document.getElementById('declarar-adv-diretriz').value = diretrizRecomendada;
+            document.getElementById('declarar-partida-foco').value = focoRecomendado;
+            salvarFocoPartidaSelecionado();
+
+            let justEl = document.getElementById('auxiliar-fase2-justificativa');
+            if (justEl) justEl.innerHTML = `🧭 <strong>Recomendação do Auxiliar:</strong> ${justificativa}`;
+
+            let fase2 = document.getElementById('auxiliar-fase2-diretriz-foco');
+            if (fase2) fase2.style.display = 'block';
+        }
+
         // Nota média do jogador nas partidas que já disputou, na escala 0-100 (ex: 7.0 vira 70,
         // igual ao OVR) — é a "nota_media" da fórmula da diretriz. Sem nenhuma partida registrada
         // ainda, cai pro próprio OVR: um jogador novo não é penalizado nem favorecido por falta de
@@ -2023,6 +2098,10 @@ ${textoRegrasCompatibilidadePosicional()}
                     // declarado — senão a próxima vez que o treinador for declarar OUTRO adversário
                     // vê o nome antigo ainda ali, confundindo qual jogo está sendo planejado.
                     let elAdvNome = document.getElementById('declarar-adv-nome'); if (elAdvNome) elAdvNome.value = '';
+                    // Volta o formulário pra Fase 1, pronto pro próximo adversário — sem isso, a
+                    // Fase 2 (diretriz/foco recomendados) ficaria visível na próxima vez que o
+                    // treinador abrisse "Pedir Plano de Jogo", mesmo já sem sugestão nenhuma pedida.
+                    let fase2 = document.getElementById('auxiliar-fase2-diretriz-foco'); if (fase2) fase2.style.display = 'none';
                     salvarDados();
                     renderizarSugestaoAuxiliar();
                 } else {
@@ -2031,7 +2110,7 @@ ${textoRegrasCompatibilidadePosicional()}
             } catch (e) {
                 alert('Erro ao analisar o adversário. Verifique sua conexão e tente novamente.');
             }
-            btn.innerText = '🔍 Analisar Adversário e Montar Plano (IA)'; btn.disabled = false;
+            btn.innerText = '▶️ Prosseguir com Escalação'; btn.disabled = false;
         }
 
         // --- TROCAR JOGADOR NA ESCALAÇÃO (clique no campinho) ---
@@ -2906,6 +2985,19 @@ ${textoRegrasCompatibilidadePosicional()}
         function toggleRelatorioPartida(idx) {
             let el = document.getElementById('relatorio-detalhe-' + idx);
             if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Colapso no nível da SEÇÃO inteira (pedido do treinador): a aba abre só com o cabeçalho
+        // "Relatórios do Auxiliar Técnico" visível — clicar nele revela a lista de partidas (cada
+        // uma ainda colapsada individualmente, ver toggleRelatorioPartida acima), e só então
+        // clicar numa partida específica abre o relatório completo dela. Dois níveis de clique.
+        function toggleRelatoriosAuxiliarPanel() {
+            let corpo = document.getElementById('auxiliar-relatorios-corpo');
+            let seta = document.getElementById('auxiliar-relatorios-seta');
+            if (!corpo) return;
+            let abrir = corpo.style.display === 'none';
+            corpo.style.display = abrir ? 'block' : 'none';
+            if (seta) seta.innerText = abrir ? '▾' : '▸';
         }
 
         // Mini campinho tático (não interativo) mostrando a escalação inicial da partida arquivada
