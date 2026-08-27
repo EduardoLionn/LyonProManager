@@ -263,10 +263,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
     db[currentSave].negociacoesDiretoria = (db[currentSave].negociacoesDiretoria || 0) + 1;
     db[currentSave].orcamento += valorExtra;
     registrarComandoOrcamento(db[currentSave].orcamento, "Verba Extra Liberada pela Diretoria");
-    
-    let dashOrc = document.getElementById('dash-dir-orcamento');
-    if(dashOrc) dashOrc.innerText = "€" + db[currentSave].orcamento.toFixed(2) + "M";
-    
+
     adicionarNoticiaAutomatica(`💰 ACORDO FECHADO: Diretoria libera +€${valorExtra.toFixed(2)}M.`, `Após intensas negociações nos bastidores, o conselho executivo cedeu aos pedidos do treinador e injetou uma verba extraordinária.`);
     
     // MOVIDO PARA CÁ: O ultimato só é registrado se o dinheiro for liberado!
@@ -1126,11 +1123,24 @@ ${textoRegrasCompatibilidadePosicional()}
         // Foco Tático — sem ainda montar a escalação. O treinador pode aceitar ou trocar a
         // recomendação na Fase 2, que só então libera o botão "Prosseguir com Escalação"
         // (declararPartidaIA, sem nenhuma alteração).
+        // Mando de campo (pedido do treinador): casa/fora/neutro muda a leitura real de uma
+        // partida — jogar fora costuma pedir mais cautela, em casa dá pra arriscar mais com o
+        // apoio da torcida, neutro tira a vantagem de mando dos dois lados. Usado tanto na
+        // recomendação de Diretriz/Foco quanto na montagem do plano tático completo.
+        function _textoMandoIA(mando) {
+            if (mando === 'Fora') return 'Fora de casa — leve em conta a pressão extra da torcida adversária e a ausência do fator casa; times costumam jogar um pouco mais cautelosos fora.';
+            if (mando === 'Neutro') return 'Campo neutro — nenhum dos dois lados tem vantagem de mando/torcida.';
+            return 'Em casa — o apoio da torcida permite uma postura um pouco mais ousada.';
+        }
+
         async function gerarSugestaoDiretrizFoco() {
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
             if (!nomeAdvManual) return alert('Digite o nome do adversário antes de pedir a sugestão.');
             let competicaoEl = document.getElementById('declarar-competicao');
             let competicaoSelecionada = competicaoEl ? competicaoEl.value : '';
+            let mandoEl = document.getElementById('declarar-mando');
+            let mandoSelecionado = mandoEl ? mandoEl.value : 'Casa';
+            if (db[currentSave]) db[currentSave].mandoPartidaSelecionado = mandoSelecionado;
 
             let btn = document.getElementById('btn-gerar-sugestao-diretriz-foco');
             if (btn) { btn.innerText = '⏳ Analisando o contexto do time...'; btn.disabled = true; }
@@ -1153,6 +1163,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 let promptIA = `Você é ${nomeAuxiliarExibicao()}, o Analista de Desempenho e Estrategista do "${db[currentSave].nome}". Antes de montar a escalação completa pro próximo jogo contra ${nomeAdvManual}${competicaoSelecionada ? ` (${competicaoSelecionada})` : ''}, o treinador quer sua RECOMENDAÇÃO de Diretriz Estratégica (quem joga) e Foco Tático (postura da partida) — a escalação em si só vem depois, se ele confirmar ou ajustar sua recomendação.
 
                 ${resumoContexto}
+                [MANDO DE CAMPO: ${_textoMandoIA(mandoSelecionado)}]
                 ${retrospecto ? `\n[RETROSPECTO CONTRA ESTE ADVERSÁRIO: ${retrospecto}]` : ''}
                 ${mataMata ? `\n[ATENÇÃO — MATA-MATA: ${mataMata}]` : ''}
 
@@ -1812,6 +1823,9 @@ ${textoRegrasCompatibilidadePosicional()}
             let focoPartidaEl = document.getElementById('declarar-partida-foco');
             let focoPartidaId = focoPartidaEl ? focoPartidaEl.value : 'equilibrado';
             if (db[currentSave]) db[currentSave].focoPartidaSelecionado = focoPartidaId;
+            let mandoEl = document.getElementById('declarar-mando');
+            let mandoPartida = mandoEl ? mandoEl.value : (db[currentSave] && db[currentSave].mandoPartidaSelecionado) || 'Casa';
+            if (db[currentSave]) db[currentSave].mandoPartidaSelecionado = mandoPartida;
             if (!nomeAdvManual && !imagemAdvEscalacao && !imagemAdvTatica) {
                 return alert('Digite o nome do adversário ou anexe pelo menos um print.');
             }
@@ -1934,6 +1948,7 @@ ${textoRegrasCompatibilidadePosicional()}
             ${gerarResumoContexto()}
 
             🆚 ADVERSÁRIO DESTA PARTIDA: ${nomeAdvManual || 'a identificar pela imagem'}
+            🏟️ MANDO DE CAMPO: ${_textoMandoIA(mandoPartida)}
             ${retrospecto ? `📊 RETROSPECTO CONTRA ELES: ${retrospecto} Leve esse histórico em conta — se o time não vence esse adversário há tempo, algo no plano anterior não funcionou.` : ''}
             ${blocoImagens}
 

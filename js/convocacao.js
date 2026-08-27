@@ -92,6 +92,7 @@ async function lerImagemConvocacao(event) {
                     } else {
                         let posicaoValida = ESPECIALIDADES_JOGADOR[j.posicao] ? j.posicao : 'MeioCampo/Dinâmico';
                         let novoJogador = { nome: j.nome, posicao: posicaoValida, ovr: Number(j.ovr) || 70, status: 'Ativo', jogosAvaliacao: 0, convocado: true };
+                        if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJogador);
                         db.selecao.plantel.push(novoJogador);
                         nomesConvocadosNestaLeitura.add(novoJogador.nome);
                     }

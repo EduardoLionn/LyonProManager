@@ -387,6 +387,7 @@ function wizardAdicionarJogador() {
 
     let jogador = { nome: nome, posicao: posicao, ovr: ovr, status: 'Ativo', jogosAvaliacao: 0 };
     if (idadeVal) jogador.idade = Number(idadeVal);
+    if (typeof garantirCamposElenco === 'function') garantirCamposElenco(jogador);
     db.clube.plantel.push(jogador);
 
     document.getElementById('wiz-jog-nome').value = '';

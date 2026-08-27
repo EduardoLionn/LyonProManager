@@ -123,7 +123,13 @@ function encontrarJoiaDoElenco() {
         let jovem = idade === 0 ? false : idade <= 24;
         let temporadas = p.temporadasNoClube || 0;
         let evolucao = p.ovr - (p.ovrInicial || p.ovr);
-        return jovem && temporadas >= 1 && evolucao >= 3 && p.ovr >= mediaOvr - 1;
+        if (!(jovem && temporadas >= 1 && evolucao >= 3 && p.ovr >= mediaOvr - 1)) return false;
+        // PROFUNDIDADE REALISTA (mesmo critério de _msgPedidoTransferencia, eventos-elenco.js):
+        // só considera vender uma joia se sobrarem pelo menos 3 jogadores da mesma categoria
+        // posicional depois dela sair.
+        let categoria = (p.posicao || '').split('/')[0];
+        let mesmaCategoria = ativos.filter(o => (o.posicao || '').split('/')[0] === categoria).length;
+        return mesmaCategoria >= 4;
     });
     if (candidatos.length === 0) return null;
 

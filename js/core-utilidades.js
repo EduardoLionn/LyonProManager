@@ -461,7 +461,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-auxiliar') { atualizarDepartamentoMedicoUI(); renderizarSugestaoAuxiliar(); renderizarChat('auxiliar'); if (typeof restaurarFocoPartidaSelecionado === 'function') restaurarFocoPartidaSelecionado(); }
             if(abaId === 'tab-social') { renderizarSocialFeed(); } // <-- NOVO AQUI
             if(abaId === 'tab-convocacao') { renderizarConvocacaoUI(); }
-            if(abaId === 'tab-mensagens') { renderizarCaixaMensagens(); }
+            if(abaId === 'tab-mensagens') { renderizarCaixaMensagens(); if (typeof renderizarComandosJogo === 'function') renderizarComandosJogo(); }
             if(typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
         }
 

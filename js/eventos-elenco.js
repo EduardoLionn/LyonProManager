@@ -453,6 +453,15 @@ function _msgCobrancaMinutos(p, s, ctx) {
     };
 }
 
+// Profundidade mínima realista de elenco por categoria posicional (pedido do treinador):
+// 2 titulares + 2 reservas — abaixo disso, perder mais um daquela posição já compromete o time.
+const PROFUNDIDADE_MINIMA_POSICAO = 4;
+
+// Quantas partidas precisam se passar antes da MESMA categoria posicional poder gerar um novo
+// pedido de transferência — sem isso, dois zagueiros (ou dois de qualquer posição) podiam pedir
+// pra sair em sequência, esvaziando a posição de vez.
+const CICLOS_COOLDOWN_CATEGORIA_TRANSFERENCIA = 8;
+
 function _msgPedidoTransferencia(p, s, ctx) {
     // Emprestado ao nosso clube não é nosso pra negociar — ele nem levanta o assunto.
     if (jogadorPertenceAOutroClube(p)) return null;
@@ -462,6 +471,21 @@ function _msgPedidoTransferencia(p, s, ctx) {
     if (idade > 27) return null;
     let minutosEscassos = s.totalTime >= 5 && s.percentual < 50;
     if (!minutosEscassos && p.moral >= 55 && idade > 24) return null;
+
+    // PROFUNDIDADE REALISTA: não deixa a posição ficar rasa. Só considera o pedido se sobrarem
+    // pelo menos 3 jogadores da mesma categoria depois dele sair (ou seja, precisa ter pelo
+    // menos 4 hoje, incluindo ele).
+    let categoria = (p.posicao || '').split('/')[0];
+    let ativos = ctx.ativos || (typeof elencoAtivo === 'function' ? elencoAtivo() : []);
+    let mesmaCategoria = ativos.filter(o => (o.posicao || '').split('/')[0] === categoria).length;
+    if (mesmaCategoria < PROFUNDIDADE_MINIMA_POSICAO) return null;
+
+    // FREQUÊNCIA REALISTA: a mesma categoria posicional não pode pedir pra sair de novo antes
+    // do cooldown passar, mesmo que outro jogador dela se qualifique.
+    let d = db[currentSave];
+    let cicloAtual = (d.partidas || []).length;
+    let ultimoCiclo = d.categoriasComPedidoTransferencia && d.categoriasComPedidoTransferencia[categoria];
+    if (typeof ultimoCiclo === 'number' && (cicloAtual - ultimoCiclo) < CICLOS_COOLDOWN_CATEGORIA_TRANSFERENCIA) return null;
 
     let clube = (typeof clubeInteressadoAleatorio === 'function') ? clubeInteressadoAleatorio() : 'um clube de fora';
     return {
@@ -599,6 +623,7 @@ function dispararMensagensElenco() {
     let clima = calcularClimaVestiario();
     let ctx = {
         mediaOvr: mediaOvrElenco(),
+        ativos: ativos,
         capitao: d.capitao || '',
         vice: d.viceCapitao || '',
         clima: clima,
@@ -647,6 +672,15 @@ function dispararMensagensElenco() {
             if (alvo <= acumulado) { escolhida = c; break; }
         }
         jaFalaram.add(escolhida.jogador.nome);
+
+        // Marca o cooldown por categoria posicional assim que o pedido de transferência é de
+        // fato entregue — é o que impede a mesma posição de pedir pra sair de novo logo em
+        // seguida (ver _msgPedidoTransferencia).
+        if (escolhida.msg.contexto && escolhida.msg.contexto.evento === 'transferencia') {
+            if (!d.categoriasComPedidoTransferencia) d.categoriasComPedidoTransferencia = {};
+            let categoria = (escolhida.jogador.posicao || '').split('/')[0];
+            d.categoriasComPedidoTransferencia[categoria] = (d.partidas || []).length;
+        }
 
         let sufixo = escolhida.jogador.nome === ctx.capitao ? ' 🎖️' : (escolhida.jogador.nome === ctx.vice ? ' 🅥' : '');
         registrarMensagem({

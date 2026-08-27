@@ -714,6 +714,21 @@
                 <p id="mensagens-resumo" style="font-size:13px; color:var(--text-muted); margin:12px 0 0 0;"></p>
             </div>
 
+            <!-- CENTRAL DE COMANDOS PRO JOGO — mudou de aba (era na Diretoria) e virou
+                 cumulativa: continua mostrando o que ainda falta aplicar no seu save do EA FC,
+                 mas os itens já marcados como feitos ficam registrados aqui embaixo, em vez de
+                 simplesmente sumir. -->
+            <div class="panel" id="painel-comandos-jogo" style="border-left: 4px solid var(--gold); margin-bottom: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0; font-size:16px;">🎮 Central de Comandos pro Jogo</h3>
+                    <span style="font-size:12px; color:var(--text-muted);">Aplique manualmente no seu save do EA FC</span>
+                </div>
+                <p style="font-size:12px; color:var(--text-muted); margin: 8px 0 15px 0;">Toda vez que o Prestígio ou o Orçamento mudar aqui no site, aparece aqui o que você precisa ajustar no jogo. Marque como feito depois de aplicar — o histórico completo fica registrado abaixo.</p>
+                <div id="lista-comandos-jogo" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;">
+                    <p style="font-size:13px; color:var(--text-muted);">Nenhum comando pendente.</p>
+                </div>
+            </div>
+
             <div id="mensagens-filtros" class="mensagens-filtros"></div>
 
             <div class="panel">
@@ -1455,9 +1470,12 @@
             <div id="diretoria-dashboard" style="display:none;">
                 <div class="panel grid-3" style="border-top: 4px solid var(--gold); margin-bottom: 20px;"> 
                     <div>
-<span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Orçamento Disponível</span>
-                        <div style="font-size:20px; font-weight:bold; color:var(--accent); margin-top:5px;" id="dash-dir-orcamento">€0M</div>
-                    </div>
+                        <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold; display:flex; align-items:center; gap:6px;">
+                            Objetivos Sendo Cumpridos
+                            <button type="button" onclick="avaliarObjetivosTemporada()" title="Reavaliar com o Auxiliar" style="background:transparent; border:none; color:var(--accent); cursor:pointer; font-size:13px; padding:0;">🔄</button>
+                        </span>
+                        <div style="font-size:20px; font-weight:bold; color:var(--accent); margin-top:5px;" id="dash-dir-objetivos-status">—</div>
+                    </div>
                     <div>
                         <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Média Gasto (5 Temp)</span>
                         <div style="font-size:20px; font-weight:bold; color:var(--danger); margin-top:5px;" id="dir-media-gasto">€0M</div>
@@ -1481,18 +1499,6 @@
                     <div style="grid-column: span 3; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
                         <span style="font-size:13px; color:var(--text-muted); text-transform:uppercase; font-weight:bold;">Metas e Objetivos da Temporada</span>
                         <div style="font-size:16px; color:var(--warning); line-height: 1.6; margin-top: 10px; font-weight: 500;" id="dir-objetivos-texto">---</div>
-                    </div>
-                </div>
-
-                <!-- CENTRAL DE COMANDOS PRO JOGO -->
-                <div class="panel" id="painel-comandos-jogo" style="border-left: 4px solid var(--gold); margin-bottom: 20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                        <h3 style="margin:0; font-size:16px;">🎮 Central de Comandos pro Jogo</h3>
-                        <span style="font-size:12px; color:var(--text-muted);">Aplique manualmente no seu save do EA FC</span>
-                    </div>
-                    <p style="font-size:12px; color:var(--text-muted); margin: 8px 0 15px 0;">Toda vez que o Prestígio ou o Orçamento mudar aqui no site, aparece aqui o que você precisa ajustar no jogo. Marque como feito depois de aplicar.</p>
-                    <div id="lista-comandos-jogo" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;">
-                        <p style="font-size:13px; color:var(--text-muted);">Nenhum comando pendente.</p>
                     </div>
                 </div>
 
@@ -1650,7 +1656,7 @@
                             <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, 'tatica')">
                         </label>
                     </div>
-                    <div class="grid-2" style="margin-top:15px;">
+                    <div class="grid-3" style="margin-top:15px;">
                         <div class="linha-form">
                             <label style="color:var(--accent);">Nome do Adversário</label>
                             <input type="text" id="declarar-adv-nome" placeholder="Ex: Real Madrid" style="background: var(--bg-dark);">
@@ -1658,6 +1664,14 @@
                         <div class="linha-form">
                             <label style="color:var(--accent);">Tipo de Competição</label>
                             <select id="declarar-competicao" style="background: var(--bg-dark);"></select>
+                        </div>
+                        <div class="linha-form">
+                            <label style="color:var(--accent);">Mando de Campo</label>
+                            <select id="declarar-mando" style="background: var(--bg-dark);">
+                                <option value="Casa">Casa</option>
+                                <option value="Fora">Fora</option>
+                                <option value="Neutro">Neutro</option>
+                            </select>
                         </div>
                     </div>
                     <button id="btn-gerar-sugestao-diretriz-foco" onclick="gerarSugestaoDiretrizFoco()" style="width:100%; margin-top:15px; padding: 12px; font-size: 15px; background: var(--accent); color: white;">

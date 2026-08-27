@@ -159,6 +159,16 @@ ${blocoAvaliacao}
                             resumoObjetivos.push(`${cumpriu ? '✅' : '❌'} ${nome}`);
                         });
                         atualizarNotaDiretoria(delta);
+
+                        // "Objetivos Sendo Cumpridos" (pedido do treinador, substitui o antigo
+                        // "Orçamento Disponível" na aba Diretoria): o valor que ficava sendo
+                        // estimado ao longo da temporada (avaliarObjetivosTemporada, botão 🔄) é
+                        // SOBRESCRITO agora pelo resultado definitivo e real desta avaliação —
+                        // "o valor que estiver ali no fim da temporada é o valor cumprido".
+                        let cumpridasReal = itens.filter(([, cumpriu]) => cumpriu).length;
+                        db[currentSave].objetivosStatus = { total: itens.length, cumpridas: cumpridasReal, resumo: resumoObjetivos.join(' | ') };
+                        let ultimoHist = db[currentSave].historicoTemporadas[db[currentSave].historicoTemporadas.length - 1];
+                        if (ultimoHist) ultimoHist.objetivosStatus = { total: itens.length, cumpridas: cumpridasReal };
                     }
 
                     let txt = `⚽ Liga: ${resAI.objLiga1}<br>⚽ Liga (Secundário): ${resAI.objLiga2}<br>🏆 Copa Nacional: ${resAI.objCopa}`;
@@ -351,8 +361,10 @@ ${blocoAvaliacao}
             let duracao = tipoTransicao === 'EmprestadoIn' ? Number(document.getElementById('add-duracao').value) : 0;
             
             if(!nomeNovo) return alert("Digite o nome do jogador!");
-            if(tipoTransicao === 'Comprado' && db.clube.orcamento < custo) return alert("Orçamento insuficiente!");
-            
+            // Orçamento não é mais um teto real (pedido do treinador): o time persegue as METAS
+            // da temporada, não um saldo em caixa. "Saldo em Caixa" continua sendo debitado só
+            // como registro histórico do que foi investido — nunca bloqueia uma contratação.
+
             if(tipoTransicao === 'Comprado') {
                 db.clube.orcamento -= custo; db.clube.gastoAtual += custo; atualizarNotaDiretoria(-0.1);
                 // Torcida animada com reforço — contratações de destaque (OVR alto) empolgam bem
@@ -483,7 +495,9 @@ ${blocoAvaliacao}
             if(currentSave !== 'clube') return;
             let btn = document.getElementById('btn-confirmar-compra');
             if(!btn) return;
-            if(db.clube.notaDiretoria < 50 || db.clube.orcamento < -10.0) {
+            // O embargo por orçamento negativo saiu junto com o teto de gastos (pedido do
+            // treinador) — só a reprovação da diretoria (nota baixa) ainda trava o mercado.
+            if(db.clube.notaDiretoria < 50) {
                 btn.disabled = true;
                 btn.innerText = "BLOQUEADO PELA DIRETORIA (Embargo)";
                 btn.style.background = "var(--text-muted)";
