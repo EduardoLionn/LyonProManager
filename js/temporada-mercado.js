@@ -593,6 +593,297 @@ ${blocoAvaliacao}
             }
         }
 
+        // =====================================================================================
+        // IMPORTAR TRANSFERÊNCIAS POR PRINT — a IA lê o print do Histórico de Transferências do
+        // jogo e monta uma lista editável. Nada entra no elenco até o usuário clicar em
+        // "Processar Transferências" na lista revisada.
+        // =====================================================================================
+
+        let imagensHistoricoTransferencias = []; // [{ base64, mimeType, nomeArquivo }]
+        let transferenciasExtraidas = []; // [{ incluir, nome, tipo, posicao, ovr, idade, valor, duracaoEmprestimo, clubeContrario }]
+
+        const OPCOES_TIPO_TRANSFERENCIA = [
+            { v: 'Comprado', l: '📥 Compra' },
+            { v: 'EmprestadoIn', l: '📥 Empréstimo (Chegando)' },
+            { v: 'Venda', l: '📤 Venda' },
+            { v: 'Emprestimo', l: '📤 Empréstimo (Saindo)' },
+            { v: 'Dispensa', l: '📤 Dispensa' }
+        ];
+
+        function toggleControlesManuaisMercado() {
+            let painel = document.getElementById('painel-controles-manuais-mercado');
+            let btn = document.getElementById('btn-toggle-controles-mercado');
+            if (!painel || !btn) return;
+            if (painel.style.display === 'none') {
+                painel.style.display = 'grid';
+                btn.innerHTML = '👁️ Ocultar Controles Manuais';
+            } else {
+                painel.style.display = 'none';
+                btn.innerHTML = '✏️ Mostrar Controles Manuais';
+            }
+        }
+
+        function anexarImagensHistoricoTransferencias(event) {
+            let files = Array.from(event.target.files || []);
+            if (!files.length) return;
+            files.forEach(file => {
+                let reader = new FileReader();
+                reader.onload = () => {
+                    imagensHistoricoTransferencias.push({ base64: reader.result.split(',')[1], mimeType: file.type, nomeArquivo: file.name });
+                    renderizarPreviewImagensHistoricoTransferencias();
+                };
+                reader.readAsDataURL(file);
+            });
+            event.target.value = '';
+        }
+
+        function removerImagemHistoricoTransferencias(idx) {
+            imagensHistoricoTransferencias.splice(idx, 1);
+            renderizarPreviewImagensHistoricoTransferencias();
+        }
+
+        function renderizarPreviewImagensHistoricoTransferencias() {
+            let preview = document.getElementById('preview-imagens-transferencias');
+            let btnAnalisar = document.getElementById('btn-analisar-prints-transferencias');
+            if (!preview) return;
+            if (imagensHistoricoTransferencias.length === 0) {
+                preview.style.display = 'none';
+                preview.innerHTML = '';
+            } else {
+                preview.style.display = 'flex';
+                preview.innerHTML = imagensHistoricoTransferencias.map((img, idx) =>
+                    `<span class="chip-imagem-anexada">📎 ${limparTextoUsuario(img.nomeArquivo, 60)} <button onclick="removerImagemHistoricoTransferencias(${idx})">✖</button></span>`
+                ).join('');
+            }
+            if (btnAnalisar) btnAnalisar.disabled = imagensHistoricoTransferencias.length === 0;
+        }
+
+        async function analisarPrintsTransferencias() {
+            if (currentSave !== 'clube') return;
+            if (imagensHistoricoTransferencias.length === 0) return;
+
+            let nomesElenco = db.clube.plantel.filter(p => p.status === 'Ativo').map(p => p.nome).join(', ') || 'nenhum jogador cadastrado ainda';
+
+            let promptImport = `Você está vendo ${imagensHistoricoTransferencias.length} print(s) da tela de HISTÓRICO DE TRANSFERÊNCIAS de um jogo de futebol (estilo EA FC Manager/Football Manager). A tabela tem colunas como Data, Nome do jogador, De (clube de origem), Para (clube de destino) e Detalhes (valor em € ou "Loan"/Empréstimo).
+
+MEU CLUBE (o clube do usuário que preenche este save) é: "${db.clube.nome || 'não informado — infira pelo escudo/sigla que aparece repetido na maioria das linhas'}".
+Jogadores já ativos no meu elenco atualmente: ${nomesElenco}.
+
+Para CADA linha da tabela em CADA print, extraia:
+- "jogador": nome do jogador (como está escrito no print)
+- "direcao": "entrada" se o jogador está indo PARA o meu clube, "saida" se está saindo DO meu clube
+- "tipoContrato": "emprestimo" se aparece "Loan"/Empréstimo nos detalhes, senão "definitiva"
+- "valorM": o valor da negociação em MILHÕES de euros (número, ex: 43.7). Se for empréstimo ou não houver valor visível, use 0.
+- "clubeContrario": nome/sigla do outro clube envolvido na linha (o que não é o meu)
+
+Ignore linhas que não envolvam claramente o meu clube. NÃO invente jogadores que não estejam nos prints.
+
+Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
+{ "transferencias": [ { "jogador": "Nome", "direcao": "entrada", "tipoContrato": "definitiva", "valorM": 43.7, "clubeContrario": "Brighton" } ] }`;
+
+            let parts = [{ text: promptImport }];
+            imagensHistoricoTransferencias.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } }));
+
+            mostrarCarregandoIA('⏳ Lendo o histórico de transferências dos prints...');
+            try {
+                const data = await chamarIA({ contents: [{ parts: parts }] });
+                let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
+                if (!match) throw new Error('Resposta da IA sem JSON.');
+                let res = JSON.parse(match[0]);
+                let lista = Array.isArray(res.transferencias) ? res.transferencias : [];
+
+                if (lista.length === 0) {
+                    esconderCarregandoIA();
+                    return alert('Não consegui identificar nenhuma transferência nos prints enviados. Tente prints mais nítidos ou mais próximos da tabela.');
+                }
+
+                transferenciasExtraidas = lista.map(t => {
+                    let nome = limparTextoUsuario(String(t.jogador || ''), 80);
+                    let direcao = t.direcao === 'saida' ? 'saida' : 'entrada';
+                    let tipoContrato = t.tipoContrato === 'emprestimo' ? 'emprestimo' : 'definitiva';
+                    let tipo = direcao === 'entrada'
+                        ? (tipoContrato === 'emprestimo' ? 'EmprestadoIn' : 'Comprado')
+                        : (tipoContrato === 'emprestimo' ? 'Emprestimo' : 'Venda');
+                    let existente = db.clube.plantel.find(p => p.nome.toLowerCase() === nome.toLowerCase());
+                    return {
+                        incluir: true,
+                        nome: nome,
+                        tipo: tipo,
+                        posicao: existente ? existente.posicao : 'MeioCampo/Dinâmico',
+                        ovr: existente ? existente.ovr : 70,
+                        idade: (existente && existente.idade) ? existente.idade : '',
+                        valor: numeroSeguro(t.valorM, 0),
+                        duracaoEmprestimo: 1,
+                        clubeContrario: limparTextoUsuario(String(t.clubeContrario || ''), 60)
+                    };
+                });
+                renderizarListaTransferenciasExtraidas();
+            } catch (e) {
+                alert('Não foi possível analisar os prints: ' + e.message);
+            }
+            esconderCarregandoIA();
+        }
+
+        function renderizarListaTransferenciasExtraidas() {
+            let box = document.getElementById('box-lista-transferencias-extraidas');
+            let corpo = document.getElementById('tabela-transferencias-extraidas-body');
+            if (!box || !corpo) return;
+            if (transferenciasExtraidas.length === 0) {
+                box.style.display = 'none';
+                corpo.innerHTML = '';
+                return;
+            }
+            box.style.display = 'block';
+
+            corpo.innerHTML = transferenciasExtraidas.map((t, idx) => `
+                <tr>
+                    <td><input type="checkbox" ${t.incluir ? 'checked' : ''} onchange="atualizarCampoTransferenciaExtraida(${idx}, 'incluir', this.checked)"></td>
+                    <td>
+                        <input type="text" value="${t.nome.replace(/"/g, '&quot;')}" style="width:130px;" onchange="atualizarCampoTransferenciaExtraida(${idx}, 'nome', this.value)">
+                        ${t.clubeContrario ? `<div style="font-size:10px; color:var(--text-muted);">vs ${t.clubeContrario.replace(/</g, '&lt;')}</div>` : ''}
+                    </td>
+                    <td>
+                        <select onchange="atualizarCampoTransferenciaExtraida(${idx}, 'tipo', this.value)">
+                            ${OPCOES_TIPO_TRANSFERENCIA.map(o => `<option value="${o.v}" ${t.tipo === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <select onchange="atualizarCampoTransferenciaExtraida(${idx}, 'posicao', this.value)">
+                            ${Object.keys(ordemPosicoes).map(p => `<option value="${p}" ${t.posicao === p ? 'selected' : ''}>${p}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="number" value="${t.ovr}" style="width:55px;" onchange="atualizarCampoTransferenciaExtraida(${idx}, 'ovr', this.value)"></td>
+                    <td><input type="number" value="${t.idade}" style="width:55px;" onchange="atualizarCampoTransferenciaExtraida(${idx}, 'idade', this.value)"></td>
+                    <td><input type="number" value="${t.valor}" style="width:70px;" onchange="atualizarCampoTransferenciaExtraida(${idx}, 'valor', this.value)"></td>
+                    <td>
+                        <select onchange="atualizarCampoTransferenciaExtraida(${idx}, 'duracaoEmprestimo', this.value)">
+                            <option value="1" ${Number(t.duracaoEmprestimo) === 1 ? 'selected' : ''}>1 Temp.</option>
+                            <option value="2" ${Number(t.duracaoEmprestimo) === 2 ? 'selected' : ''}>2 Temp.</option>
+                        </select>
+                    </td>
+                    <td><button onclick="removerLinhaTransferenciaExtraida(${idx})" style="background:transparent; color:var(--danger); border:none; cursor:pointer; font-size:15px;">✖</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function atualizarCampoTransferenciaExtraida(idx, campo, valor) {
+            let item = transferenciasExtraidas[idx];
+            if (!item) return;
+            if (campo === 'incluir') item.incluir = !!valor;
+            else if (campo === 'ovr' || campo === 'idade' || campo === 'valor' || campo === 'duracaoEmprestimo') item[campo] = Number(valor) || 0;
+            else if (campo === 'nome') item.nome = limparTextoUsuario(valor, 80);
+            else item[campo] = valor;
+        }
+
+        function removerLinhaTransferenciaExtraida(idx) {
+            transferenciasExtraidas.splice(idx, 1);
+            renderizarListaTransferenciasExtraidas();
+        }
+
+        // Aplica uma linha já revisada no elenco, espelhando exatamente o que adicionarAoPlantel()/
+        // processarSaida() fazem no fluxo manual (mesmo impacto de orçamento, nota da diretoria,
+        // termômetro da torcida e notícias) — só que lendo de um objeto em vez do formulário.
+        function _processarUmaTransferenciaExtraida(item) {
+            let nome = limparTextoUsuario(item.nome, 80);
+            if (!nome) return { ok: false, msg: 'Linha com nome vazio foi ignorada.' };
+            let tipo = item.tipo;
+            let valor = numeroSeguro(item.valor, 0);
+            let duracao = numeroSeguro(item.duracaoEmprestimo, 1) || 1;
+
+            if (tipo === 'Comprado' || tipo === 'EmprestadoIn') {
+                let posicao = item.posicao || 'MeioCampo/Dinâmico';
+                let ovr = Math.max(1, Math.round(numeroSeguro(item.ovr, 70)));
+                let idade = item.idade ? Math.round(numeroSeguro(item.idade, 24)) : null;
+                let custo = tipo === 'Comprado' ? valor : 0;
+
+                if (tipo === 'Comprado') {
+                    db.clube.orcamento -= custo; db.clube.gastoAtual += custo; atualizarNotaDiretoria(-0.1);
+                    let impactoTorcidaCompra = gerarNumeroAleatorio(2, 5) + (ovr >= 82 ? gerarNumeroAleatorio(3, 6) : 0);
+                    atualizarTermometroTorcida(impactoTorcidaCompra);
+                }
+
+                let jogadorExistente = db.clube.plantel.find(p => p.nome.toLowerCase() === nome.toLowerCase());
+                if (jogadorExistente) {
+                    jogadorExistente.status = 'Ativo';
+                    jogadorExistente.origem = tipo;
+                    jogadorExistente.ovr = ovr;
+                    jogadorExistente.posicao = posicao;
+                    jogadorExistente.valor = custo;
+                    if (idade) jogadorExistente.idade = idade;
+                    if (tipo === 'EmprestadoIn') jogadorExistente.temporadasEmprestimo = duracao;
+                } else {
+                    let novoJog = { nome: nome, posicao: posicao, ovr: ovr, status: 'Ativo', origem: tipo, valor: custo, jogosAvaliacao: 0 };
+                    if (idade) novoJog.idade = idade;
+                    if (tipo === 'EmprestadoIn') novoJog.temporadasEmprestimo = duracao;
+                    if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJog);
+                    db.clube.plantel.push(novoJog);
+                }
+
+                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Chegada de ${nome} (${tipo}) via import de print`);
+                let noticiaDin = gerarNoticiaTransferencia(tipo, nome, custo, duracao);
+                adicionarNoticiaAutomatica(noticiaDin.titulo, noticiaDin.detalhe);
+                return { ok: true };
+            }
+
+            if (tipo === 'Venda' || tipo === 'Emprestimo' || tipo === 'Dispensa') {
+                let jogador = db.clube.plantel.find(p => p.nome.toLowerCase() === nome.toLowerCase() && p.status === 'Ativo');
+                if (!jogador) return { ok: false, msg: `${nome}: não encontrado ativo no elenco — linha ignorada.` };
+                if (jogadorPertenceAOutroClube(jogador)) return { ok: false, msg: `${nome}: pertence a outro clube (empréstimo) — linha ignorada.` };
+
+                if (tipo === 'Venda') {
+                    db.clube.arrecadadoAtual += valor;
+                    jogador.status = 'Vendido'; jogador.valor = valor;
+                    atualizarNotaDiretoria(0.1);
+                    db.clube.exigenciasDiretoria = db.clube.exigenciasDiretoria.filter(n => n !== nome);
+                    let impactoVenda = gerarNumeroAleatorio(2, 6) + (jogador.ovr >= 78 ? gerarNumeroAleatorio(4, 8) : 0);
+                    atualizarTermometroTorcida(-impactoVenda);
+                    let noticia = gerarNoticiaTransferencia('Venda', nome, valor, 0);
+                    adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                } else if (tipo === 'Emprestimo') {
+                    jogador.status = 'Emprestado'; jogador.temporadasEmprestimo = duracao;
+                    let noticia = gerarNoticiaTransferencia('Emprestimo', nome, 0, duracao);
+                    adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                } else if (tipo === 'Dispensa') {
+                    jogador.status = 'Aposentado';
+                    let noticia = gerarNoticiaTransferencia('Dispensa', nome, 0, 0);
+                    adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                }
+
+                if (db.clube.capitao === nome) db.clube.capitao = '';
+                if (db.clube.viceCapitao === nome) db.clube.viceCapitao = '';
+                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Saída de ${nome} (${tipo}) via import de print`);
+                return { ok: true };
+            }
+
+            return { ok: false, msg: `${nome}: tipo de negócio desconhecido — linha ignorada.` };
+        }
+
+        async function processarTransferenciasExtraidas() {
+            if (currentSave !== 'clube') return;
+            let incluidos = transferenciasExtraidas.filter(t => t.incluir);
+            if (incluidos.length === 0) return alert('Marque ao menos uma transferência para processar.');
+            if (!(await confirmarModerno(`Aplicar ${incluidos.length} transferência(s) revisada(s) no elenco?`, 'Processar Transferências'))) return;
+
+            let erros = [];
+            incluidos.forEach(item => {
+                let r = _processarUmaTransferenciaExtraida(item);
+                if (!r.ok) erros.push(r.msg);
+            });
+
+            if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
+            salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); filtrarMercado(statusFiltroMercado);
+            checarEmbargoMercado();
+
+            transferenciasExtraidas = [];
+            imagensHistoricoTransferencias = [];
+            renderizarPreviewImagensHistoricoTransferencias();
+            renderizarListaTransferenciasExtraidas();
+
+            alert(erros.length > 0
+                ? `Transferências processadas, com ${erros.length} aviso(s):\n${erros.join('\n')}`
+                : 'Transferências processadas com sucesso!');
+        }
+
         function ordenarPlantel(coluna) {
             if (ordemAtualPlantel.coluna === coluna) { ordemAtualPlantel.ascendente = !ordemAtualPlantel.ascendente; } 
             else { ordemAtualPlantel.coluna = coluna; ordemAtualPlantel.ascendente = coluna === 'nome' ? true : false; }
