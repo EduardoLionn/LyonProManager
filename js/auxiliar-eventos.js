@@ -242,6 +242,7 @@ Exemplo do formato exigido:
                                     jogosAvaliacao: 0
                                 };
                                 if (idadeExtraida) novoJog.idade = idadeExtraida;
+                                if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJog);
                                 db.clube.plantel.push(novoJog);
                             }
                         });

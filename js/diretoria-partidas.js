@@ -40,12 +40,68 @@
             document.getElementById('dir-media-arrecadado').innerText = `€${(data.mediaArrecadadoHistorico || 0).toFixed(1)}M`;
             let notaFormatada = typeof data.notaDiretoria === 'number' ? Math.round(data.notaDiretoria) : 75;
             document.getElementById('dir-nota-diretoria').innerText = `${notaFormatada} / 100`;
-            document.getElementById('dash-dir-orcamento').innerText = "€" + (data.orcamento || 0).toFixed(2) + "M";
+            renderizarObjetivosStatus();
             document.getElementById('dash-dir-arrecadado-atual').innerText = "€" + (data.arrecadadoAtual || 0).toFixed(2) + "M";
             document.getElementById('dash-dir-gasto-atual').innerText = "€" + (data.gastoAtual || 0).toFixed(2) + "M";
             document.getElementById('dir-objetivos-texto').innerHTML = data.objetivosTemporada || "Nenhuma meta definida.";
-            renderizarComandosJogo();
             renderizarChat('diretoria');
+        }
+
+        // Só re-renderiza o valor já em cache (data.objetivosStatus) — nunca chama a IA sozinho.
+        // A avaliação em si só roda quando o treinador clica no 🔄 (avaliarObjetivosTemporada),
+        // pra não gastar cota de IA toda vez que a aba Diretoria é aberta/re-renderizada.
+        function renderizarObjetivosStatus() {
+            let el = document.getElementById('dash-dir-objetivos-status');
+            if (!el) return;
+            let status = db[currentSave] && db[currentSave].objetivosStatus;
+            el.innerText = status ? `${status.cumpridas} de ${status.total} em dia` : '—';
+            el.title = status && status.resumo ? status.resumo : 'Clique no 🔄 pra avaliar com o Auxiliar';
+        }
+
+        // Objetivos Sendo Cumpridos (pedido do treinador): o orçamento deixou de ser um limite
+        // real — o que mede o sucesso da temporada agora são as METAS já definidas em
+        // objetivosTemporada (texto livre, gerado no início da temporada por definirMetasDiretoriaIA).
+        // Essa função pede pro Auxiliar ler essas metas + o contexto atual do time (momento,
+        // posição na liga/copa, etc.) e devolver quantas delas já estão "em dia" agora — o mesmo
+        // valor que fica congelado como resultado final quando a temporada é concluída (ver
+        // concluirTemporada/finalizarTemporada).
+        async function avaliarObjetivosTemporada() {
+            let d = db[currentSave];
+            if (!d || !d.nome) return;
+            let metasTexto = (d.objetivosTemporada || '').replace(/<br\s*\/?>/gi, ' | ').trim();
+            if (!metasTexto) {
+                d.objetivosStatus = { total: 0, cumpridas: 0, resumo: 'Nenhuma meta definida.' };
+                salvarDados(); renderizarObjetivosStatus();
+                return;
+            }
+
+            let el = document.getElementById('dash-dir-objetivos-status');
+            if (el) el.innerText = '⏳ Avaliando...';
+
+            try {
+                let promptIA = `Você é ${(typeof nomeAuxiliarExibicao === 'function') ? nomeAuxiliarExibicao() : 'o Auxiliar Técnico'} do "${d.nome}". A diretoria definiu estas metas para a temporada (cada trecho separado por "|" é uma meta distinta): "${metasTexto}"
+
+                ${(typeof gerarResumoContexto === 'function') ? gerarResumoContexto() : ''}
+
+                Com base no momento atual do time (posição/aproveitamento na liga, desempenho na copa, situação financeira, etc.), avalie CADA meta individualmente como cumprida/em dia ou não. Conte quantas metas, do total, estão hoje cumpridas ou em bom caminho pra serem cumpridas até o fim da temporada.
+
+                Responda APENAS com um JSON puro, sem texto fora dele, neste formato exato:
+                { "total": <número de metas>, "cumpridas": <quantas estão em dia>, "resumo": "<1-2 frases explicando o placar>" }`;
+
+                const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
+                let bruto = (data.candidates[0].content.parts[0].text || '').trim();
+                let match = bruto.match(/\{[\s\S]*\}/);
+                if (match) {
+                    let json = JSON.parse(match[0]);
+                    let total = Math.max(0, Math.round(Number(json.total)) || 0);
+                    let cumpridas = Math.max(0, Math.min(total, Math.round(Number(json.cumpridas)) || 0));
+                    d.objetivosStatus = { total, cumpridas, resumo: String(json.resumo || '').trim() };
+                    salvarDados();
+                }
+            } catch (e) {
+                // Falha na IA não trava a tela — o valor em cache (se houver) continua exibido.
+            }
+            renderizarObjetivosStatus();
         }
 
         // Função reutilizável: recebe o histórico das últimas 5 temporadas e pede pra IA
@@ -194,21 +250,41 @@
             }
         }
 
+        // Cumulativo (pedido do treinador, na mudança de lugar Diretoria → Mensagens): os
+        // comandos pendentes continuam no topo, acionáveis, mas os já aplicados não somem mais
+        // — ficam listados embaixo como histórico, riscados, até o limite de 40 itens no save
+        // (registrarComandoJogo já cuida desse teto).
         function renderizarComandosJogo() {
             let container = document.getElementById('lista-comandos-jogo');
             if (!container) return;
             let data = db[currentSave];
-            let pendentes = (data.comandosJogo || []).map((c, i) => Object.assign({}, c, { indexOriginal: i })).filter(c => !c.aplicado);
-            if (pendentes.length === 0) {
+            let todos = (data.comandosJogo || []).map((c, i) => Object.assign({}, c, { indexOriginal: i }));
+            let pendentes = todos.filter(c => !c.aplicado);
+            let aplicados = todos.filter(c => c.aplicado);
+
+            if (todos.length === 0) {
                 container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Nenhum comando pendente.</p>';
                 return;
             }
-            container.innerHTML = pendentes.map(c => `
+
+            let htmlPendentes = pendentes.map(c => `
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--input-bg); padding:10px 12px; border-radius:8px;">
                     <span style="font-size:13px;">${c.texto}<br><span style="font-size:11px; color:var(--text-muted);">Temporada ${c.temporada}</span></span>
                     <button onclick="marcarComandoAplicado(${c.indexOriginal})" style="background:var(--primary); color:black; font-size:12px; padding:6px 10px; white-space:nowrap;">✅ Feito</button>
                 </div>
-            `).join('');
+            `).join('') || '<p style="font-size:13px; color:var(--text-muted);">Nenhum comando pendente.</p>';
+
+            let htmlAplicados = aplicados.length ? `
+                <p style="font-size:12px; color:var(--text-muted); text-transform:uppercase; font-weight:bold; margin:16px 0 8px 0;">Histórico</p>
+                ${aplicados.map(c => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:transparent; padding:8px 12px; border-radius:8px; opacity:0.6;">
+                        <span style="font-size:12px; text-decoration:line-through;">${c.texto}<br><span style="font-size:11px; text-decoration:none;">Temporada ${c.temporada}</span></span>
+                        <span style="font-size:12px;">✅</span>
+                    </div>
+                `).join('')}
+            ` : '';
+
+            container.innerHTML = htmlPendentes + htmlAplicados;
         }
 
         // Cache de imagens que falharam na leitura da IA, guardando o base64 já convertido — o
@@ -267,8 +343,11 @@
                     idTemp: ++idTempCounter, nome: nome, nota: stats.nota || 7.0, gols: stats.gols || 0, assist: stats.assistencias || 0, fin: stats.finalizacoes || 0, precFin: stats.precisaoFinalizacao || 0, passes: stats.passes || 0, precPasse: stats.precisaoPasse || 0, dribles: stats.dribles || 0, taxaDribles: stats.taxaDribles || 0, dividasTotais: divTotal, taxaDivididas: taxaDiv, dividasGanhas: Math.round(divTotal * (taxaDiv / 100)), posses: stats.possesGanhas || 0, perdasPosse: stats.perdasPosse || 0, faltas: stats.faltas || 0, defesas: stats.defesas || 0, distanciaPercorrida: stats.distanciaPercorrida || 0, distanciaCorrida: stats.distanciaCorrida || 0, mvp: stats.mvp || 0, ovrAtualizado: stats.overall || (p ? p.ovr : 70)
                 };
                 jogadoresPartidaTemp.push(dadosJogador);
-                if (!p) db[currentSave].plantel.push({ nome: nome, posicao: 'Meio-Campo', ovr: dadosJogador.ovrAtualizado, status: 'Ativo', jogosAvaliacao: 0 });
-                else if (stats.overall && stats.overall > 0) p.ovr = stats.overall;
+                if (!p) {
+                    let novoP = { nome: nome, posicao: 'Meio-Campo', ovr: dadosJogador.ovrAtualizado, status: 'Ativo', jogosAvaliacao: 0 };
+                    if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoP);
+                    db[currentSave].plantel.push(novoP);
+                } else if (stats.overall && stats.overall > 0) p.ovr = stats.overall;
             }
         }
 
@@ -465,7 +544,11 @@
             jogadoresPartidaTemp.push(dadosJogador);
             let o = Number(document.getElementById('jog-ovr-atual').value) || 70; let pos = document.getElementById('jog-pos').value;
             let p = db[currentSave].plantel.find(x => x.nome === nome);
-            if(p) { p.ovr = o; p.posicao = pos; } else { db[currentSave].plantel.push({ nome: nome, posicao: pos, ovr: o, status: 'Ativo', jogosAvaliacao: 0 }); }
+            if(p) { p.ovr = o; p.posicao = pos; } else {
+                let novoP = { nome: nome, posicao: pos, ovr: o, status: 'Ativo', jogosAvaliacao: 0 };
+                if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoP);
+                db[currentSave].plantel.push(novoP);
+            }
             renderizarListaTemp(); preencherDatalistJogadores();
             document.getElementById('jog-nota').value = '7.0'; document.getElementById('jog-mvp').checked = false;
         }
