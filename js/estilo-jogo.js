@@ -1584,15 +1584,29 @@ function gerarRelatorioTaticoRefinadoPorFoco(formacoesPreferidas, presetId, foco
     };
 }
 
-// Preset refinado (Gegenpressing hoje) ativo no save, se algum — usado por declararPartidaIA()
-// pra saber se deve rodar a camada extra de Foco (regra de ouro + Afinidade Tática) ou deixar
-// o Foco inerte como sempre foi (comportamento padrão pros outros 10 presets/texto livre).
+// Preset refinado ativo no save, se algum — usado por declararPartidaIA() pra saber se deve
+// rodar a camada extra de Foco (regra de ouro + Afinidade Tática) com a Matriz FIXA do preset,
+// ou deixar pra personalizadoAtivo() (Matriz gerada sob medida pela IA), ou deixar o Foco
+// inerte de vez (só quando nem preset refinado nem Personalizado estão ativos).
 function presetRefinadoAtivo() {
     let t = db[currentSave] && db[currentSave].taticas;
     let origem = t && t.estiloJogoSelecionado;
     if (!origem || origem.tipo !== 'preset') return null;
     let preset = PLAYSTYLE_PRESETS.find(p => p.nome === origem.rotulo);
     return (preset && preset.refinado) ? preset : null;
+}
+
+// Estilo "Personalizado" (texto livre) ativo no save, se algum — devolve a descrição ORIGINAL
+// que o treinador digitou (nunca muda entre partidas). Usado por declararPartidaIA() pra saber
+// se deve chamar gerarRelatorioTaticoPersonalizadoPorFoco() e traduzir essa descrição + o Foco
+// Tático da Partida ativo agora pra um pacote tático + Matriz Dinâmica de Funções sob medida —
+// a mesma "camada extra de Foco" dos presets refinados, só que a Matriz não é uma tabela fixa
+// escrita à mão, é gerada pela IA a cada declaração de partida.
+function personalizadoAtivo() {
+    let t = db[currentSave] && db[currentSave].taticas;
+    let origem = t && t.estiloJogoSelecionado;
+    if (!origem || origem.tipo !== 'texto-livre-interpretado') return null;
+    return origem.rotulo || null;
 }
 
 // -------------------------------------------------------------------------------------
@@ -1682,6 +1696,71 @@ function normalizarRelatorioTaticoIA(bruto, formacoesPreferidas, descricaoLivre)
         justificativa: bruto.justificativa || `Leitura do Auxiliar sobre "${descricaoLivre}".`,
         origem: { tipo: 'texto-livre-interpretado', rotulo: descricaoLivre }
     };
+}
+
+// -------------------------------------------------------------------------------------
+// TRADUTOR TÁTICO PERSONALIZADO POR FOCO (pedido do treinador) — a versão do "Gegenpressing
+// Dinâmico" pro estilo "Personalizado". Diferença chave: nos presets `refinado`, a Matriz
+// Dinâmica de Funções de cada Foco é uma tabela fixa escrita à mão (porFoco[focoId]); aqui não
+// existe preset nenhum, só a descrição livre que o treinador digitou uma vez lá no início —
+// então a IA é chamada de novo, ANTES da análise do adversário, só pra cruzar essa descrição
+// com o Foco Tático da Partida ativo agora e criar o pacote tático + a Matriz sob medida.
+// Devolve EXATAMENTE o mesmo formato de gerarRelatorioTaticoRefinadoPorFoco()/
+// normalizarRelatorioTaticoIA() (esquemaEscolhido/predefinicao/estiloArmacao/
+// abordagemDefensiva/funcoesPorRole/ajustesAutomaticos/justificativa/origem) — por isso
+// declararPartidaIA() (chat-ia.js) trata os dois de forma idêntica dali em diante: a mesma
+// pré-seleção de titulares pela Regra de Afinidade Tática, o mesmo bloco de prompt "pacote já
+// definido", a mesma trava de função/foco por cima da resposta da IA principal.
+// -------------------------------------------------------------------------------------
+async function gerarRelatorioTaticoPersonalizadoPorFoco(formacoesPreferidas, descricaoLivre, focoId) {
+    let validas = (formacoesPreferidas || []).filter(f => f && coordsFormacoes[f]).slice(0, MAX_FORMACOES_PREFERIDAS);
+    if (!validas.length) return null;
+
+    let nomeFoco = (typeof FOCOS_TATICOS_PARTIDA !== 'undefined' && FOCOS_TATICOS_PARTIDA[focoId]) ? FOCOS_TATICOS_PARTIDA[focoId] : focoId;
+
+    let promptIA = `Você é o Auxiliar Técnico, um Cientista de Dados tático do EA FC. O treinador descreveu com as próprias palavras como quer que o time jogue — sua tarefa é traduzir ESSA visão, cruzada com o Foco Tático da Partida ativo agora, pra uma configuração EXATA do motor do jogo e pra uma Matriz Dinâmica de Funções sob medida que faça a ideia funcionar de verdade na prática.
+
+DESCRIÇÃO ORIGINAL DO TREINADOR (a essência do estilo — não muda de partida pra partida): "${descricaoLivre}"
+
+FOCO TÁTICO DESTA PARTIDA (ajusta a intensidade/postura da essência acima, sem trair ela): "${nomeFoco}"
+
+FORMAÇÕES QUE ELE PRIORIZOU (nesta ordem, a primeira é a preferida): ${validas.join(' > ')}
+
+${regrasTaticasParaIA()}
+
+FUNÇÕES E FOCOS POR GRUPO DE POSIÇÃO (use SÓ estes ids ao montar a Matriz — nunca invente um novo):
+${_listarGruposFuncaoParaIA()}
+
+ANALISE A DESCRIÇÃO DO TREINADOR NESTES 3 PILARES ANTES DE DECIDIR:
+A) Como o time defende? (Alto, baixo, agressivo, passivo?)
+B) Como o time constrói a jogada? (Lento, rápido, passes curtos, lançamentos longos?)
+C) Por onde o time ataca? (Pelo meio, pelas pontas, com o centroavante, com os meias flutuando?)
+
+REGRAS:
+1. Escolha UMA das formações priorizadas pra virar "esquemaEscolhido" — a que melhor serve a ideia descrita PARA ESTE FOCO especificamente. Não invente uma formação fora da lista.
+2. predefinicao, estiloArmacao e abordagemDefensiva têm que respeitar rigorosamente as travas listadas acima, e refletir tanto a essência do texto quanto o Foco ativo (ex: um Foco mais ofensivo aumenta a linha defensiva e destrava mais agressividade em cima do que a essência do texto já pede; um Foco mais defensivo recua tudo, sem abandonar a essência).
+3. Para CADA sigla da formação escolhida, defina a função e o foco que fazem a ideia do treinador acontecer de verdade naquela posição — os dois ids têm que vir do MESMO grupo daquela sigla (ex: se o treinador quer "meias que pisem na área", exija algo como Atacante Sombra/Ataque ou Box-to-Box/Ataque nos meio-campistas; se ele disse "meus zagueiros são lenhadores", exija Marcador/Defesa). Crie essa Matriz sob medida pra ESTA ideia — nunca copie uma matriz genérica.
+4. Escreva 2-3 frases em "justificativa" explicando como você interpretou o texto pra este Foco específico, e o que a Matriz de Funções exige de cada setor do campo.
+
+Retorne EXATAMENTE este JSON puro:
+{
+  "esquemaEscolhido": "4-2-3-1",
+  "predefinicao": "id da predefinição",
+  "estiloArmacao": "id do estilo de armação",
+  "abordagemDefensiva": 50,
+  "funcoesPorRole": { "GOL": { "funcao": "id", "foco": "id" } },
+  "justificativa": "..."
+}`;
+
+    const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
+    let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    let bruto = JSON.parse(match[0]);
+
+    let relatorio = normalizarRelatorioTaticoIA(bruto, validas, descricaoLivre);
+    relatorio.focoId = focoId;
+    relatorio.justificativa = `✍️ Personalizado — Foco: ${nomeFoco}: ${relatorio.justificativa}`;
+    return relatorio;
 }
 
 // -------------------------------------------------------------------------------------
