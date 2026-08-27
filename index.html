@@ -1650,43 +1650,52 @@
                             <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, 'tatica')">
                         </label>
                     </div>
-                    <div class="grid-3" style="margin-top:15px;">
+                    <div class="grid-2" style="margin-top:15px;">
                         <div class="linha-form">
                             <label style="color:var(--accent);">Nome do Adversário</label>
                             <input type="text" id="declarar-adv-nome" placeholder="Ex: Real Madrid" style="background: var(--bg-dark);">
                         </div>
                         <div class="linha-form">
-                            <label style="color:var(--warning);">Diretriz Estratégica</label>
-                            <select id="declarar-adv-diretriz" style="background: var(--bg-dark);">
-                                <option value="titular-padrao">Escalação Titular Padrão (Recomendada)</option>
-                                <option value="rotacao-equilibrada">Rotação Equilibrada</option>
-                                <option value="rodizio-extremo">Rodízio Extremo (Poupar Titulares)</option>
-                                <option value="forca-maxima">Força Máxima Possível</option>
-                                <option value="oportunidade-jovens">Dar Oportunidade à Base/Jovens</option>
-                                <option value="titulares-todo-custo">Titulares a Todo Custo (Risco de Lesão)</option>
-                                <option value="em-melhor-momento">Em Melhor Momento</option>
-                            </select>
-                        </div>
-                        <div class="linha-form">
-                            <label style="color:var(--warning); display:flex; align-items:center; gap:5px;">
-                                Foco Tático da Partida
-                                <span title="Em breve, o Foco selecionado ditará não apenas a postura do time, mas a formação ideal, a altura da linha defensiva e os perfis específicos de jogadores exigidos para cada posição." style="cursor:help; color:var(--text-muted); font-weight:bold; border:1px solid var(--text-muted); border-radius:50%; width:14px; height:14px; font-size:10px; display:inline-flex; align-items:center; justify-content:center; text-transform:none;">i</span>
-                            </label>
-                            <select id="declarar-partida-foco" style="background: var(--bg-dark);" onchange="salvarFocoPartidaSelecionado()">
-                                <option value="equilibrado">Equilibrado (Padrão)</option>
-                                <option value="ofensivo">Ofensivo</option>
-                                <option value="extremamente_ofensivo">Extremamente Ofensivo</option>
-                                <option value="tudo_ou_nada">Tudo ou Nada (Desespero)</option>
-                                <option value="defensivo">Defensivo</option>
-                                <option value="extremamente_defensivo">Extremamente Defensivo (Retranca)</option>
-                                <option value="segura_o_jogo">Segurar o Jogo (Matar Tempo)</option>
-                            </select>
-                            <p style="font-size:11px; color:var(--text-muted); margin:6px 0 0 0; text-transform:none; letter-spacing:normal; font-weight:normal;">💡 Dica: Em breve, o Foco selecionado ditará não apenas a postura do time, mas a formação ideal, a altura da linha defensiva e os perfis específicos de jogadores exigidos para cada posição.</p>
+                            <label style="color:var(--accent);">Tipo de Competição</label>
+                            <select id="declarar-competicao" style="background: var(--bg-dark);"></select>
                         </div>
                     </div>
-                    <button id="btn-declarar-partida-ia" onclick="declararPartidaIA()" style="width:100%; margin-top:15px; padding: 12px; font-size: 15px; background: var(--accent); color: white;">
-                        🔍 Analisar Adversário e Montar Plano (IA)
+                    <button id="btn-gerar-sugestao-diretriz-foco" onclick="gerarSugestaoDiretrizFoco()" style="width:100%; margin-top:15px; padding: 12px; font-size: 15px; background: var(--accent); color: white;">
+                        🧠 Gerar Sugestão de Diretriz e Foco
                     </button>
+
+                    <div id="auxiliar-fase2-diretriz-foco" style="display:none; margin-top:20px; padding-top:18px; border-top:1px dashed var(--border);">
+                        <p id="auxiliar-fase2-justificativa" style="font-size:13px; color:var(--text-muted); background: var(--bg-dark); padding:10px 14px; border-radius:6px; margin-bottom:15px;"></p>
+                        <div class="grid-2">
+                            <div class="linha-form">
+                                <label style="color:var(--warning);">Diretriz Estratégica</label>
+                                <select id="declarar-adv-diretriz" style="background: var(--bg-dark);">
+                                    <option value="titular-padrao">Escalação Titular Padrão (Recomendada)</option>
+                                    <option value="rotacao-equilibrada">Rotação Equilibrada</option>
+                                    <option value="rodizio-extremo">Rodízio Extremo (Poupar Titulares)</option>
+                                    <option value="forca-maxima">Força Máxima Possível</option>
+                                    <option value="oportunidade-jovens">Dar Oportunidade à Base/Jovens</option>
+                                    <option value="titulares-todo-custo">Titulares a Todo Custo (Risco de Lesão)</option>
+                                    <option value="em-melhor-momento">Em Melhor Momento</option>
+                                </select>
+                            </div>
+                            <div class="linha-form">
+                                <label style="color:var(--warning);">Foco Tático da Partida</label>
+                                <select id="declarar-partida-foco" style="background: var(--bg-dark);" onchange="salvarFocoPartidaSelecionado()">
+                                    <option value="equilibrado">Equilibrado (Padrão)</option>
+                                    <option value="ofensivo">Ofensivo</option>
+                                    <option value="extremamente_ofensivo">Extremamente Ofensivo</option>
+                                    <option value="tudo_ou_nada">Tudo ou Nada (Desespero)</option>
+                                    <option value="defensivo">Defensivo</option>
+                                    <option value="extremamente_defensivo">Extremamente Defensivo (Retranca)</option>
+                                    <option value="segura_o_jogo">Segurar o Jogo (Matar Tempo)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button id="btn-declarar-partida-ia" onclick="declararPartidaIA()" style="width:100%; margin-top:15px; padding: 12px; font-size: 15px; background: var(--accent); color: white;">
+                            ▶️ Prosseguir com Escalação
+                        </button>
+                    </div>
                 </div>
 
                 <!-- O plano pronto: pacote tático + escalação sugerida -->
@@ -1723,9 +1732,16 @@
             <!-- RELATÓRIOS DO AUXILIAR — cada partida finalizada vira um relatório completo: -->
             <!-- formação, campinho tático, notas e a leitura do Auxiliar (pontos fortes/fracos e orientação) -->
             <div class="panel">
-                <h3 style="margin:0; font-size:16px;">📊 Relatórios do Auxiliar Técnico</h3>
-                <span style="font-size:12px; color:var(--text-muted);">Um relatório completo por partida — formação, campinho tático, notas dos jogadores e a leitura do Auxiliar sobre pontos fortes, fracos e orientação pro próximo jogo</span>
-                <div id="auxiliar-relatorios" style="margin-top:15px;"></div>
+                <div id="auxiliar-relatorios-header" onclick="toggleRelatoriosAuxiliarPanel()" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h3 style="margin:0; font-size:16px;">📊 Relatórios do Auxiliar Técnico</h3>
+                        <span style="font-size:12px; color:var(--text-muted);">Um relatório completo por partida — formação, campinho tático, notas dos jogadores e a leitura do Auxiliar sobre pontos fortes, fracos e orientação pro próximo jogo</span>
+                    </div>
+                    <span id="auxiliar-relatorios-seta" style="font-size:18px; color:var(--text-muted);">▸</span>
+                </div>
+                <div id="auxiliar-relatorios-corpo" style="display:none;">
+                    <div id="auxiliar-relatorios" style="margin-top:15px;"></div>
+                </div>
             </div>
 
         </div>

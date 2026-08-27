@@ -536,12 +536,19 @@ function toggleChatDiretoria() {
             document.getElementById('header-temp-ano').innerText = config.temporadaAtual;
 
             let selectComp = document.getElementById('partida-comp');
-            if (selectComp) {
-                selectComp.innerHTML = '';
+            let selectDeclararComp = document.getElementById('declarar-competicao');
+            if (selectComp || selectDeclararComp) {
                 let comps = currentSave === 'clube'
                     ? ["Liga", "Copa Nacional", "Torneio Continental", "Amistoso", "Outros"]
                     : ["Copa do Mundo", "Eliminatórias", "Copa Continental", "Amistoso", "Outros"];
-                comps.forEach(c => selectComp.innerHTML += `<option value="${c}">${c}</option>`);
+                if (selectComp) {
+                    selectComp.innerHTML = '';
+                    comps.forEach(c => selectComp.innerHTML += `<option value="${c}">${c}</option>`);
+                }
+                if (selectDeclararComp) {
+                    selectDeclararComp.innerHTML = '';
+                    comps.forEach(c => selectDeclararComp.innerHTML += `<option value="${c}">${c}</option>`);
+                }
             }
 
             if (typeof garantirCondicaoFisicaTodos === 'function') garantirCondicaoFisicaTodos();

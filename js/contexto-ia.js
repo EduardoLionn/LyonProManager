@@ -119,6 +119,34 @@ function retrospectoContraAdversario(nomeAdversario) {
     return `Já enfrentamos ${nomeAdversario} ${confrontos.length} vez(es): ${v}V ${e}E ${der}D. Últimos placares: ${ultimos}.`;
 }
 
+// Detecta jogo de volta (mata-mata de ida e volta contra o MESMO adversário, na MESMA
+// competição, na MESMA temporada) e devolve o placar agregado já calculado — é exatamente
+// o tipo de leitura que um auxiliar de verdade faz antes de decidir se "segura" ou "vai com
+// tudo": times que estão na frente no agregado defendem vantagem, times atrás precisam
+// arriscar mais. Sem isso a IA não tinha como saber que already existe um jogo de ida.
+function contextoMataMataIA(nomeAdversario, competicaoSelecionada) {
+    let d = db[currentSave];
+    if (!nomeAdversario || !competicaoSelecionada || !d || !Array.isArray(d.partidas)) return '';
+    let alvo = String(nomeAdversario).toLowerCase().trim();
+    if (!alvo) return '';
+
+    let jogoIda = d.partidas.find(p =>
+        String(p.adversario || '').toLowerCase().trim() === alvo &&
+        p.comp === competicaoSelecionada &&
+        p.temporada === d.temporadaAtual
+    );
+    if (!jogoIda) return '';
+
+    let nossoAgregado = jogoIda.golsPro || 0;
+    let advAgregado = jogoIda.golsContra || 0;
+    let placarIda = `${jogoIda.golsPro}x${jogoIda.golsContra}`;
+    let situacao = nossoAgregado > advAgregado ? `estamos na frente no agregado (vantagem de ${nossoAgregado - advAgregado} gol(s)) — segurar o resultado pode ser mais importante que arriscar tudo`
+        : nossoAgregado < advAgregado ? `estamos atrás no agregado (desvantagem de ${advAgregado - nossoAgregado} gol(s)) — pode ser necessário arriscar mais pra reverter`
+        : `o agregado está empatado — jogo decisivo, qualquer gol pesa`;
+
+    return `ESTE É O JOGO DE VOLTA contra ${nomeAdversario} pela ${competicaoSelecionada}, temporada ${d.temporadaAtual}. Jogo de ida terminou ${placarIda} (nós x eles). Com isso, ${situacao}.`;
+}
+
 // Bloco completo do momento do time na temporada, pronto pra entrar em qualquer prompt.
 function contextoCompeticaoIA() {
     let d = db[currentSave];
