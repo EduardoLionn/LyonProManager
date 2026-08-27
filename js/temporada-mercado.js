@@ -666,8 +666,8 @@ ${blocoAvaliacao}
 
             let promptImport = `Você está vendo ${imagensHistoricoTransferencias.length} print(s) da tela de HISTÓRICO DE TRANSFERÊNCIAS de um jogo de futebol (estilo EA FC Manager/Football Manager). A tabela tem colunas como Data, Nome do jogador, De (clube de origem), Para (clube de destino) e Detalhes (valor em € ou "Loan"/Empréstimo).
 
-MEU CLUBE (o clube do usuário que preenche este save) é: "${db.clube.nome || 'não informado — infira pelo escudo/sigla que aparece repetido na maioria das linhas'}".
-Jogadores já ativos no meu elenco atualmente: ${nomesElenco}.
+MEU CLUBE (o clube do usuário que preenche este save) é: "${db.clube.nome || 'não informado'}" — mas o nome exibido dentro do jogo pode ser um apelido, sigla ou nome ligeiramente diferente do que está aqui. Se não bater exatamente, use o clube que aparece repetido com mais frequência entre "De"/"Para" em todas as linhas como sendo o meu.
+Jogadores já ativos no meu elenco atualmente (ajuda a confirmar o lado "meu clube" de cada linha): ${nomesElenco}.
 
 Para CADA linha da tabela em CADA print, extraia:
 - "jogador": nome do jogador (como está escrito no print)
@@ -676,7 +676,7 @@ Para CADA linha da tabela em CADA print, extraia:
 - "valorM": o valor da negociação em MILHÕES de euros (número, ex: 43.7). Se for empréstimo ou não houver valor visível, use 0.
 - "clubeContrario": nome/sigla do outro clube envolvido na linha (o que não é o meu)
 
-Ignore linhas que não envolvam claramente o meu clube. NÃO invente jogadores que não estejam nos prints.
+IMPORTANTE — NUNCA DESCARTE UMA LINHA POR DÚVIDA: extraia TODAS as linhas visíveis em TODOS os prints, mesmo que não tenha certeza absoluta de qual lado é o seu clube — o usuário revê e edita cada linha manualmente depois, então uma linha incluída com o palpite errado é fácil de corrigir, mas uma linha descartada silenciosamente vira uma transferência que nunca aparece pra ele revisar. Se realmente não conseguir decidir a direção, faça o melhor palpite (não deixe de incluir a linha por causa disso). NÃO invente jogadores que não estejam nos prints.
 
 Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
 { "transferencias": [ { "jogador": "Nome", "direcao": "entrada", "tipoContrato": "definitiva", "valorM": 43.7, "clubeContrario": "Brighton" } ] }`;
@@ -694,7 +694,7 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
 
                 if (lista.length === 0) {
                     esconderCarregandoIA();
-                    return alert('Não consegui identificar nenhuma transferência nos prints enviados. Tente prints mais nítidos ou mais próximos da tabela.');
+                    return alert('Não consegui identificar nenhuma linha de transferência nos prints enviados. Confira se o print mostra mesmo a tabela do Histórico de Transferências (com as colunas De/Para) e tente de novo — prints mais nítidos e mais próximos da tabela ajudam bastante.');
                 }
 
                 transferenciasExtraidas = lista.map(t => {
