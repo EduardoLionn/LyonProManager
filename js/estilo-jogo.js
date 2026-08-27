@@ -1779,6 +1779,11 @@ function aplicarRelatorioTaticoNoSave(relatorio) {
     d.taticas.formacoesPreferidas = (relatorio.formacoesPreferidas || []).slice(0, MAX_FORMACOES_PREFERIDAS);
     d.taticas.estiloJogoSelecionado = relatorio.origem;
     d.taticas.funcoesPorRoleSugeridas = relatorio.funcoesPorRole;
+    // Guarda o motivo de cada formação preferida que NÃO foi escolhida — sem isso, o resumo
+    // salvo (renderizarResumoEstiloJogoSalvo) não tinha como explicar por que o esquema em uso
+    // pode ser diferente da 1ª prioridade (ex: uma formação mais abaixo na lista é mais ideal
+    // pra este estilo), a mesma explicação que já aparecia na tela de geração (Início de Jogo).
+    d.taticas.esquemaPreteridas = relatorio.esquemaPreteridas || [];
     salvarDados();
     return resultado;
 }
@@ -1875,7 +1880,15 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
     let faixa = faixaAbordagem(t.abordagemDefensiva);
     let origem = t.estiloJogoSelecionado;
     let rotuloOrigem = origem.tipo === 'preset' ? origem.rotulo : `Personalizado: "${origem.rotulo}"`;
-    let formacoesTxt = (t.formacoesPreferidas && t.formacoesPreferidas.length) ? t.formacoesPreferidas.join(' → ') : t.esquema;
+    // Marca visualmente qual formação preferida está de fato em uso — sem isso, quando o esquema
+    // escolhido não é a 1ª prioridade (porque uma formação mais abaixo na lista é mais ideal pra
+    // este estilo), o quadro parecia estar mostrando uma formação "errada"/desatualizada.
+    let formacoesTxt = (t.formacoesPreferidas && t.formacoesPreferidas.length)
+        ? t.formacoesPreferidas.map(f => f === t.esquema ? `<strong style="color:var(--primary);">${f} ✓</strong>` : f).join(' → ')
+        : t.esquema;
+    let preteridasHtml = (t.esquemaPreteridas && t.esquemaPreteridas.length)
+        ? `<p style="font-size:12px; color:var(--text-muted); margin:6px 0 0 0;">Não usei ${t.esquemaPreteridas.map(p => `<strong>${p.formacao}</strong> (${p.motivo})`).join(', ')}.</p>`
+        : '';
     let funcoesHtml = _funcoesPorRoleParaExibicao(t.funcoesPorRoleSugeridas || {}).map(e => `
         <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span></div>
     `).join('');
@@ -1885,8 +1898,9 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
             <strong>📋 Estilo de Jogo: ${rotuloOrigem}</strong>
             <span>${pre.emoji} ${pre.nome} &nbsp;•&nbsp; ${t.esquema} &nbsp;•&nbsp; ${est.nome} &nbsp;•&nbsp; ${t.abordagemDefensiva}/100 (${faixa.nome})</span>
         </div>
-        <p class="tatica-ajuda" style="margin-top:10px;">Formações preferidas (ordem de prioridade): ${formacoesTxt}</p>
-        ${funcoesHtml ? `<p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo</p><div class="banco-reservas-grid">${funcoesHtml}</div>` : ''}
+        <p class="tatica-ajuda" style="margin-top:10px;">Formações preferidas (ordem de prioridade) — ✓ marca a que está em uso: ${formacoesTxt}</p>
+        ${preteridasHtml}
+        ${funcoesHtml ? `<p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo (${t.esquema})</p><div class="banco-reservas-grid">${funcoesHtml}</div>` : ''}
         <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin-top:14px;">💡 Isto é a <strong>base</strong> — não é engessado. Partida a partida, o Auxiliar Técnico ajusta a abordagem, a formação (entre as preferidas acima) e a função de cada jogador de acordo com o adversário específico, sempre dentro do espírito deste estilo.</p>
         <button type="button" onclick="alternarEdicaoEstiloJogo('${prefixo}', true)" style="width:100%; margin-top:10px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:10px; font-weight:bold;">✏️ Alterar Configuração</button>
     `;
