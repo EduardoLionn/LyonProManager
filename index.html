@@ -1720,24 +1720,12 @@
                 </div>
             </div>
 
-            <!-- RELATÓRIOS DO AUXILIAR — análise sobre várias partidas, não só o log jogo a jogo -->
+            <!-- RELATÓRIOS DO AUXILIAR — cada partida finalizada vira um relatório completo: -->
+            <!-- formação, campinho tático, notas e a leitura do Auxiliar (pontos fortes/fracos e orientação) -->
             <div class="panel">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                    <div>
-                        <h3 style="margin:0; font-size:16px;">📊 Relatórios do Auxiliar Técnico</h3>
-                        <span style="font-size:12px; color:var(--text-muted);">Análise sobre as últimas partidas — sequência de resultados, padrão tático e recomendação, não só o placar</span>
-                    </div>
-                    <button onclick="gerarRelatorioAuxiliar()" style="background: var(--accent); color:white; padding:10px 15px; font-size:13px;">📊 Gerar Relatório</button>
-                </div>
+                <h3 style="margin:0; font-size:16px;">📊 Relatórios do Auxiliar Técnico</h3>
+                <span style="font-size:12px; color:var(--text-muted);">Um relatório completo por partida — formação, campinho tático, notas dos jogadores e a leitura do Auxiliar sobre pontos fortes, fracos e orientação pro próximo jogo</span>
                 <div id="auxiliar-relatorios" style="margin-top:15px;"></div>
-            </div>
-
-            <!-- HISTÓRICO DE PARTIDAS DO AUXILIAR — o log partida a partida, oculto até o usuário abrir -->
-            <div class="panel">
-                <button id="btn-toggle-historico-aux" onclick="toggleHistoricoAuxiliarPanel()" style="width: 100%; background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
-                    📂 Ver Histórico de Partidas (jogo a jogo)
-                </button>
-                <div id="auxiliar-historico-partidas" style="display:none; margin-top:15px;"></div>
             </div>
 
         </div>
