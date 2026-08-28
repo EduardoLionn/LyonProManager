@@ -142,29 +142,55 @@
             }`;
 
             mostrarCarregandoIA('⏳ A diretoria está definindo o orçamento e as metas...');
-            try {
+
+            // Este é o primeiro contato do treinador com o jogo — cair no fallback genérico logo
+            // de cara ("Garantir permanência"/"Disputar com honra" pra qualquer time, sempre
+            // igual) é a pior primeira impressão possível, e não existe nenhum botão depois pra
+            // regenerar essas metas. Por isso, uma falha (timeout, rede, resposta sem JSON) tenta
+            // de novo UMA vez antes de desistir e usar o fallback — só aqui, não em chamarIA()
+            // genericamente, pra não duplicar custo de IA em todas as outras 13 telas que a usam.
+            async function tentarGerarMetas() {
                 const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 let rawText = data.candidates[0].content.parts[0].text;
                 let jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    let res = JSON.parse(jsonMatch[0]);
-                    db[currentSave].orcamento = normalizarValorOrcamento(res.orcamentoLiberado) || 20;
-                    registrarComandoOrcamento(db[currentSave].orcamento, "Orçamento Inicial da Temporada");
-                    let txt = `⚽ Liga: ${res.objLiga1}<br>⚽ Liga (Secundário): ${res.objLiga2}<br>🏆 Copa Nacional: ${res.objCopa}`;
-                    if(res.objInternacional && res.objInternacional.trim() !== "") txt += `<br>🌍 Internacional (${continental}): ${res.objInternacional}`;
-                    txt += `<br>💰 Finanças: ${res.objFinanceiro}`;
-                    db[currentSave].objetivosTemporada = txt;
-                    db[currentSave].objetivosEstruturados = {
-                        liga1: res.objLiga1 || '',
-                        liga2: res.objLiga2 || '',
-                        copa: res.objCopa || '',
-                        internacional: (res.objInternacional && continental !== 'Nenhuma') ? res.objInternacional : ''
-                    };
+                if (!jsonMatch) throw new Error('Resposta da IA sem JSON.');
+                return JSON.parse(jsonMatch[0]);
+            }
+
+            let res = null;
+            try {
+                res = await tentarGerarMetas();
+            } catch (e1) {
+                try {
+                    res = await tentarGerarMetas();
+                } catch (e2) {
+                    res = null;
                 }
-            } catch(err) {
-                db[currentSave].orcamento = 20;
-                registrarComandoOrcamento(20, "Orçamento Inicial da Temporada");
-                db[currentSave].objetivosTemporada = "⚽ Liga: Garantir permanência<br>🏆 Copas: Disputar com honra<br>💰 Finanças: Não gerar prejuízo";
+            }
+
+            if (res) {
+                db[currentSave].orcamento = normalizarValorOrcamento(res.orcamentoLiberado) || 20;
+                registrarComandoOrcamento(db[currentSave].orcamento, "Orçamento Inicial da Temporada");
+                let txt = `⚽ Liga: ${res.objLiga1}<br>⚽ Liga (Secundário): ${res.objLiga2}<br>🏆 Copa Nacional: ${res.objCopa}`;
+                if(res.objInternacional && res.objInternacional.trim() !== "") txt += `<br>🌍 Internacional (${continental}): ${res.objInternacional}`;
+                txt += `<br>💰 Finanças: ${res.objFinanceiro}`;
+                db[currentSave].objetivosTemporada = txt;
+                db[currentSave].objetivosEstruturados = {
+                    liga1: res.objLiga1 || '',
+                    liga2: res.objLiga2 || '',
+                    copa: res.objCopa || '',
+                    internacional: (res.objInternacional && continental !== 'Nenhuma') ? res.objInternacional : ''
+                };
+            } else {
+                // Fallback data-driven (nunca a IA falhando duas vezes deveria gerar o MESMO texto
+                // genérico pra um time de ponta e um time em situação ruim) — usa a posição média
+                // na liga/copa já informada pra pelo menos dar um objetivo minimamente coerente.
+                let metaLiga = posicaoMedia <= 3 ? 'Brigar pelo título da liga' : posicaoMedia <= 8 ? 'Terminar entre os 8 primeiros' : 'Garantir a permanência na divisão';
+                let metaCopa = /fase inicial|primeira fase|não disputad/i.test(posicaoCopaMedia) ? 'Passar da 1ª fase da Copa Nacional' : `Repetir ou superar o desempenho de "${posicaoCopaMedia}" na Copa Nacional`;
+                db[currentSave].orcamento = Math.max(5, Math.round(mediaGasto * 0.6 * 10) / 10) || 20;
+                registrarComandoOrcamento(db[currentSave].orcamento, "Orçamento Inicial da Temporada");
+                db[currentSave].objetivosTemporada = `⚽ Liga: ${metaLiga}<br>🏆 Copas: ${metaCopa}<br>💰 Finanças: Terminar a temporada com saldo positivo (arrecadação maior que gasto)`;
+                db[currentSave].objetivosEstruturados = { liga1: metaLiga, liga2: '', copa: metaCopa, internacional: '' };
             }
             esconderCarregandoIA();
             db[currentSave].diretoriaConfigurada = true;
