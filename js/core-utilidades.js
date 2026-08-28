@@ -9,7 +9,11 @@
 //
 // A resposta é devolvida crua (o mesmo objeto que response.json() dava antes), pra não
 // mudar o formato que as 14 telas já esperam.
-async function chamarIA(corpo) {
+// `timeoutMs` é opcional (padrão 45s — dá folga pra prompts com imagem, que demoram mais que
+// texto puro) — sem isso, uma resposta lenta/travada do Worker ou do Gemini deixava a tela
+// "carregando" por tempo indefinido (reclamação: "demorou pra caramba iniciar o jogo"),
+// sem nunca cair no catch de quem chamou pra mostrar um erro ou tentar de novo.
+async function chamarIA(corpo, timeoutMs) {
     let cabecalhos = { 'Content-Type': 'application/json' };
     try {
         let user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
@@ -18,11 +22,22 @@ async function chamarIA(corpo) {
         // Sem token: o Worker vai recusar. Melhor recusar do que virar proxy aberto.
     }
 
-    const resposta = await fetch(API_URL, {
-        method: 'POST',
-        headers: cabecalhos,
-        body: JSON.stringify(corpo)
-    });
+    let controlador = new AbortController();
+    let timer = setTimeout(() => controlador.abort(), timeoutMs || 45000);
+    let resposta;
+    try {
+        resposta = await fetch(API_URL, {
+            method: 'POST',
+            headers: cabecalhos,
+            body: JSON.stringify(corpo),
+            signal: controlador.signal
+        });
+    } catch (e) {
+        if (e.name === 'AbortError') throw new Error('A IA demorou demais pra responder. Tente novamente.');
+        throw e;
+    } finally {
+        clearTimeout(timer);
+    }
 
     if (resposta.status === 401 || resposta.status === 403) {
         throw new Error('Sessão expirada — recarregue a página e entre de novo para usar a IA.');
