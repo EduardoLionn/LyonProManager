@@ -2146,21 +2146,28 @@ function _nomeFuncaoFoco(role, escolha) {
 }
 
 // Pedido do treinador: em vez de tentar "explicar melhor" as regras de posição de cada função
-// (texto que ele achava que não condizia com o jogo real), mostra um jogador real conhecido
-// que exerce essa função — como referência concreta. Fica oculto por padrão; a pessoa clica
-// pra revelar (ver _funcoesPorRoleParaExibicao / renderização dos cards abaixo).
+// (texto que ele achava que não condizia com o jogo real) ou usar nome de jogador real (achou
+// pouco profissional), mostra uma combinação tática de referência — Formação + Foco Tático da
+// Partida + Diretriz + uso ideal — que ilustra quando essa função/foco é a escolha certa. Fica
+// oculto por padrão; a pessoa clica pra revelar (ver _funcoesPorRoleParaExibicao / renderização
+// dos cards abaixo).
 function _exemploFuncaoFoco(role, escolha) {
     let grupo = grupoFuncaoDoRole(role);
-    if (!grupo || !escolha) return '';
+    if (!grupo || !escolha) return null;
     let g = GRUPOS_FUNCAO_EA[grupo];
     let f = g.funcoes.find(x => x.id === escolha.funcao);
-    return (f && f.exemplo) || '';
+    return (f && f.exemploTatico) || null;
 }
 
-// HTML do "ver exemplo" — clicável, começa oculto (a pessoa clica pra ver o jogador real).
+// HTML do "ver exemplo" — clicável, começa oculto (a pessoa clica pra ver a combinação tática).
 function _htmlExemploFuncao(exemplo) {
     if (!exemplo) return '';
-    return `<span class="funcao-exemplo-toggle" onclick="let n=this.nextElementSibling; n.style.display = n.style.display === 'none' ? 'inline' : 'none';">👁️ ver exemplo real</span><span class="funcao-exemplo-nome" style="display:none;">${exemplo}</span>`;
+    return `<span class="funcao-exemplo-toggle" onclick="let n=this.nextElementSibling; n.style.display = n.style.display === 'none' ? 'block' : 'none';">👁️ ver exemplo tático</span><div class="funcao-exemplo-card" style="display:none;">
+        <div><strong>Formação:</strong> ${exemplo.formacao}</div>
+        <div><strong>Foco da Partida:</strong> ${exemplo.foco}</div>
+        <div><strong>Diretriz:</strong> ${exemplo.diretriz}</div>
+        <div><strong>Uso ideal:</strong> ${exemplo.usoIdeal}</div>
+    </div>`;
 }
 
 // Prepara a lista {rotulo, texto} pra exibir "função de cada posição em campo": nos grupos sem
