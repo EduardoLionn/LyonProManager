@@ -602,6 +602,42 @@ ${blocoAvaliacao}
         let imagensHistoricoTransferencias = []; // [{ base64, mimeType, nomeArquivo }]
         let transferenciasExtraidas = []; // [{ incluir, nome, tipo, posicao, ovr, idade, valor, duracaoEmprestimo, clubeContrario }]
 
+        // A tela de Histórico de Transferências do jogo mostra o nome completo em CAIXA ALTA
+        // (ex: "LUCAS CHAVES"), mas o resto do LyonPro Manager usa o padrão "Inicial. Sobrenome"
+        // (ex: "L. Chaves") em todo o elenco — sem essa conversão, um jogador que já está
+        // cadastrado como "M. Nunes" nunca batia com o "MATHEUS NUNES" extraído do print.
+        function normalizarNomeJogadorPrint(nomeCru) {
+            let nome = String(nomeCru || '').trim().replace(/\s+/g, ' ');
+            if (!nome) return nome;
+            let capitalizar = p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+            let partes = nome.split(' ');
+            if (partes.length === 1) return capitalizar(partes[0]);
+            let inicial = partes[0].charAt(0).toUpperCase();
+            let sobrenome = partes.slice(1).map(capitalizar).join(' ');
+            return `${inicial}. ${sobrenome}`;
+        }
+
+        // Acha o jogador que já está no elenco correspondente ao nome extraído de um print —
+        // essencial pra uma SAÍDA (venda/empréstimo): puxa o jogador de verdade (nome, posição,
+        // OVR, idade) em vez de confiar no nome cru do print, que nunca bate exatamente com o
+        // que já está cadastrado. Tenta o nome já normalizado primeiro e, se não bater, cai pra
+        // comparar só o sobrenome (mais tolerante a diferenças de abreviação/grafia) — só usa
+        // esse resultado se for único, pra não confundir dois jogadores com o mesmo sobrenome.
+        function encontrarJogadorElencoPorNomePrint(nomeCru) {
+            let normalizado = normalizarNomeJogadorPrint(nomeCru);
+            let porNomeExato = db.clube.plantel.find(p => p.nome.toLowerCase() === normalizado.toLowerCase());
+            if (porNomeExato) return porNomeExato;
+
+            let partesCru = String(nomeCru || '').trim().split(/\s+/);
+            let sobrenomeCru = (partesCru[partesCru.length - 1] || '').toLowerCase();
+            if (!sobrenomeCru) return null;
+            let porSobrenome = db.clube.plantel.filter(p => {
+                let partesElenco = p.nome.trim().split(/\s+/);
+                return (partesElenco[partesElenco.length - 1] || '').toLowerCase() === sobrenomeCru;
+            });
+            return porSobrenome.length === 1 ? porSobrenome[0] : null;
+        }
+
         const OPCOES_TIPO_TRANSFERENCIA = [
             { v: 'Comprado', l: '📥 Compra' },
             { v: 'EmprestadoIn', l: '📥 Empréstimo (Chegando)' },
@@ -698,13 +734,16 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                 }
 
                 transferenciasExtraidas = lista.map(t => {
-                    let nome = limparTextoUsuario(String(t.jogador || ''), 80);
+                    let nomeCru = limparTextoUsuario(String(t.jogador || ''), 80);
                     let direcao = t.direcao === 'saida' ? 'saida' : 'entrada';
                     let tipoContrato = t.tipoContrato === 'emprestimo' ? 'emprestimo' : 'definitiva';
                     let tipo = direcao === 'entrada'
                         ? (tipoContrato === 'emprestimo' ? 'EmprestadoIn' : 'Comprado')
                         : (tipoContrato === 'emprestimo' ? 'Emprestimo' : 'Venda');
-                    let existente = db.clube.plantel.find(p => p.nome.toLowerCase() === nome.toLowerCase());
+                    // Já está no elenco (o caso normal de uma SAÍDA) -> usa o jogador de verdade.
+                    // Reforço novo (ENTRADA) sem match -> só normaliza o nome pro padrão do jogo.
+                    let existente = encontrarJogadorElencoPorNomePrint(nomeCru);
+                    let nome = existente ? existente.nome : normalizarNomeJogadorPrint(nomeCru);
                     return {
                         incluir: true,
                         nome: nome,
@@ -756,10 +795,11 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                     <td><input type="number" value="${t.idade}" style="width:55px;" onchange="atualizarCampoTransferenciaExtraida(${idx}, 'idade', this.value)"></td>
                     <td><input type="number" value="${t.valor}" style="width:70px;" onchange="atualizarCampoTransferenciaExtraida(${idx}, 'valor', this.value)"></td>
                     <td>
+                        ${(t.tipo === 'EmprestadoIn' || t.tipo === 'Emprestimo') ? `
                         <select onchange="atualizarCampoTransferenciaExtraida(${idx}, 'duracaoEmprestimo', this.value)">
                             <option value="1" ${Number(t.duracaoEmprestimo) === 1 ? 'selected' : ''}>1 Temp.</option>
                             <option value="2" ${Number(t.duracaoEmprestimo) === 2 ? 'selected' : ''}>2 Temp.</option>
-                        </select>
+                        </select>` : '<span style="color:var(--text-muted); font-size:12px;">—</span>'}
                     </td>
                     <td><button onclick="removerLinhaTransferenciaExtraida(${idx})" style="background:transparent; color:var(--danger); border:none; cursor:pointer; font-size:15px;">✖</button></td>
                 </tr>
@@ -773,6 +813,9 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
             else if (campo === 'ovr' || campo === 'idade' || campo === 'valor' || campo === 'duracaoEmprestimo') item[campo] = Number(valor) || 0;
             else if (campo === 'nome') item.nome = limparTextoUsuario(valor, 80);
             else item[campo] = valor;
+            // Mudar o "tipo" pode abrir/fechar a coluna de duração do empréstimo (só faz sentido
+            // pra EmprestadoIn/Emprestimo) — precisa re-renderizar a linha pra refletir isso.
+            if (campo === 'tipo') renderizarListaTransferenciasExtraidas();
         }
 
         function removerLinhaTransferenciaExtraida(idx) {
