@@ -1443,6 +1443,85 @@ function _perfilContagemFormacao(esquema) {
     return contagem;
 }
 
+// =====================================================================================
+// FORMAÇÃO OFENSIVA CALCULADA (pedido do treinador) — no EA FC (e no futebol real), a formação
+// escolhida é só a postura DEFENSIVA. Com a bola, o time assume outro desenho de verdade,
+// conforme a função de cada jogador: um lateral em Ala Atacante/Ala Invertido empurra e vira um
+// meio extra; um volante em Zaga recua e forma linha de três com os zagueiros; um jogador pela
+// lateral (MD/ME) que Corta pra Dentro fecha pra virar um atacante/meia extra. Isto NUNCA muda o
+// esquema salvo nem a escalação em campo — é só um rótulo informativo (Formação Defensiva →
+// Formação Ofensiva) calculado a partir das funções já escolhidas, sem IA e sem inventar uma
+// formação fora do catálogo (o resultado é sempre um nome que já existe em coordsFormacoes).
+// =====================================================================================
+
+// Banda "crua" de cada grupo quando o time defende — goleiro fica de fora da conta (sempre 1,
+// implícito, nunca vira dado de formação).
+const _BANDA_PADRAO_POR_GRUPO = {
+    zagueiro: 'defesa', lateral: 'defesa',
+    volante: 'meio', meio_campo_central: 'meio', meia_lateral: 'meio',
+    meia_atacante: 'ataque', ponta: 'ataque', atacante: 'ataque'
+};
+
+// Só as funções cujo comportamento real em posse de bola desloca o jogador pra outra linha —
+// as demais mantêm a banda padrão do grupo. Nada aqui muda a função/foco em si, só a CONTAGEM
+// usada pra calcular o desenho ofensivo.
+const DESLOCAMENTO_OFENSIVO_POR_FUNCAO = {
+    lateral: {
+        'lateral-invertido': 'meio', // "funciona como volante quando o time está com a bola"
+        'ala-invertido': 'meio',     // "adota uma posição central quando o time está com a bola"
+        'ala-atacante': 'meio'       // sobe e vira um meio/ala extra, deixando de ser um 4º defensor
+    },
+    volante: {
+        'zaga': 'defesa' // "ficará entre a zaga... para oferecer proteção" — vira um 3º/5º zagueiro
+    },
+    meia_lateral: {
+        'corta-pra-dentro': 'ataque' // fecha pro meio pra finalizar, deixa de ocupar a linha de meio
+    }
+};
+
+// Conta quantos jogadores (fora o goleiro) acabam em cada banda — se funcoesPorRole for null,
+// devolve o perfil "cru" da formação (só pela posição no campinho, sem nenhum deslocamento),
+// usado pra descobrir o perfil de cada formação do catálogo na hora de casar o resultado.
+function _bandasEmPosse(esquema, funcoesPorRole) {
+    let bandas = { defesa: 0, meio: 0, ataque: 0 };
+    (coordsFormacoes[esquema] || []).forEach(c => {
+        let grupo = grupoFuncaoDoRole(c.role);
+        let bandaPadrao = _BANDA_PADRAO_POR_GRUPO[grupo];
+        if (!bandaPadrao) return;
+        let escolha = funcoesPorRole && funcoesPorRole[c.role];
+        let tabelaGrupo = escolha && DESLOCAMENTO_OFENSIVO_POR_FUNCAO[grupo];
+        let bandaDeslocada = tabelaGrupo && tabelaGrupo[escolha.funcao];
+        bandas[bandaDeslocada || bandaPadrao]++;
+    });
+    return bandas;
+}
+
+// Entre todas as formações do catálogo, acha a que tem o perfil de bandas mais parecido com o
+// alvo calculado — sempre devolve um nome que já existe de verdade em coordsFormacoes.
+function _formacaoMaisParecidaComBandas(bandasAlvo) {
+    let melhor = null, melhorDist = Infinity;
+    Object.keys(coordsFormacoes).forEach(nome => {
+        let bandas = _bandasEmPosse(nome, null);
+        let dist = Math.abs(bandas.defesa - bandasAlvo.defesa) + Math.abs(bandas.meio - bandasAlvo.meio) + Math.abs(bandas.ataque - bandasAlvo.ataque);
+        if (dist < melhorDist) { melhorDist = dist; melhor = nome; }
+    });
+    return melhor;
+}
+
+// Ponto de entrada: dado o esquema DEFENSIVO já escolhido e a função/foco de cada titular,
+// devolve o nome da formação que o time forma de verdade quando tem a bola — ou null quando
+// nenhuma função presente desloca ninguém de linha (mesmo desenho nos dois momentos).
+function calcularFormacaoOfensiva(esquema, funcoesPorRole) {
+    if (!esquema || !coordsFormacoes[esquema] || !funcoesPorRole) return null;
+    let bandasBase = _bandasEmPosse(esquema, null);
+    let bandasAtaque = _bandasEmPosse(esquema, funcoesPorRole);
+    if (bandasAtaque.defesa === bandasBase.defesa && bandasAtaque.meio === bandasBase.meio && bandasAtaque.ataque === bandasBase.ataque) {
+        return null;
+    }
+    let formacaoOfensiva = _formacaoMaisParecidaComBandas(bandasAtaque);
+    return (formacaoOfensiva && formacaoOfensiva !== esquema) ? formacaoOfensiva : null;
+}
+
 function escolherEsquemaPorFoco(formacoesPreferidas, estrategiaFormacao) {
     let validas = (formacoesPreferidas || []).filter(f => f && coordsFormacoes[f]).slice(0, MAX_FORMACOES_PREFERIDAS);
     if (!validas.length) return { esquema: null, preteridas: [] };
@@ -2053,15 +2132,19 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
     let funcoesHtml = _funcoesPorRoleParaExibicao(t.funcoesPorRoleSugeridas || {}).map(e => `
         <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span>${_htmlExemploFuncao(e.exemplo)}</div>
     `).join('');
+    let esquemaOfensivo = calcularFormacaoOfensiva(t.esquema, t.funcoesPorRoleSugeridas);
+    let esquemaTxt = esquemaOfensivo
+        ? `🛡️ ${t.esquema} (defende) → ⚔️ <strong style="color:var(--accent);">${esquemaOfensivo}</strong> (ataca)`
+        : t.esquema;
 
     container.innerHTML = `
         <div class="tatica-resumo">
             <strong>📋 Estilo de Jogo: ${rotuloOrigem}</strong>
-            <span>${pre.emoji} ${pre.nome} &nbsp;•&nbsp; ${t.esquema} &nbsp;•&nbsp; ${est.nome} &nbsp;•&nbsp; ${t.abordagemDefensiva}/100 (${faixa.nome})</span>
+            <span>${pre.emoji} ${pre.nome} &nbsp;•&nbsp; ${esquemaTxt} &nbsp;•&nbsp; ${est.nome} &nbsp;•&nbsp; ${t.abordagemDefensiva}/100 (${faixa.nome})</span>
         </div>
         <p class="tatica-ajuda" style="margin-top:10px;">Formações preferidas (ordem de prioridade) — ✓ marca a que está em uso: ${formacoesTxt}</p>
         ${preteridasHtml}
-        ${funcoesHtml ? `<p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo (${t.esquema})</p><div class="banco-reservas-grid">${funcoesHtml}</div>` : ''}
+        ${funcoesHtml ? `<p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo (${t.esquema})</p><div class="banco-reservas-grid funcoes-campo-grid">${funcoesHtml}</div>` : ''}
         <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin-top:14px;">💡 Isto é a <strong>base</strong> — não é engessado. Partida a partida, o Auxiliar Técnico ajusta a abordagem, a formação (entre as preferidas acima) e a função de cada jogador de acordo com o adversário específico, sempre dentro do espírito deste estilo.</p>
         ${origem.tipo === 'camaleao' ? `<button type="button" onclick="atualizarCamaleaoManual('${prefixo}', this)" style="width:100%; margin-top:10px; background:var(--primary); color:black; padding:10px; font-weight:bold;">🔄 Atualizar com o Elenco Atual</button>` : ''}
         <button type="button" onclick="alternarEdicaoEstiloJogo('${prefixo}', true)" style="width:100%; margin-top:10px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:10px; font-weight:bold;">✏️ Alterar Configuração</button>
@@ -2217,15 +2300,19 @@ function renderizarResultadoEstiloJogo(prefixo, relatorio) {
     let funcoesHtml = _funcoesPorRoleParaExibicao(relatorio.funcoesPorRole).map(e => `
         <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span>${_htmlExemploFuncao(e.exemplo)}</div>
     `).join('');
+    let esquemaOfensivo = calcularFormacaoOfensiva(relatorio.esquemaEscolhido, relatorio.funcoesPorRole);
+    let esquemaTxt = esquemaOfensivo
+        ? `🛡️ ${relatorio.esquemaEscolhido} (defende) → ⚔️ <strong style="color:var(--accent);">${esquemaOfensivo}</strong> (ataca)`
+        : relatorio.esquemaEscolhido;
 
     box.innerHTML = `
         <div class="tatica-resumo">
             <strong>📋 ${relatorio.justificativa}</strong>
-            <span>${pre.emoji} ${pre.nome} &nbsp;•&nbsp; ${relatorio.esquemaEscolhido} &nbsp;•&nbsp; ${est.nome} &nbsp;•&nbsp; ${relatorio.abordagemDefensiva}/100 (${faixa.nome})</span>
+            <span>${pre.emoji} ${pre.nome} &nbsp;•&nbsp; ${esquemaTxt} &nbsp;•&nbsp; ${est.nome} &nbsp;•&nbsp; ${relatorio.abordagemDefensiva}/100 (${faixa.nome})</span>
         </div>
         ${preteridasHtml}
         ${ajustesHtml}
         <p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo</p>
-        <div class="banco-reservas-grid">${funcoesHtml}</div>
+        <div class="banco-reservas-grid funcoes-campo-grid">${funcoesHtml}</div>
     `;
 }

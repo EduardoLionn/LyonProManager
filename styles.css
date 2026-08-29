@@ -605,8 +605,15 @@
 .banco-reserva-item .banco-reserva-papel { color: var(--accent); font-style: italic; }
 .funcao-exemplo-toggle { color: var(--accent); text-decoration: underline; font-size: 10px; cursor: pointer; }
 .funcao-exemplo-toggle:hover { color: var(--primary); }
-.funcao-exemplo-card { margin-top: 6px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px; font-size: 10.5px; line-height: 1.6; color: var(--text-muted); }
+.funcao-exemplo-card { margin-top: 6px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px; font-size: 10.5px; line-height: 1.6; color: var(--text-muted); width: 100%; box-sizing: border-box; }
 .funcao-exemplo-card strong { color: var(--primary); font-weight: bold; }
+/* .banco-reserva-item também é reaproveitado pelo banco de reservas da partida (chat-ia.js),
+   que precisa do flex-direction:row!important de propósito — por isso a trava abaixo usa uma
+   classe própria (.funcoes-campo-grid), exclusiva da grade de "Função de cada posição em campo",
+   em vez de mexer em .banco-reservas-grid genérico. Sem isso, o card de exemplo tático (bloco,
+   várias linhas) tentava ficar lado a lado com o resto do card e estourava por cima dos cards
+   vizinhos na grade. */
+.funcoes-campo-grid .banco-reserva-item { flex-direction: column !important; align-items: stretch !important; }
 
 .save-card { display: flex; justify-content: space-between; align-items: center; gap: 15px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; flex-wrap: wrap; animation: wizardFadeIn 0.3s ease; }
 .save-card:hover { border-color: var(--accent); }
