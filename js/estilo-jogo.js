@@ -1609,6 +1609,151 @@ function personalizadoAtivo() {
     return origem.rotulo || null;
 }
 
+// =====================================================================================
+// CAMALEÃO (pedido do treinador) — estilo dinâmico que lê o elenco de verdade e monta a
+// tática em cima das peças que o time tem, em vez de seguir um preset fixo. Duas fases:
+//  1. Na declaração inicial (assistente de Início de Jogo), ainda não existe elenco
+//     cadastrado — não dá pra analisar peça nenhuma, então só salva a ESCOLHA (tipo:
+//     'camaleao') com uma tática neutra provisória.
+//  2. Já com o elenco populado, o botão "🔄 Atualizar com o Elenco Atual" no Perfil do
+//     Treinador chama esta mesma função de novo: agora ela lê os jogadores reais
+//     (posição/especialidade cadastrada, OVR, idade) e pede pra IA montar a tática que
+//     melhor aproveita ESSAS peças específicas — validada contra o catálogo real do
+//     mesmo jeito que o Personalizado (nunca aceita nada fora do vocabulário).
+// declararPartidaIA() (chat-ia.js) também aciona isto a cada nova sugestão do Auxiliar,
+// mas só refaz a análise (chamada de IA) quando o elenco realmente mudou desde a última
+// vez — ver _fingerprintElenco/atualizarCamaleaoSeElencoMudou logo abaixo.
+// O Camaleão fica FORA da camada de Foco Tático Dinâmico (Matriz por Foco de partida):
+// o pedido descreve só a leitura do elenco, nunca variação por Foco.
+// =====================================================================================
+async function gerarRelatorioTaticoCamaleao(formacoesPreferidas) {
+    let validas = (formacoesPreferidas || []).filter(f => f && coordsFormacoes[f]).slice(0, MAX_FORMACOES_PREFERIDAS);
+    if (!validas.length) return null;
+
+    let plantelAtivo = ((db[currentSave] && db[currentSave].plantel) || []).filter(p => p.status === 'Ativo');
+
+    if (!plantelAtivo.length) {
+        // Fase 1: ainda sem elenco (declaração no assistente de Início de Jogo) — tática
+        // neutra provisória, corrigida pelo mesmo motor de regras de sempre.
+        let { esquema, preteridas } = escolherEsquemaPorPrioridade(validas, []);
+        esquema = esquema || validas[0];
+        let { tatica: taticaResultante, ajustes: ajustesRegra } = corrigirTatica({
+            predefinicao: 'equilibrado', esquema: esquema, estiloArmacao: 'equilibrado', abordagemDefensiva: 50
+        });
+        let funcoesPorRole = {};
+        (coordsFormacoes[esquema] || []).forEach(c => {
+            let escolha = escolherFuncaoJogador(c.role, null, taticaResultante);
+            if (escolha) funcoesPorRole[c.role] = { funcao: escolha.funcao.id, foco: escolha.foco.id };
+        });
+        return {
+            esquemaEscolhido: esquema,
+            esquemaPreteridas: preteridas,
+            formacoesPreferidas: validas,
+            predefinicao: taticaResultante.predefinicao,
+            estiloArmacao: taticaResultante.estiloArmacao,
+            abordagemDefensiva: taticaResultante.abordagemDefensiva,
+            funcoesPorRole: funcoesPorRole,
+            ajustesAutomaticos: ajustesRegra.concat(['Ainda não existe elenco cadastrado — usei uma tática neutra provisória. Volte aqui no Perfil do Treinador e clique em "🔄 Atualizar com o Elenco Atual" depois de montar o time, pra eu analisar de verdade as peças que você tem.']),
+            justificativa: '🦎 Camaleão: sem elenco pra analisar ainda, comecei com uma base equilibrada — assim que o elenco estiver completo, atualize aqui pra eu montar a tática certa pras suas peças.',
+            origem: { tipo: 'camaleao', rotulo: 'Camaleão' },
+            _fingerprintElenco: ''
+        };
+    }
+
+    // Fase 2: elenco de verdade — a IA analisa as peças específicas deste time.
+    let resumoElenco = plantelAtivo.map(p => `${p.nome} (${p.posicao}, OVR ${p.ovr}, ${p.idade || '?'} anos)`).join('; ');
+
+    let promptIA = `Você é o Auxiliar Técnico. Sua tarefa é o estilo "Camaleão": analisar TODOS os jogadores do elenco atual e montar a tática que melhor aproveita as peças específicas que este time tem — não um estilo genérico de mercado, mas a estratégia sob medida pra este grupo (ex: elenco veloz e jovem nas pontas favorece jogo direto pelos lados; meio-campo tecnicamente forte favorece posse de bola; zagueiros lentos favorecem linha mais recuada, etc.).
+
+ELENCO ATUAL (nome, posição/especialidade cadastrada, OVR, idade): ${resumoElenco}
+
+FORMAÇÕES QUE O TREINADOR PRIORIZOU (nesta ordem, a primeira é a preferida): ${validas.join(' > ')}
+
+${regrasTaticasParaIA()}
+
+FUNÇÕES E FOCOS POR GRUPO DE POSIÇÃO (use SÓ estes ids — nunca invente um novo):
+${_listarGruposFuncaoParaIA()}
+
+REGRAS:
+1. Escolha UMA das formações priorizadas pra virar "esquemaEscolhido" — a que melhor aproveita as peças reais deste elenco.
+2. predefinicao, estiloArmacao e abordagemDefensiva têm que respeitar as travas listadas acima e refletir os PONTOS FORTES reais do elenco (nunca um estilo abstrato desligado dos jogadores).
+3. Para CADA sigla da formação escolhida, escolha função e foco pensando em quem de verdade tende a ocupar aquela posição neste elenco — os dois ids têm que vir do MESMO grupo daquela sigla.
+4. Escreva 2-3 frases em "justificativa" citando pelo menos um ponto forte real do elenco que motivou a escolha.
+
+Retorne EXATAMENTE este JSON puro:
+{
+  "esquemaEscolhido": "4-2-3-1",
+  "predefinicao": "id da predefinição",
+  "estiloArmacao": "id do estilo de armação",
+  "abordagemDefensiva": 50,
+  "funcoesPorRole": { "GOL": { "funcao": "id", "foco": "id" } },
+  "justificativa": "..."
+}`;
+
+    let bruto = {};
+    try {
+        const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
+        let match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
+        if (match) bruto = JSON.parse(match[0]);
+    } catch (e) {
+        bruto = {}; // sem resposta utilizável da IA — normalizarRelatorioTaticoIA já cai pro motor determinístico
+    }
+
+    let relatorio = normalizarRelatorioTaticoIA(bruto, validas, 'Camaleão');
+    relatorio.origem = { tipo: 'camaleao', rotulo: 'Camaleão' };
+    relatorio.justificativa = bruto && bruto.justificativa
+        ? `🦎 Camaleão: ${bruto.justificativa}`
+        : `🦎 Camaleão: montei esta tática a partir da leitura do elenco atual (${plantelAtivo.length} jogadores ativos).`;
+    relatorio._fingerprintElenco = _fingerprintElenco(plantelAtivo);
+    return relatorio;
+}
+
+// "Assinatura" barata do elenco (nome+OVR+posição de cada ativo, ordenado) — só pra detectar
+// SE o elenco mudou desde a última vez que o Camaleão analisou, sem comparar objeto por
+// objeto. Pedido do treinador: "se o elenco mantiver o mesmo, ele mantém a tática" — refazer
+// a análise (com chamada de IA) só quando isso realmente muda.
+function _fingerprintElenco(plantelAtivo) {
+    return plantelAtivo.map(p => `${p.nome}:${p.ovr}:${p.posicao}`).sort().join('|');
+}
+
+// Estilo "Camaleão" ativo no save, se algum.
+function camaleaoAtivo() {
+    let t = db[currentSave] && db[currentSave].taticas;
+    let origem = t && t.estiloJogoSelecionado;
+    return !!(origem && origem.tipo === 'camaleao');
+}
+
+// Chamado por declararPartidaIA() quando o Camaleão está ativo: se o elenco (ativos) mudou
+// desde a última análise guardada, refaz a tática (chamando a IA de novo) e já aplica no
+// save; se não mudou, não faz nada — mantém a tática já calculada, sem gastar uma chamada de
+// IA à toa. Devolve true se recalculou.
+async function atualizarCamaleaoSeElencoMudou() {
+    let t = db[currentSave] && db[currentSave].taticas;
+    if (!t || !camaleaoAtivo()) return false;
+    let plantelAtivo = ((db[currentSave].plantel) || []).filter(p => p.status === 'Ativo');
+    let fingerprintAtual = _fingerprintElenco(plantelAtivo);
+    if (fingerprintAtual === t.camaleaoFingerprintElenco) return false;
+    let relatorio = await gerarRelatorioTaticoCamaleao(t.formacoesPreferidas);
+    if (!relatorio) return false;
+    aplicarRelatorioTaticoNoSave(relatorio);
+    return true;
+}
+
+// Botão dedicado "🔄 Atualizar com o Elenco Atual" no resumo salvo (Perfil do Treinador) —
+// atalho de um clique só que já lê o elenco de agora e recalcula, sem precisar reabrir o
+// formulário inteiro nem escolher formações de novo.
+async function atualizarCamaleaoManual(prefixo, btnEl) {
+    let t = db[currentSave] && db[currentSave].taticas;
+    if (!t) return;
+    if (btnEl) { btnEl.disabled = true; btnEl.innerText = '⏳ Lendo o elenco atual...'; }
+    try {
+        let relatorio = await gerarRelatorioTaticoCamaleao(t.formacoesPreferidas);
+        if (relatorio) aplicarRelatorioTaticoNoSave(relatorio);
+    } finally {
+        renderizarSeletorEstiloJogo(prefixo);
+    }
+}
+
 // -------------------------------------------------------------------------------------
 // FALLBACK — estilo em texto livre, interpretado pela IA e validado contra o vocabulário
 // real antes de qualquer coisa ser aplicada. Nunca aplica o JSON da IA direto.
@@ -1784,6 +1929,13 @@ function aplicarRelatorioTaticoNoSave(relatorio) {
     // pode ser diferente da 1ª prioridade (ex: uma formação mais abaixo na lista é mais ideal
     // pra este estilo), a mesma explicação que já aparecia na tela de geração (Início de Jogo).
     d.taticas.esquemaPreteridas = relatorio.esquemaPreteridas || [];
+    // Camaleão: guarda a "assinatura" do elenco usada nesta análise, pra declararPartidaIA()
+    // saber depois se precisa reanalisar (elenco mudou) ou pode reaproveitar esta tática.
+    if (relatorio.origem && relatorio.origem.tipo === 'camaleao') {
+        d.taticas.camaleaoFingerprintElenco = (typeof relatorio._fingerprintElenco === 'string')
+            ? relatorio._fingerprintElenco
+            : _fingerprintElenco((d.plantel || []).filter(p => p.status === 'Ativo'));
+    }
     salvarDados();
     return resultado;
 }
@@ -1832,6 +1984,11 @@ function renderizarSeletorEstiloJogo(prefixo) {
             <span class="tatica-card-nome">${p.emoji} ${p.nome}</span>
             <span class="tatica-card-desc">${p.contexto}</span>
         </button>`).join('');
+    let cardCamaleao = `
+        <button type="button" class="tatica-card tatica-card-menor" id="${prefixo}estilo-card-camaleao" onclick="escolherPresetEstiloJogo('${prefixo}', 'camaleao')">
+            <span class="tatica-card-nome">🦎 Camaleão</span>
+            <span class="tatica-card-desc">Lê o elenco de verdade e monta a tática em cima das peças que o time tem — se atualiza sozinho quando o elenco muda.</span>
+        </button>`;
     let cardLivre = `
         <button type="button" class="tatica-card tatica-card-menor" id="${prefixo}estilo-card-livre" onclick="escolherPresetEstiloJogo('${prefixo}', null)">
             <span class="tatica-card-nome">✍️ Personalizado</span>
@@ -1844,7 +2001,7 @@ function renderizarSeletorEstiloJogo(prefixo) {
     container.innerHTML = `
         <div class="grid-2">${seletoresFormacao}</div>
         <p class="tatica-ajuda" style="margin-top:14px;">Estilo de jogo</p>
-        <div class="tatica-grade">${cardsPreset}${cardLivre}</div>
+        <div class="tatica-grade">${cardsPreset}${cardCamaleao}${cardLivre}</div>
         <div class="linha-form" id="${prefixo}estilo-texto-livre-wrap" style="display:none; margin-top:10px;">
             <label>Descreva o estilo que você quer</label>
             <textarea id="${prefixo}estilo-texto-livre" rows="2" placeholder="Ex: quero jogar recuado mas com muita posse quando recuperar a bola" style="width:100%; background:var(--bg-dark);"></textarea>
@@ -1866,6 +2023,8 @@ function renderizarSeletorEstiloJogo(prefixo) {
         if (origem.tipo === 'preset') {
             let preset = PLAYSTYLE_PRESETS.find(p => p.nome === origem.rotulo);
             if (preset) escolherPresetEstiloJogo(prefixo, preset.id);
+        } else if (origem.tipo === 'camaleao') {
+            escolherPresetEstiloJogo(prefixo, 'camaleao');
         } else {
             escolherPresetEstiloJogo(prefixo, null);
             let txt = document.getElementById(`${prefixo}estilo-texto-livre`);
@@ -1879,7 +2038,9 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
     let est = estiloArmacaoPorId(t.estiloArmacao);
     let faixa = faixaAbordagem(t.abordagemDefensiva);
     let origem = t.estiloJogoSelecionado;
-    let rotuloOrigem = origem.tipo === 'preset' ? origem.rotulo : `Personalizado: "${origem.rotulo}"`;
+    let rotuloOrigem = origem.tipo === 'preset' ? origem.rotulo
+        : origem.tipo === 'camaleao' ? '🦎 Camaleão'
+        : `Personalizado: "${origem.rotulo}"`;
     // Marca visualmente qual formação preferida está de fato em uso — sem isso, quando o esquema
     // escolhido não é a 1ª prioridade (porque uma formação mais abaixo na lista é mais ideal pra
     // este estilo), o quadro parecia estar mostrando uma formação "errada"/desatualizada.
@@ -1890,7 +2051,7 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
         ? `<p style="font-size:12px; color:var(--text-muted); margin:6px 0 0 0;">Não usei ${t.esquemaPreteridas.map(p => `<strong>${p.formacao}</strong> (${p.motivo})`).join(', ')}.</p>`
         : '';
     let funcoesHtml = _funcoesPorRoleParaExibicao(t.funcoesPorRoleSugeridas || {}).map(e => `
-        <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span></div>
+        <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span>${_htmlExemploFuncao(e.exemplo)}</div>
     `).join('');
 
     container.innerHTML = `
@@ -1902,6 +2063,7 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
         ${preteridasHtml}
         ${funcoesHtml ? `<p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo (${t.esquema})</p><div class="banco-reservas-grid">${funcoesHtml}</div>` : ''}
         <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin-top:14px;">💡 Isto é a <strong>base</strong> — não é engessado. Partida a partida, o Auxiliar Técnico ajusta a abordagem, a formação (entre as preferidas acima) e a função de cada jogador de acordo com o adversário específico, sempre dentro do espírito deste estilo.</p>
+        ${origem.tipo === 'camaleao' ? `<button type="button" onclick="atualizarCamaleaoManual('${prefixo}', this)" style="width:100%; margin-top:10px; background:var(--primary); color:black; padding:10px; font-weight:bold;">🔄 Atualizar com o Elenco Atual</button>` : ''}
         <button type="button" onclick="alternarEdicaoEstiloJogo('${prefixo}', true)" style="width:100%; margin-top:10px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:10px; font-weight:bold;">✏️ Alterar Configuração</button>
     `;
 }
@@ -1942,6 +2104,9 @@ async function gerarConfiguracaoEstiloJogo(prefixo) {
             if (!texto) return alert('Descreva o estilo que você quer.');
             if (loader) { loader.style.display = 'block'; loader.style.color = 'var(--warning)'; loader.innerText = '⏳ Traduzindo o estilo pra configuração do jogo...'; }
             relatorio = await gerarRelatorioTaticoPorTextoLivre(formacoes, texto);
+        } else if (presetId === 'camaleao') {
+            if (loader) { loader.style.display = 'block'; loader.style.color = 'var(--warning)'; loader.innerText = '⏳ Analisando o elenco atual pra montar uma tática sob medida...'; }
+            relatorio = await gerarRelatorioTaticoCamaleao(formacoes);
         } else {
             relatorio = gerarRelatorioTaticoPorPreset(formacoes, presetId);
         }
@@ -1980,6 +2145,24 @@ function _nomeFuncaoFoco(role, escolha) {
     return f ? `${f.nome}${foco ? '-' + foco.nome : ''}` : escolha.funcao;
 }
 
+// Pedido do treinador: em vez de tentar "explicar melhor" as regras de posição de cada função
+// (texto que ele achava que não condizia com o jogo real), mostra um jogador real conhecido
+// que exerce essa função — como referência concreta. Fica oculto por padrão; a pessoa clica
+// pra revelar (ver _funcoesPorRoleParaExibicao / renderização dos cards abaixo).
+function _exemploFuncaoFoco(role, escolha) {
+    let grupo = grupoFuncaoDoRole(role);
+    if (!grupo || !escolha) return '';
+    let g = GRUPOS_FUNCAO_EA[grupo];
+    let f = g.funcoes.find(x => x.id === escolha.funcao);
+    return (f && f.exemplo) || '';
+}
+
+// HTML do "ver exemplo" — clicável, começa oculto (a pessoa clica pra ver o jogador real).
+function _htmlExemploFuncao(exemplo) {
+    if (!exemplo) return '';
+    return `<span class="funcao-exemplo-toggle" onclick="let n=this.nextElementSibling; n.style.display = n.style.display === 'none' ? 'inline' : 'none';">👁️ ver exemplo real</span><span class="funcao-exemplo-nome" style="display:none;">${exemplo}</span>`;
+}
+
 // Prepara a lista {rotulo, texto} pra exibir "função de cada posição em campo": nos grupos sem
 // lado (ver ROTULO_GENERICO_POR_GRUPO) onde TODAS as siglas do grupo caíram na mesma função/foco,
 // mostra uma linha só com o rótulo genérico (ex: "VOL") em vez de repetir "VOLD" e "VOLE" dizendo
@@ -2002,9 +2185,9 @@ function _funcoesPorRoleParaExibicao(funcoesPorRole) {
         let todasIguais = rotuloGenerico && itens.length > 1 && itens.every(it =>
             it.escolha.funcao === itens[0].escolha.funcao && it.escolha.foco === itens[0].escolha.foco);
         if (todasIguais) {
-            saida.push({ rotulo: rotuloGenerico, texto: _nomeFuncaoFoco(itens[0].role, itens[0].escolha) });
+            saida.push({ rotulo: rotuloGenerico, texto: _nomeFuncaoFoco(itens[0].role, itens[0].escolha), exemplo: _exemploFuncaoFoco(itens[0].role, itens[0].escolha) });
         } else {
-            itens.forEach(it => saida.push({ rotulo: it.role, texto: _nomeFuncaoFoco(it.role, it.escolha) }));
+            itens.forEach(it => saida.push({ rotulo: it.role, texto: _nomeFuncaoFoco(it.role, it.escolha), exemplo: _exemploFuncaoFoco(it.role, it.escolha) }));
         }
     });
     return saida;
@@ -2025,7 +2208,7 @@ function renderizarResultadoEstiloJogo(prefixo, relatorio) {
         ? `<div style="background: rgba(217,130,43,0.12); border:1px solid var(--warning); color:var(--warning); border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6; margin-top:12px;">⚠️ <strong>Ajustes automáticos:</strong><br>${relatorio.ajustesAutomaticos.join('<br>')}</div>`
         : '';
     let funcoesHtml = _funcoesPorRoleParaExibicao(relatorio.funcoesPorRole).map(e => `
-        <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span></div>
+        <div class="banco-reserva-item"><strong>${e.rotulo}</strong><span>${e.texto}</span>${_htmlExemploFuncao(e.exemplo)}</div>
     `).join('');
 
     box.innerHTML = `

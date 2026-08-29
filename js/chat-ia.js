@@ -1830,6 +1830,17 @@ ${textoRegrasCompatibilidadePosicional()}
                 return alert('Digite o nome do adversário ou anexe pelo menos um print.');
             }
 
+            // Estilo "Camaleão" (pedido do treinador): a cada sugestão do Auxiliar, relê o
+            // elenco atual — se ele mudou desde a última análise, refaz a tática sob medida
+            // ANTES de montar a sugestão desta partida; se não mudou, não gasta uma chamada de
+            // IA à toa e mantém a tática já calculada (ver atualizarCamaleaoSeElencoMudou em
+            // estilo-jogo.js).
+            if (typeof camaleaoAtivo === 'function' && camaleaoAtivo()) {
+                let btnPreCheck = document.getElementById('btn-declarar-partida-ia');
+                if (btnPreCheck) { btnPreCheck.innerText = '⏳ Camaleão: relendo o elenco atual...'; btnPreCheck.disabled = true; }
+                await atualizarCamaleaoSeElencoMudou();
+            }
+
             let taticaBase = taticaDoSave();
             let formacaoPri = taticaBase.esquema;
             let formacaoSec = taticaBase.esquemaAlternativo;
