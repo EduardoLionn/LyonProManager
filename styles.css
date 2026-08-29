@@ -603,6 +603,9 @@
 .banco-reserva-item strong { color: white; font-size: 13px; }
 .banco-reserva-item span { font-size: 11px; color: var(--text-muted); }
 .banco-reserva-item .banco-reserva-papel { color: var(--accent); font-style: italic; }
+.funcao-exemplo-toggle { color: var(--accent); text-decoration: underline; font-size: 10px; cursor: pointer; }
+.funcao-exemplo-toggle:hover { color: var(--primary); }
+.funcao-exemplo-nome { color: var(--primary); font-weight: bold; font-size: 11px; }
 
 .save-card { display: flex; justify-content: space-between; align-items: center; gap: 15px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; flex-wrap: wrap; animation: wizardFadeIn 0.3s ease; }
 .save-card:hover { border-color: var(--accent); }

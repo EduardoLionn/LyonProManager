@@ -480,6 +480,12 @@ async function wizardFinalizar() {
         // resumo salvo na aba Perfil do Treinador não conseguiria explicar por que o esquema em
         // uso pode não ser a 1ª formação preferida, pra saves criados aqui no assistente.
         db[currentSave].taticas.esquemaPreteridas = r.esquemaPreteridas || [];
+        // Camaleão: guarda a "assinatura" do elenco (vazio aqui, ainda no assistente) usada
+        // nesta análise — sem isso, a 1ª sugestão do Auxiliar depois de montar o elenco não
+        // saberia que precisa reanalisar de verdade (ver atualizarCamaleaoSeElencoMudou).
+        if (r.origem && r.origem.tipo === 'camaleao') {
+            db[currentSave].taticas.camaleaoFingerprintElenco = (typeof r._fingerprintElenco === 'string') ? r._fingerprintElenco : '';
+        }
         window._wizardRelatorioEstiloJogo = null;
     }
 

@@ -1,6 +1,4 @@
         function atualizarOrcamentoMercado() {
-            let el = document.getElementById('info-orcamento');
-            if(el) el.innerText = `€${db.clube.orcamento.toFixed(2)}M`;
             checarEmbargoMercado();
         }
 
