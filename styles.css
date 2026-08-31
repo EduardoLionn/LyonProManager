@@ -643,6 +643,25 @@
 }
 .dna-eixo-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.55; margin: 6px 0 0 0; }
 
+/* "Este plano está comandando estas posições" — o efeito de cada eixo escrito em campo. */
+.dna-eixo-efeito { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.dna-efeito-item {
+    font-size: 10.5px; line-height: 1.35; color: var(--text);
+    background: rgba(0, 0, 0, 0.28); border: 1px solid var(--border);
+    border-radius: 5px; padding: 3px 7px; cursor: help;
+}
+.dna-efeito-item b { color: var(--primary); font-weight: 700; margin-right: 4px; letter-spacing: 0.4px; }
+.dna-efeito-vazio { font-size: 10.5px; color: var(--text-muted); font-style: italic; line-height: 1.5; }
+
+/* Prévia do pacote que os 4 planos produzem — a forma de defender e atacar, ao vivo. */
+.dna-pacote-previa {
+    grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 22px;
+    padding: 10px 14px; margin-bottom: 4px;
+    background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); border-radius: 8px;
+}
+.dna-pacote-previa span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.dna-pacote-previa strong { display: block; font-size: 13px; color: var(--primary); text-transform: none; letter-spacing: 0; margin-top: 2px; }
+
 /* Painel de ajuste dos 4 planos — disponível em QUALQUER estilo, não só no Personalizado */
 .dna-ajuste { margin-top: 14px; border: 1px dashed var(--border); border-radius: 10px; padding: 10px 14px; }
 .dna-ajuste > summary { cursor: pointer; font-weight: bold; font-size: 13px; color: var(--primary); }

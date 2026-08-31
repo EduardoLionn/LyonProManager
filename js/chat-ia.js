@@ -622,6 +622,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         <button onclick="descartarSugestaoAuxiliar()" style="background:transparent; border:1px solid var(--border); color:var(--text-muted); padding:6px 12px; font-size:12px;">🗑️ Descartar plano</button>
                     </div>
 
+                    ${(sug.dnaEmVigor && typeof identidadeTaticaEmProsa === 'function') ? `<p style="font-size:13px; line-height:1.6; margin:12px 0 0 0; padding:10px 12px; background:rgba(0,0,0,0.18); border-left:3px solid var(--primary); border-radius:0 6px 6px 0;"><strong style="color:var(--primary);">🧬 Identidade desta partida:</strong> ${identidadeTaticaEmProsa(sug.dnaEmVigor)}</p>` : ''}
                     ${sug.adversarioInfo ? `<p style="font-size:13.5px; line-height:1.6; margin:12px 0 0 0;"><strong>Sobre o adversário:</strong> ${sug.adversarioInfo}</p>` : ''}
                     ${sug.analiseGeral ? `<p style="font-size:13.5px; line-height:1.6; margin:8px 0 0 0;"><strong>A leitura:</strong> ${sug.analiseGeral}</p>` : ''}
 
@@ -2023,10 +2024,15 @@ ${textoRegrasCompatibilidadePosicional()}
             btn.innerText = '⏳ Analisando o adversário e montando o plano...'; btn.disabled = true;
 
             let presetRefinado = (typeof presetRefinadoAtivo === 'function') ? presetRefinadoAtivo() : null;
-            let descricaoPersonalizada = (!presetRefinado && typeof personalizadoAtivo === 'function') ? personalizadoAtivo() : null;
+            let dnaManual = (!presetRefinado && typeof estiloDnaAtivo === 'function') ? estiloDnaAtivo() : null;
+            let descricaoPersonalizada = (!presetRefinado && !dnaManual && typeof personalizadoAtivo === 'function') ? personalizadoAtivo() : null;
             let pacoteRefinado = null;
             if (presetRefinado && focoPartidaId) {
                 pacoteRefinado = gerarRelatorioTaticoRefinadoPorFoco(formacoesPreferidasIA, presetRefinado.id, focoPartidaId);
+            } else if (dnaManual && focoPartidaId) {
+                // Estilo montado nos 4 planos: o Foco desloca os próprios planos do treinador,
+                // sem tabela paralela e sem chamada de IA.
+                pacoteRefinado = gerarRelatorioTaticoPorDnaComFoco(formacoesPreferidasIA, dnaManual.dna, focoPartidaId, dnaManual.rotulo);
             } else if (descricaoPersonalizada && focoPartidaId) {
                 btn.innerText = '⏳ Traduzindo seu estilo personalizado pro Foco desta partida...';
                 try {
@@ -2263,6 +2269,12 @@ ${textoRegrasCompatibilidadePosicional()}
                         rotacoesAutomaticas: rotacoesAutomaticas,
                         alertasRiscoLesao: jogadoresEmRiscoDeLesao(res.escalacao),
                         alertasAfinidadeTatica: alertasAfinidadeAtivos,
+                        // Os 4 planos que valeram PRA ESTA PARTIDA (o estilo do treinador já
+                        // deslocado pelo Foco). É o que o painel do plano mostra como
+                        // "Identidade desta partida" — a mesma fonte que gerou a função de cada
+                        // jogador em campo, pra não existir plano dizendo uma coisa e campo outra.
+                        dnaEmVigor: (pacoteRefinado && pacoteRefinado.dnaEmVigor)
+                            || ((typeof dnaDoEstiloSalvo === 'function') ? dnaDoEstiloSalvo(taticaBase) : null),
                         diretriz: diretrizInfo.nome,
                         focoPartida: focoPartidaId,
                         criadaEm: Date.now()
