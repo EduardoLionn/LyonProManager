@@ -193,16 +193,27 @@ function dnaDerivadoDaTatica(tatica) {
     let predef = t.predefinicao || 'padrao';
     let funcoes = t.funcoesPorRoleSugeridas || t.funcoesPorRole || {};
 
-    // Comportamento dos laterais: lido direto das funções realmente atribuídas às laterais.
-    let funcoesLaterais = Object.keys(funcoes)
-        .filter(role => (typeof grupoFuncaoDoRole === 'function') && grupoFuncaoDoRole(role) === 'lateral')
-        .map(role => funcoes[role].funcao);
-    let classificarLateral = (f) => {
+    // Comportamento dos laterais: lido das funções realmente atribuídas — levando o FOCO em
+    // conta, porque ele muda o papel por completo. "Lateral"/Defesa é um terceiro zagueiro (o
+    // próprio jogo diz que ele entra pra formar linha de três com a bola); o mesmo "Lateral" com
+    // foco Equilibrado/Versátil já sobe e dá largura. Em formações sem lateral de origem (linha
+    // de três), quem dá a largura é o "Meia Aberto" — que é um ala, quase um lateral —, então
+    // esse grupo entra na leitura quando não há laterais em campo.
+    let rolesDoGrupo = (grupoAlvo) => Object.keys(funcoes)
+        .filter(role => (typeof grupoFuncaoDoRole === 'function') && grupoFuncaoDoRole(role) === grupoAlvo)
+        .map(role => funcoes[role]);
+    let escolhasLaterais = rolesDoGrupo('lateral');
+    if (!escolhasLaterais.length) escolhasLaterais = rolesDoGrupo('meia_lateral');
+
+    let classificarLateral = (escolha) => {
+        let f = escolha.funcao, foco = escolha.foco;
         if (f === 'lateral-invertido' || f === 'ala-invertido') return 'invertidos';
-        if (f === 'ala-atacante' || f === 'ala') return 'amplitude_externa';
+        if (f === 'lateral') return foco === 'defesa' ? 'presos_base' : 'amplitude_externa';
+        if (f === 'meia-aberto') return foco === 'defesa' ? 'presos_base' : 'amplitude_externa';
+        if (f === 'ala-atacante' || f === 'ala' || f === 'armador-aberto' || f === 'corta-pra-dentro') return 'amplitude_externa';
         return 'presos_base';
     };
-    let classesLaterais = funcoesLaterais.map(classificarLateral);
+    let classesLaterais = escolhasLaterais.map(classificarLateral);
     let comportamentoLaterais = 'amplitude_externa';
     if (classesLaterais.length) {
         let unicas = classesLaterais.filter((v, i, arr) => arr.indexOf(v) === i);
@@ -363,10 +374,35 @@ function normalizarDna(dna) {
 }
 
 // =====================================================================================
+// IDENTIDADE TÁTICA EM PROSA — a frase que resume o time como um observador descreveria,
+// montada a partir das mesmas escolhas do DNA. É o que dá personalidade ao painel: em vez de
+// nove rótulos soltos, o treinador lê o time dele numa frase só.
+// =====================================================================================
+const FRASES_DNA = {
+    saida_bola: { sustentada: 'constrói desde o goleiro com passe curto', mista: 'sai curto quando dá e alivia longo quando é pressionado', direta: 'liga direto no ataque e briga pela segunda bola' },
+    ocupacao_espacos: { posicional_amplo: 'abrindo o campo na largura máxima', relacional: 'aglomerando gente perto da bola', misto: 'variando entre abrir e aproximar' },
+    comportamento_laterais: { amplitude_externa: 'com os laterais dando a largura por fora', invertidos: 'com os laterais entrando pro miolo', presos_base: 'com os laterais presos formando linha de três', assimetrico: 'com um lateral subindo e o outro segurando' },
+    mobilidade: { posicional: 'cada um na sua zona', funcional: 'com os homens de frente trocando de posição o tempo todo' },
+    reacao_perda: { gegenpressing: 'sufoca na hora que perde a bola', equilibrio_transicao: 'pressiona só quem está perto e recompõe o resto', recomposicao: 'recua inteiro pra se reorganizar' },
+    altura_bloco: { alto: 'defende lá na frente', medio: 'espera no meio-campo', baixo: 'defende perto da própria área' },
+    tipo_marcacao: { zonal: 'marcando por zona', individual: 'marcando homem a homem', mista: 'misturando zona e encaixe individual' },
+    compactacao: { muito_compacto: 'com as linhas muito coladas', compacto: 'com as linhas próximas', esticado: 'aceitando o time alongado' },
+    reacao_recuperacao: { vertical: 'e ataca em velocidade assim que rouba', situacional: 'e decide na hora entre atacar rápido ou segurar', manutencao: 'e prende a bola pra instalar o time no ataque' }
+};
+
+function identidadeTaticaEmProsa(dna) {
+    let n = normalizarDna(dna);
+    let f = (eixo) => FRASES_DNA[eixo][n[eixo]];
+    return `Com a bola, ${f('saida_bola')}, ${f('ocupacao_espacos')}, ${f('comportamento_laterais')} e ${f('mobilidade')}. ` +
+           `Ao perder, ${f('reacao_perda')}. Sem a bola, ${f('altura_bloco')}, ${f('tipo_marcacao')} e ${f('compactacao')} — ${f('reacao_recuperacao')}.`;
+}
+
+// =====================================================================================
 // RENDERIZAÇÃO — o painel das 4 fases que substitui o antigo resumo por posição.
 // =====================================================================================
-function renderizarDnaTatico(dna) {
+function renderizarDnaTatico(dna, opcoes) {
     if (!dna) return '';
+    let cfg = opcoes || {};
     let normalizado = normalizarDna(dna);
     let fasesHtml = DNA_TATICO_FASES.map(fase => {
         let eixosHtml = fase.eixos.map(eixo => {
@@ -376,12 +412,19 @@ function renderizarDnaTatico(dna) {
                 <p class="dna-eixo-desc">${opcao.descricao}</p>
             </div>`;
         }).join('');
-        return `<div class="dna-fase">
+        return `<div class="dna-fase" data-fase="${fase.id}">
             <div class="dna-fase-titulo">${fase.emoji} ${fase.nome}<span>${fase.momento}</span></div>
             ${eixosHtml}
         </div>`;
     }).join('');
-    return `<div class="dna-grid">${fasesHtml}</div>`;
+
+    let cabecalho = `<div class="dna-identidade">
+        <span class="dna-identidade-rotulo">Identidade Tática</span>
+        <p class="dna-identidade-frase">${identidadeTaticaEmProsa(normalizado)}</p>
+    </div>`;
+    let acao = cfg.botaoAjustar ? `<div class="dna-acao">${cfg.botaoAjustar}</div>` : '';
+
+    return `<div class="dna-painel">${cabecalho}<div class="dna-grid">${fasesHtml}</div>${acao}</div>`;
 }
 
 // Formulário do Modo Avançado: um <select> por eixo, agrupado pelas 4 fases.
@@ -410,6 +453,9 @@ function atualizarDescricaoEixoDna(prefixo, eixoId) {
     let alvo = document.getElementById(`${prefixo}dna-desc-${eixoId}`);
     if (!select || !alvo) return;
     alvo.innerText = opcaoDnaPorId(eixoId, select.value).descricao;
+    // Avisa a tela de Estilo de Jogo que estes 4 planos deixaram de ser a receita pronta do
+    // estilo e passaram a ser o ajuste do treinador (ver marcarDnaEditado, em estilo-jogo.js).
+    if (typeof marcarDnaEditado === 'function') marcarDnaEditado(prefixo);
 }
 
 // Lê o formulário inteiro de volta pra um objeto de DNA.
