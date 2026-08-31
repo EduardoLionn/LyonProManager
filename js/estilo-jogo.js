@@ -1599,7 +1599,7 @@ function _pontuacaoFuncaoParaJogador(candidato, grupoKey, jogador) {
 // mesma instrução nos dois lados quando o estilo oferece mais de uma opção.
 function montarFuncoesPorRoleDoPreset(esquema, preset, taticaResultante) {
     let coords = coordsFormacoes[esquema] || [];
-    let funcoesPorRole = {};
+    let atribuidas = {};
     let gruposPresentes = [];
     coords.forEach(c => {
         let grupo = grupoFuncaoDoRole(c.role);
@@ -1613,10 +1613,26 @@ function montarFuncoesPorRoleDoPreset(esquema, preset, taticaResultante) {
             // Grupo sem regra no estilo — o motor genérico já dá uma função padrão coerente.
             slots.forEach(role => {
                 let escolha = escolherFuncaoJogador(role, null, taticaResultante);
-                if (escolha) funcoesPorRole[role] = { funcao: escolha.funcao.id, foco: escolha.foco.id };
+                if (escolha) atribuidas[role] = { funcao: escolha.funcao.id, foco: escolha.foco.id };
             });
             return;
         }
+        // A variação por elenco só vale nos grupos em que o lado existe de verdade (lateral,
+        // ponta, meia-lateral): ali o slot da direita só pode ser ocupado por um jogador de
+        // direita, então dá pra saber com segurança quem vai jogar ali e escolher a instrução
+        // pensando nele. Nos grupos sem lado (zagueiro, volante, meio-campo, atacante) qualquer
+        // um dos slots aceita qualquer jogador do grupo — o "provável ocupante" seria o mesmo pros
+        // dois lados e o palpite pode discordar da escalação real que a diretriz monta depois,
+        // fazendo o jogador cair numa função que não é dele. Nesses grupos fica a distribuição
+        // determinística de sempre (1º slot -> 1ª opção do estilo).
+        if (!(typeof GRUPOS_COM_LADO !== 'undefined' && GRUPOS_COM_LADO.has(grupo))) {
+            slots.forEach((role, i) => {
+                let escolha = candidatos[Math.min(i, candidatos.length - 1)];
+                atribuidas[role] = { funcao: escolha.funcao, foco: escolha.foco };
+            });
+            return;
+        }
+
         // Distribui as funções do estilo entre os slots do grupo pelo melhor encaixe: o par
         // (slot, função) com a maior pontuação é fechado primeiro, depois o próximo melhor entre
         // o que sobrou. Isso evita que um jogador que não combina com nenhuma das opções
@@ -1635,14 +1651,20 @@ function montarFuncoesPorRoleDoPreset(esquema, preset, taticaResultante) {
                     if (!melhor || pontos > melhor.pontos) melhor = { slot: slot, opcao: opcao, pontos: pontos };
                 });
             });
-            funcoesPorRole[melhor.slot.role] = { funcao: melhor.opcao.candidato.funcao, foco: melhor.opcao.candidato.foco };
+            atribuidas[melhor.slot.role] = { funcao: melhor.opcao.candidato.funcao, foco: melhor.opcao.candidato.foco };
             pendentes = pendentes.filter(s => s !== melhor.slot);
             disponiveis = disponiveis.filter(o => o !== melhor.opcao);
         }
         // Acabou a variedade: quem sobrou fica com a última opção disponível do estilo.
         let ultima = disponiveis.length ? disponiveis[0].candidato : candidatos[candidatos.length - 1];
-        pendentes.forEach(slot => { funcoesPorRole[slot.role] = { funcao: ultima.funcao, foco: ultima.foco }; });
+        pendentes.forEach(slot => { atribuidas[slot.role] = { funcao: ultima.funcao, foco: ultima.foco }; });
     });
+    // Devolve na MESMA ordem das coordenadas da formação. A ordem das chaves importa: o motor
+    // de escalação por Afinidade Tática (chat-ia.js) percorre este mapa e usa a ordem como
+    // desempate — montar por grupo e devolver fora de ordem trocava jogadores de slot sem que
+    // nenhuma função tivesse mudado.
+    let funcoesPorRole = {};
+    coords.forEach(c => { if (atribuidas[c.role]) funcoesPorRole[c.role] = atribuidas[c.role]; });
     return funcoesPorRole;
 }
 
