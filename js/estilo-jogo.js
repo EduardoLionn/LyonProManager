@@ -1465,19 +1465,54 @@ const _BANDA_PADRAO_POR_GRUPO = {
 // Só as funções cujo comportamento real em posse de bola desloca o jogador pra outra linha —
 // as demais mantêm a banda padrão do grupo. Nada aqui muda a função/foco em si, só a CONTAGEM
 // usada pra calcular o desenho ofensivo.
+// O foco muda o significado da função tanto quanto a função em si — é o que o motor do jogo
+// realmente faz, e o catálogo (js/funcoes-ea.js) já descreve isso na letra:
+//   · "Lateral"/Defesa   -> "entra para formar uma linha de três quando o time estiver com a
+//                           posse de bola": ou seja, é um TERCEIRO ZAGUEIRO, não um lateral;
+//                           com foco Equilibrado/Versátil o mesmo jogador já sobe e vira ala.
+//   · "Meia Aberto"      -> é um ala, quase um lateral: com foco Defesa "recua para o meio de
+//                           campo defensivo e protege a defesa"; com Apoio/Armação sobe pro lado.
+//   · "Zagueiro Aberto"/Apoio -> "avança pelo lado do campo, dando opção de passe".
+// Por isso a tabela é indexada por função E por foco (`_padrao` cobre os focos não citados).
 const DESLOCAMENTO_OFENSIVO_POR_FUNCAO = {
+    zagueiro: {
+        'zagueiro-aberto': { apoio: 'meio' } // só com foco Apoio ele realmente sobe pelo lado
+    },
     lateral: {
-        'lateral-invertido': 'meio', // "funciona como volante quando o time está com a bola"
-        'ala-invertido': 'meio',     // "adota uma posição central quando o time está com a bola"
-        'ala-atacante': 'meio'       // sobe e vira um meio/ala extra, deixando de ser um 4º defensor
+        // "Lateral" é a função conservadora do grupo: fica na linha em qualquer foco. Com foco
+        // Defesa ele fecha por dentro e vira o TERCEIRO ZAGUEIRO; com Equilibrado/Versátil sobe
+        // "um pouco mais" (palavras do próprio jogo) sem abandonar a linha de quatro. Quem troca
+        // de linha de verdade é o Ala e as versões invertidas.
+        'lateral': { _padrao: 'defesa' },
+        'lateral-invertido': { _padrao: 'meio' },                 // "funciona como volante com a bola"
+        'ala': { _padrao: 'meio' },                               // sobe e é ele quem dá a largura
+        'ala-invertido': { _padrao: 'meio' },                     // entra no miolo com a bola
+        'ala-atacante': { _padrao: 'meio' }                       // vive como ala, à frente da linha
     },
     volante: {
-        'zaga': 'defesa' // "ficará entre a zaga... para oferecer proteção" — vira um 3º/5º zagueiro
+        'zaga': { _padrao: 'defesa' },                            // entra entre os zagueiros: 3º/5º zagueiro
+        'meia-pelas-laterais': { armacao: 'meio', _padrao: 'meio' }
+    },
+    meio_campo_central: {
+        'meia-pelas-pontas': { ataque: 'ataque' }                 // com foco Ataque avança livre
     },
     meia_lateral: {
-        'corta-pra-dentro': 'ataque' // fecha pro meio pra finalizar, deixa de ocupar a linha de meio
+        'meia-aberto': { defesa: 'defesa', _padrao: 'meio' },     // é um ala: com Defesa recua pra linha
+        'corta-pra-dentro': { _padrao: 'ataque' },                // fecha pro miolo pra finalizar
+        'ala': { ataque: 'ataque', _padrao: 'meio' },
+        'armador-aberto': { ataque: 'ataque', _padrao: 'meio' }
     }
 };
+
+// Banda pra onde a função/foco leva o jogador em posse de bola, ou null quando ele fica na
+// banda padrão do grupo.
+function _deslocamentoDaFuncao(grupo, escolha) {
+    let tabelaGrupo = escolha && DESLOCAMENTO_OFENSIVO_POR_FUNCAO[grupo];
+    let regra = tabelaGrupo && tabelaGrupo[escolha.funcao];
+    if (!regra) return null;
+    if (Object.prototype.hasOwnProperty.call(regra, escolha.foco)) return regra[escolha.foco];
+    return regra._padrao || null;
+}
 
 // Conta quantos jogadores (fora o goleiro) acabam em cada banda — se funcoesPorRole for null,
 // devolve o perfil "cru" da formação (só pela posição no campinho, sem nenhum deslocamento),
@@ -1489,9 +1524,7 @@ function _bandasEmPosse(esquema, funcoesPorRole) {
         let bandaPadrao = _BANDA_PADRAO_POR_GRUPO[grupo];
         if (!bandaPadrao) return;
         let escolha = funcoesPorRole && funcoesPorRole[c.role];
-        let tabelaGrupo = escolha && DESLOCAMENTO_OFENSIVO_POR_FUNCAO[grupo];
-        let bandaDeslocada = tabelaGrupo && tabelaGrupo[escolha.funcao];
-        bandas[bandaDeslocada || bandaPadrao]++;
+        bandas[_deslocamentoDaFuncao(grupo, escolha) || bandaPadrao]++;
     });
     return bandas;
 }
@@ -2123,20 +2156,32 @@ function aplicarRelatorioTaticoNoSave(relatorio) {
 // =====================================================================================
 
 let _estiloJogoSelecionado = {}; // prefixo -> id do preset, ou null quando "Personalizado" está ativo
-let _estiloJogoModoPersonalizado = {}; // prefixo -> 'livre' (texto) ou 'avancado' (formulário das 4 fases)
+let _estiloJogoDnaEditado = {};  // prefixo -> true quando o treinador mexeu nos 4 planos à mão
+let _estiloJogoDnaAberto = {};   // prefixo -> true pra reabrir o painel dos 4 planos já expandido
 
-// Alterna, dentro do estilo "Personalizado", entre descrever em texto livre (a IA interpreta) e
-// montar o estilo fase a fase no Modo Avançado (tradução determinística, sem IA).
-function alternarModoPersonalizado(prefixo, modo) {
-    _estiloJogoModoPersonalizado[prefixo] = modo;
-    let livre = document.getElementById(`${prefixo}modo-livre-wrap`);
-    let avancado = document.getElementById(`${prefixo}modo-avancado-wrap`);
-    if (livre) livre.style.display = modo === 'livre' ? 'block' : 'none';
-    if (avancado) avancado.style.display = modo === 'avancado' ? 'block' : 'none';
-    let btnLivre = document.getElementById(`${prefixo}modo-livre-btn`);
-    let btnAvancado = document.getElementById(`${prefixo}modo-avancado-btn`);
-    if (btnLivre) btnLivre.classList.toggle('ativo', modo === 'livre');
-    if (btnAvancado) btnAvancado.classList.toggle('ativo', modo === 'avancado');
+// Chamado pelo onchange de qualquer select das 4 fases (ver renderizarFormularioDnaAvancado, em
+// js/dna-tatico.js): a partir daí o estilo passa a ser gerado pelo DNA ajustado à mão, e não mais
+// pela receita pronta do preset.
+function marcarDnaEditado(prefixo) {
+    _estiloJogoDnaEditado[prefixo] = true;
+    _estiloJogoDnaAberto[prefixo] = true;
+}
+
+// Repõe o formulário dos 4 planos com o DNA do estilo recém-escolhido — assim escolher
+// "Gegenpressing" carrega os 4 planos do Gegenpressing, e o treinador ajusta a partir dali em vez
+// de começar do zero.
+function _recarregarFormularioDna(prefixo, dna) {
+    let alvo = document.getElementById(`${prefixo}dna-form`);
+    if (!alvo || typeof renderizarFormularioDnaAvancado !== 'function') return;
+    alvo.innerHTML = renderizarFormularioDnaAvancado(prefixo, dna);
+    _estiloJogoDnaEditado[prefixo] = false;
+}
+
+// DNA de partida de um estilo qualquer: preset tem o dele escrito; Camaleão e Personalizado
+// começam do equilibrado (não existe receita pronta pra eles).
+function dnaBaseDoEstilo(presetId) {
+    if (presetId && typeof DNA_POR_PRESET !== 'undefined' && DNA_POR_PRESET[presetId]) return DNA_POR_PRESET[presetId];
+    return (typeof dnaPadrao === 'function') ? dnaPadrao() : null;
 }
 
 // -------------------------------------------------------------------------------------
@@ -2146,7 +2191,7 @@ function alternarModoPersonalizado(prefixo, modo) {
 // de IA, nenhum id fora dos catálogos reais, e corrigirTatica() ainda roda como rede de
 // segurança contra combinações proibidas pela predefinição escolhida.
 // -------------------------------------------------------------------------------------
-function gerarRelatorioTaticoPorDnaAvancado(formacoesPreferidas, dna) {
+function gerarRelatorioTaticoPorDnaAvancado(formacoesPreferidas, dna, presetBase) {
     let validas = (formacoesPreferidas || []).filter(f => f && coordsFormacoes[f]).slice(0, MAX_FORMACOES_PREFERIDAS);
     if (!validas.length) return null;
 
@@ -2174,8 +2219,15 @@ function gerarRelatorioTaticoPorDnaAvancado(formacoesPreferidas, dna) {
         abordagemDefensiva: taticaResultante.abordagemDefensiva,
         funcoesPorRole: funcoesPorRole,
         ajustesAutomaticos: ajustesRegra,
-        justificativa: `🎛️ Personalizado (Avançado): ${resumoCurtoDna(dnaNormalizado)}.`,
-        origem: { tipo: 'dna-avancado', rotulo: 'Personalizado (Avançado)', dna: dnaNormalizado }
+        justificativa: presetBase
+            ? `${presetBase.emoji} ${presetBase.nome} (ajustado por você): ${resumoCurtoDna(dnaNormalizado)}.`
+            : `🎛️ Personalizado (4 planos): ${resumoCurtoDna(dnaNormalizado)}.`,
+        origem: {
+            tipo: 'dna-avancado',
+            rotulo: presetBase ? `${presetBase.nome} (ajustado)` : 'Personalizado (4 planos)',
+            presetBase: presetBase ? presetBase.id : null,
+            dna: dnaNormalizado
+        }
     };
 }
 let _estiloJogoModoEdicao = {}; // prefixo -> true quando o treinador pediu pra alterar uma config já salva
@@ -2203,9 +2255,10 @@ function renderizarSeletorEstiloJogo(prefixo) {
 
     // Modo Avançado do Personalizado: se já existe uma config salva feita nesse modo, o
     // formulário reabre exatamente com as escolhas do treinador em vez de voltar pro padrão.
-    let origemSalva = salva && salva.estiloJogoSelecionado;
-    let dnaInicialAvancado = (origemSalva && origemSalva.tipo === 'dna-avancado' && origemSalva.dna)
-        ? origemSalva.dna
+    // Editando uma config já salva, os 4 planos abrem com o DNA REAL dela (do preset, do
+    // Camaleão ou do ajuste manual anterior) — nunca do zero.
+    let dnaInicialAvancado = (salva && typeof dnaDoEstiloSalvo === 'function')
+        ? dnaDoEstiloSalvo(salva)
         : ((typeof dnaPadrao === 'function') ? dnaPadrao() : null);
 
     let optionsFormacoes = listaFormacoesDisponiveis().map(f => `<option value="${f}">${f}</option>`).join('');
@@ -2238,20 +2291,15 @@ function renderizarSeletorEstiloJogo(prefixo) {
         <div class="grid-2">${seletoresFormacao}</div>
         <p class="tatica-ajuda" style="margin-top:14px;">Estilo de jogo</p>
         <div class="tatica-grade">${cardsPreset}${cardCamaleao}${cardLivre}</div>
-        <div id="${prefixo}estilo-texto-livre-wrap" style="display:none; margin-top:10px;">
-            <div class="modo-personalizado-tabs">
-                <button type="button" id="${prefixo}modo-livre-btn" class="modo-personalizado-btn ativo" onclick="alternarModoPersonalizado('${prefixo}', 'livre')">✍️ Escrever com minhas palavras</button>
-                <button type="button" id="${prefixo}modo-avancado-btn" class="modo-personalizado-btn" onclick="alternarModoPersonalizado('${prefixo}', 'avancado')">🎛️ Modo Avançado (4 fases do jogo)</button>
-            </div>
-            <div class="linha-form" id="${prefixo}modo-livre-wrap" style="margin-top:12px;">
-                <label>Descreva o estilo que você quer</label>
-                <textarea id="${prefixo}estilo-texto-livre" rows="2" placeholder="Ex: quero jogar recuado mas com muita posse quando recuperar a bola" style="width:100%; background:var(--bg-dark);"></textarea>
-            </div>
-            <div id="${prefixo}modo-avancado-wrap" style="display:none; margin-top:12px;">
-                <p class="tatica-ajuda">Monte o estilo fase a fase, como um treinador descreve o time de verdade — isso vira configuração do jogo direto, sem passar pela IA.</p>
-                <div class="dna-grid">${(typeof renderizarFormularioDnaAvancado === 'function') ? renderizarFormularioDnaAvancado(prefixo, dnaInicialAvancado) : ''}</div>
-            </div>
+        <div class="linha-form" id="${prefixo}estilo-texto-livre-wrap" style="display:none; margin-top:12px;">
+            <label>Descreva o estilo que você quer</label>
+            <textarea id="${prefixo}estilo-texto-livre" rows="2" placeholder="Ex: quero jogar recuado mas com muita posse quando recuperar a bola" style="width:100%; background:var(--bg-dark);"></textarea>
         </div>
+        <details class="dna-ajuste" id="${prefixo}dna-ajuste" ${_estiloJogoDnaAberto[prefixo] ? 'open' : ''}>
+            <summary>🎛️ Ajustar os 4 planos deste estilo</summary>
+            <p class="tatica-ajuda">Todo estilo é só um ponto de partida — aqui você mexe fase a fase, como um treinador descreve o time de verdade. O que você mudar vira configuração do jogo na hora, sem passar pela IA.</p>
+            <div class="dna-grid" id="${prefixo}dna-form">${(typeof renderizarFormularioDnaAvancado === 'function') ? renderizarFormularioDnaAvancado(prefixo, dnaInicialAvancado) : ''}</div>
+        </details>
         <button type="button" onclick="gerarConfiguracaoEstiloJogo('${prefixo}')" style="width:100%; margin-top:14px; background:var(--primary); color:black; padding:12px; font-weight:bold;">${rotuloBotao}</button>
         ${botaoCancelar}
         <div id="${prefixo}estilo-loader" style="display:none; font-size:13px; color:var(--warning); font-weight:bold; margin-top:10px;"></div>
@@ -2272,8 +2320,8 @@ function renderizarSeletorEstiloJogo(prefixo) {
         } else if (origem.tipo === 'camaleao') {
             escolherPresetEstiloJogo(prefixo, 'camaleao');
         } else if (origem.tipo === 'dna-avancado') {
-            escolherPresetEstiloJogo(prefixo, null);
-            alternarModoPersonalizado(prefixo, 'avancado');
+            escolherPresetEstiloJogo(prefixo, origem.presetBase || null);
+            _recarregarFormularioDna(prefixo, origem.dna);
         } else {
             escolherPresetEstiloJogo(prefixo, null);
             let txt = document.getElementById(`${prefixo}estilo-texto-livre`);
@@ -2289,7 +2337,7 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
     let origem = t.estiloJogoSelecionado;
     let rotuloOrigem = origem.tipo === 'preset' ? origem.rotulo
         : origem.tipo === 'camaleao' ? '🦎 Camaleão'
-        : origem.tipo === 'dna-avancado' ? '🎛️ Personalizado (Avançado)'
+        : origem.tipo === 'dna-avancado' ? `🎛️ ${origem.rotulo}`
         : `Personalizado: "${origem.rotulo}"`;
     // Marca visualmente qual formação preferida está de fato em uso — sem isso, quando o esquema
     // escolhido não é a 1ª prioridade (porque uma formação mais abaixo na lista é mais ideal pra
@@ -2322,8 +2370,16 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
         ${funcoesHtml ? `<details class="funcoes-detalhe"><summary>🔍 Ver função de cada posição em campo (${t.esquema})</summary><div class="banco-reservas-grid funcoes-campo-grid">${funcoesHtml}</div></details>` : ''}
         <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin-top:14px;">💡 Isto é a <strong>base</strong> — não é engessado. Partida a partida, o Auxiliar Técnico ajusta a abordagem, a formação (entre as preferidas acima) e a função de cada jogador de acordo com o adversário específico, sempre dentro do espírito deste estilo.</p>
         ${origem.tipo === 'camaleao' ? `<button type="button" onclick="atualizarCamaleaoManual('${prefixo}', this)" style="width:100%; margin-top:10px; background:var(--primary); color:black; padding:10px; font-weight:bold;">🔄 Atualizar com o Elenco Atual</button>` : ''}
+        <button type="button" onclick="abrirAjusteDos4Planos('${prefixo}')" style="width:100%; margin-top:10px; background:var(--bg-dark); border:1px solid var(--primary); color:var(--primary); padding:10px; font-weight:bold;">🎛️ Ajustar os 4 planos deste estilo</button>
         <button type="button" onclick="alternarEdicaoEstiloJogo('${prefixo}', true)" style="width:100%; margin-top:10px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:10px; font-weight:bold;">✏️ Alterar Configuração</button>
     `;
+}
+
+// Atalho do resumo salvo: entra em modo de edição já com o painel dos 4 planos aberto, pra quem
+// só quer mexer nas fases sem reconfigurar formação/estilo do zero.
+function abrirAjusteDos4Planos(prefixo) {
+    _estiloJogoDnaAberto[prefixo] = true;
+    alternarEdicaoEstiloJogo(prefixo, true);
 }
 
 function alternarEdicaoEstiloJogo(prefixo, ligar) {
@@ -2338,8 +2394,9 @@ function escolherPresetEstiloJogo(prefixo, presetId) {
     if (elAtivo) elAtivo.classList.add('tatica-card-ativo');
     let wrapLivre = document.getElementById(`${prefixo}estilo-texto-livre-wrap`);
     if (wrapLivre) wrapLivre.style.display = presetId ? 'none' : 'block';
-    // Ao abrir o Personalizado, respeita o modo que já estava ativo (texto livre por padrão).
-    if (!presetId) alternarModoPersonalizado(prefixo, _estiloJogoModoPersonalizado[prefixo] || 'livre');
+    // Trocar de estilo recarrega os 4 planos com a receita do estilo escolhido (e descarta
+    // qualquer ajuste manual que fosse do estilo anterior).
+    _recarregarFormularioDna(prefixo, dnaBaseDoEstilo(presetId));
 }
 
 function _formacoesPreferidasDoSeletor(prefixo) {
@@ -2358,9 +2415,12 @@ async function gerarConfiguracaoEstiloJogo(prefixo) {
     let loader = document.getElementById(`${prefixo}estilo-loader`);
     let relatorio;
     try {
-        if (presetId === null && _estiloJogoModoPersonalizado[prefixo] === 'avancado') {
-            if (loader) { loader.style.display = 'block'; loader.style.color = 'var(--warning)'; loader.innerText = '⏳ Montando a configuração a partir das 4 fases...'; }
-            relatorio = gerarRelatorioTaticoPorDnaAvancado(formacoes, lerFormularioDnaAvancado(prefixo));
+        if (_estiloJogoDnaEditado[prefixo]) {
+            // O treinador mexeu nos 4 planos: o que vale é o ajuste dele, seja qual for o estilo
+            // que serviu de ponto de partida (o nome do estilo original vira o rótulo "ajustado").
+            if (loader) { loader.style.display = 'block'; loader.style.color = 'var(--warning)'; loader.innerText = '⏳ Montando a configuração a partir dos 4 planos...'; }
+            let presetBase = presetId && presetId !== 'camaleao' ? presetPorId(presetId) : null;
+            relatorio = gerarRelatorioTaticoPorDnaAvancado(formacoes, lerFormularioDnaAvancado(prefixo), presetBase);
         } else if (presetId === null) {
             let texto = (document.getElementById(`${prefixo}estilo-texto-livre`) || {}).value;
             texto = (texto || '').trim();

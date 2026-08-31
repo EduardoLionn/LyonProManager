@@ -1133,6 +1133,145 @@ ${textoRegrasCompatibilidadePosicional()}
             return 'Em casa — o apoio da torcida permite uma postura um pouco mais ousada.';
         }
 
+
+        // =====================================================================================
+        // RECOMENDAÇÃO DE DIRETRIZ + FOCO — decidida por MOTOR, não pela IA (pedido do treinador:
+        // "toda sugestão ele entrega diretriz escalação titular padrão e foco ofensivo, quero
+        // autenticidade de acordo ao adversário"). Deixar a escolha na mão da IA dava sempre a
+        // mesma resposta, porque o prompt não tinha número nenhum pra diferenciar um jogo do
+        // outro. Agora os sinais reais da partida decidem, e a IA só escreve o texto explicando —
+        // mesma divisão de trabalho que já vale pra escalação (o algoritmo decide QUEM joga, a IA
+        // escreve a instrução).
+        //
+        // Os sinais são todos verificáveis no save: força do elenco x nível da liga, retrospecto
+        // direto contra ESTE adversário, momento nos últimos 5 jogos, desgaste do elenco, mando e
+        // saldo agregado quando é jogo de volta de mata-mata. Por cima disso entra a postura
+        // natural do ESTILO DE JOGO escolhido — é o que amarra a recomendação ao estilo em vez de
+        // sugerir um foco que contraria a identidade do time.
+        // =====================================================================================
+        function _sinaisDaPartida(nomeAdversario, competicaoSelecionada, mando) {
+            let d = db[currentSave] || {};
+            let partidas = Array.isArray(d.partidas) ? d.partidas : [];
+            let ativos = (d.plantel || []).filter(p => p.status === 'Ativo');
+
+            let ovrLiga = Number((String(d.liga || '').match(/\d+/g) || [70]).pop());
+            let top11 = ativos.slice().sort((a, b) => (b.ovr || 0) - (a.ovr || 0)).slice(0, 11);
+            let ovrTime = top11.length ? top11.reduce((soma, p) => soma + (p.ovr || 0), 0) / top11.length : ovrLiga;
+
+            let alvo = String(nomeAdversario || '').toLowerCase().trim();
+            let confrontos = partidas.filter(p => String(p.adversario || '').toLowerCase().trim() === alvo);
+            let vitorias = 0, empates = 0, derrotas = 0;
+            confrontos.forEach(p => {
+                if ((p.golsPro || 0) > (p.golsContra || 0)) vitorias++;
+                else if ((p.golsPro || 0) === (p.golsContra || 0)) empates++;
+                else derrotas++;
+            });
+
+            let ultimos = partidas.slice(-5);
+            let pontosUltimos = ultimos.reduce((soma, p) => soma + ((p.golsPro || 0) > (p.golsContra || 0) ? 3 : ((p.golsPro || 0) === (p.golsContra || 0) ? 1 : 0)), 0);
+
+            let cansados = top11.filter(p => (p.fadiga || 0) >= 60).length;
+            let criticos = top11.filter(p => (p.fadiga || 0) >= 80 || (p.diasLesao || 0) > 0).length;
+
+            let saldoAgregado = null;
+            if (competicaoSelecionada) {
+                let ida = partidas.find(p => String(p.adversario || '').toLowerCase().trim() === alvo &&
+                    p.comp === competicaoSelecionada && p.temporada === d.temporadaAtual);
+                if (ida) saldoAgregado = (ida.golsPro || 0) - (ida.golsContra || 0);
+            }
+
+            return {
+                ovrTime: Math.round(ovrTime), ovrLiga: ovrLiga, gapLiga: Math.round(ovrTime - ovrLiga),
+                confrontos: confrontos.length, vitorias: vitorias, empates: empates, derrotas: derrotas,
+                jogosRecentes: ultimos.length, pontosUltimos: pontosUltimos,
+                cansados: cansados, criticos: criticos, titularesConsiderados: top11.length,
+                saldoAgregado: saldoAgregado, mando: mando || 'Casa'
+            };
+        }
+
+        // Postura natural do estilo de jogo salvo (-2 bem retrancado ... +2 bem agressivo).
+        function _posturaDoEstiloAtivo() {
+            let dna = (typeof dnaDoEstiloSalvo === 'function') ? dnaDoEstiloSalvo(db[currentSave] && db[currentSave].taticas) : null;
+            if (!dna) return { valor: 0, dna: null };
+            let valor = 0;
+            valor += ({ alto: 1, medio: 0, baixo: -1 })[dna.altura_bloco] || 0;
+            valor += ({ gegenpressing: 1, equilibrio_transicao: 0, recomposicao: -1 })[dna.reacao_perda] || 0;
+            valor += ({ vertical: 0.5, situacional: 0, manutencao: -0.5 })[dna.reacao_recuperacao] || 0;
+            return { valor: valor, dna: dna };
+        }
+
+        const _ESCADA_FOCO = ['extremamente_defensivo', 'defensivo', 'equilibrado', 'ofensivo', 'extremamente_ofensivo'];
+
+        function recomendarDiretrizFoco(nomeAdversario, competicaoSelecionada, mando) {
+            let s = _sinaisDaPartida(nomeAdversario, competicaoSelecionada, mando);
+            let estilo = _posturaDoEstiloAtivo();
+            let motivos = [];
+
+            // ---- FOCO: postura do estilo + contexto real da partida ----
+            // A postura do estilo entra com peso LIMITADO (no máximo um degrau e meio da escada):
+            // ela inclina a recomendação pro lado da identidade do time, mas não pode saturar a
+            // escala sozinha — se saturasse, adversários diferentes cairiam sempre no mesmo foco,
+            // que era exatamente a reclamação ("toda sugestão entrega o mesmo").
+            let escala = Math.max(-1.5, Math.min(1.5, estilo.valor));
+            if (estilo.dna) motivos.push(`o estilo do time joga em ${(opcaoDnaPorId('altura_bloco', estilo.dna.altura_bloco) || {}).nome || 'bloco médio'} e ${((opcaoDnaPorId('reacao_perda', estilo.dna.reacao_perda) || {}).nome || '').toLowerCase()}`);
+
+            if (s.mando === 'Casa') { escala += 1; motivos.push('jogamos em casa'); }
+            else if (s.mando === 'Fora') { escala -= 1; motivos.push('jogamos fora'); }
+
+            if (s.gapLiga >= 4) { escala += 1; motivos.push(`nosso elenco está ${s.gapLiga} pontos de OVR acima do nível da liga`); }
+            else if (s.gapLiga <= -4) { escala -= 1; motivos.push(`nosso elenco está ${Math.abs(s.gapLiga)} pontos de OVR abaixo do nível da liga`); }
+
+            if (s.confrontos > 0) {
+                if (s.vitorias > s.derrotas) { escala += 1; motivos.push(`histórico favorável contra ${nomeAdversario} (${s.vitorias}V ${s.empates}E ${s.derrotas}D)`); }
+                else if (s.derrotas > s.vitorias) { escala -= 1; motivos.push(`histórico ruim contra ${nomeAdversario} (${s.vitorias}V ${s.empates}E ${s.derrotas}D)`); }
+            }
+
+            if (s.jogosRecentes >= 3) {
+                if (s.pontosUltimos >= 10) { escala += 1; motivos.push(`time embalado (${s.pontosUltimos} pontos nos últimos ${s.jogosRecentes})`); }
+                else if (s.pontosUltimos <= 4) { escala -= 1; motivos.push(`momento ruim (${s.pontosUltimos} pontos nos últimos ${s.jogosRecentes})`); }
+            }
+
+            let indice = Math.max(0, Math.min(_ESCADA_FOCO.length - 1, 2 + Math.round(escala / 2)));
+            let foco = _ESCADA_FOCO[indice];
+
+            // Jogo de volta de mata-mata manda em tudo: o placar agregado decide a postura.
+            if (s.saldoAgregado !== null) {
+                if (s.saldoAgregado <= -2) { foco = 'tudo_ou_nada'; motivos.push(`estamos ${Math.abs(s.saldoAgregado)} gols atrás no agregado`); }
+                else if (s.saldoAgregado === -1) { foco = 'extremamente_ofensivo'; motivos.push('estamos 1 gol atrás no agregado'); }
+                else if (s.saldoAgregado >= 2) { foco = 'segura_o_jogo'; motivos.push(`temos ${s.saldoAgregado} gols de vantagem no agregado`); }
+                else if (s.saldoAgregado === 1) { foco = 'defensivo'; motivos.push('temos 1 gol de vantagem no agregado'); }
+            }
+
+            // ---- DIRETRIZ: estado físico do elenco x tamanho do jogo ----
+            let jogoDecisivo = s.saldoAgregado !== null || s.gapLiga <= -4 || (s.confrontos > 0 && s.derrotas > s.vitorias);
+            let elencoInteiro = s.titularesConsiderados >= 11;
+            let diretriz;
+            if (jogoDecisivo && s.cansados <= 3) {
+                diretriz = 'forca-maxima';
+                motivos.push('jogo grande demais pra poupar alguém');
+            } else if (jogoDecisivo && s.criticos === 0) {
+                diretriz = 'titulares-todo-custo';
+                motivos.push('vale o risco de escalar os titulares mesmo cansados');
+            } else if (s.criticos >= 3 && elencoInteiro) {
+                diretriz = 'rodizio-extremo';
+                motivos.push(`${s.criticos} titulares em estado físico crítico`);
+            } else if (s.cansados >= 4 && elencoInteiro) {
+                diretriz = 'rotacao-equilibrada';
+                motivos.push(`${s.cansados} titulares acumulando desgaste`);
+            } else if (s.gapLiga >= 6 && s.cansados >= 2 && elencoInteiro) {
+                diretriz = 'oportunidade-jovens';
+                motivos.push('elenco muito superior ao da liga — dá pra rodar a base sem perder o jogo');
+            } else if (s.jogosRecentes >= 3 && s.pontosUltimos <= 4) {
+                diretriz = 'em-melhor-momento';
+                motivos.push('a sequência ruim pede quem está melhor agora, não quem tem o nome maior');
+            } else {
+                diretriz = 'titular-padrao';
+                motivos.push('elenco inteiro à disposição e sem alerta físico');
+            }
+
+            return { diretriz: diretriz, foco: foco, sinais: s, motivos: motivos };
+        }
+
         async function gerarSugestaoDiretrizFoco() {
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
             if (!nomeAdvManual) return alert('Digite o nome do adversário antes de pedir a sugestão.');
@@ -1148,9 +1287,11 @@ ${textoRegrasCompatibilidadePosicional()}
 
             // Padrão seguro caso a IA falhe ou devolva algo inválido — o treinador ainda pode
             // ajustar tudo manualmente na Fase 2, então uma falha aqui nunca trava o fluxo.
-            let diretrizRecomendada = 'titular-padrao';
-            let focoRecomendado = 'equilibrado';
-            let justificativa = 'Não consegui montar uma recomendação personalizada agora — seguindo a diretriz e o foco padrão. Você pode ajustar livremente abaixo.';
+            // O motor decide (sinais reais + postura do estilo); a IA só escreve a explicação.
+            let recomendacao = recomendarDiretrizFoco(nomeAdvManual, competicaoSelecionada, mandoSelecionado);
+            let diretrizRecomendada = recomendacao.diretriz;
+            let focoRecomendado = recomendacao.foco;
+            let justificativa = `${DIRETRIZES_ESTRATEGICAS[diretrizRecomendada].nome} com foco ${FOCOS_TATICOS_PARTIDA[focoRecomendado]} — ${recomendacao.motivos.join('; ')}.`;
 
             try {
                 let resumoContexto = (typeof gerarResumoContexto === 'function') ? gerarResumoContexto() : '';
@@ -1175,16 +1316,23 @@ ${textoRegrasCompatibilidadePosicional()}
 
                 Leve em conta principalmente: (1) a prioridade da meta da temporada — se o time está muito distante do objetivo declarado, o jogo é de alta prioridade e pede mais risco; se a meta já está garantida ou tranquila, dá pra poupar/rotacionar; (2) o momento atual (sequência de resultados, fase); (3) se ESTE é o jogo de volta de um mata-mata — nesse caso o placar agregado dita se a postura certa é segurar o resultado ou arriscar tudo; (4) o retrospecto direto contra este adversário específico.
 
+                DECISÃO JÁ TOMADA PELO DEPARTAMENTO DE ANÁLISE (não é sua, não mude):
+                - Diretriz Estratégica: "${DIRETRIZES_ESTRATEGICAS[diretrizRecomendada].nome}"
+                - Foco Tático da Partida: "${FOCOS_TATICOS_PARTIDA[focoRecomendado]}"
+                - Números e fatos que levaram a ela: ${recomendacao.motivos.join('; ')}.
+                - Leitura do elenco: OVR médio dos 11 melhores ${recomendacao.sinais.ovrTime} contra nível ${recomendacao.sinais.ovrLiga} da liga; ${recomendacao.sinais.cansados} titulares com desgaste alto e ${recomendacao.sinais.criticos} em estado crítico.
+
+                Sua tarefa é APENAS escrever a justificativa dessa decisão pro treinador, com a sua voz de auxiliar: 2 a 4 frases, em português, citando os números acima e o adversário pelo nome. Não proponha outra diretriz nem outro foco.
+
                 Responda APENAS com um JSON puro, sem nenhum texto fora dele, exatamente neste formato:
-                { "diretrizRecomendada": "<um id do catálogo de diretrizes>", "focoRecomendado": "<um id do catálogo de focos>", "justificativa": "<2-4 frases em português explicando o raciocínio por trás da escolha>" }`;
+                { "justificativa": "<2-4 frases em português explicando a decisão acima>" }`;
 
                 const data = await chamarIA({ contents: [{ parts: [{ text: promptIA }] }] });
                 let bruto = (data.candidates[0].content.parts[0].text || '').trim();
                 let match = bruto.match(/\{[\s\S]*\}/);
                 if (match) {
                     let json = JSON.parse(match[0]);
-                    if (json.diretrizRecomendada && DIRETRIZES_ESTRATEGICAS[json.diretrizRecomendada]) diretrizRecomendada = json.diretrizRecomendada;
-                    if (json.focoRecomendado && FOCOS_TATICOS_PARTIDA[json.focoRecomendado]) focoRecomendado = json.focoRecomendado;
+                    // Só o texto vem da IA — a diretriz e o foco já foram decididos pelo motor.
                     if (json.justificativa) justificativa = String(json.justificativa).trim();
                 }
             } catch (e) {
