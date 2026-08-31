@@ -1479,11 +1479,15 @@ const DESLOCAMENTO_OFENSIVO_POR_FUNCAO = {
         'zagueiro-aberto': { apoio: 'meio' } // só com foco Apoio ele realmente sobe pelo lado
     },
     lateral: {
-        'lateral': { defesa: 'defesa', _padrao: 'meio' },        // Defesa = 3º zagueiro; senão vira ala
+        // "Lateral" é a função conservadora do grupo: fica na linha em qualquer foco. Com foco
+        // Defesa ele fecha por dentro e vira o TERCEIRO ZAGUEIRO; com Equilibrado/Versátil sobe
+        // "um pouco mais" (palavras do próprio jogo) sem abandonar a linha de quatro. Quem troca
+        // de linha de verdade é o Ala e as versões invertidas.
+        'lateral': { _padrao: 'defesa' },
         'lateral-invertido': { _padrao: 'meio' },                 // "funciona como volante com a bola"
-        'ala': { _padrao: 'meio' },                               // avança e apoia o ataque por fora
+        'ala': { _padrao: 'meio' },                               // sobe e é ele quem dá a largura
         'ala-invertido': { _padrao: 'meio' },                     // entra no miolo com a bola
-        'ala-atacante': { ataque: 'ataque', _padrao: 'meio' }     // com foco Ataque vira quase um ponta
+        'ala-atacante': { _padrao: 'meio' }                       // vive como ala, à frente da linha
     },
     volante: {
         'zaga': { _padrao: 'defesa' },                            // entra entre os zagueiros: 3º/5º zagueiro
