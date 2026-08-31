@@ -172,6 +172,50 @@ function atualizarLoaderPlantel(texto) {
     if (el2) el2.innerText = texto;
 }
 
+// Classifica, numa única chamada de texto (sem imagem), a especialidade de um lote de
+// jogadores já extraídos das telas. Fica separada da leitura visual de propósito: pedir pra
+// IA fazer OCR de uma tabela grande de imagem E aplicar as regras de classificação de scout
+// ao mesmo tempo (ver PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA) sobrecarregava o modelo, que
+// começava a "esquecer" jogadores da leitura em elencos grandes (28 jogadores viravam 18).
+// Separando as duas tarefas, a leitura da imagem fica simples (só copiar o que está na tela)
+// e a classificação — que não depende da imagem — roda à parte, em lotes menores.
+async function classificarEspecialidadesEmLote(jogadores) {
+    const TAMANHO_LOTE = 20;
+    let resultado = new Array(jogadores.length).fill(null);
+
+    for (let inicio = 0; inicio < jogadores.length; inicio += TAMANHO_LOTE) {
+        let lote = jogadores.slice(inicio, inicio + TAMANHO_LOTE);
+        let listaTexto = lote.map((j, idx) => `${idx + 1}. Nome: "${j.nome}" | Posição Base: "${j.posicaoBase || ''}" | OVR: ${j.ovr || '?'}`).join('\n');
+
+        let prompt = `${PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA}
+
+Classifique CADA jogador da lista abaixo (${lote.length} no total) na especialidade correspondente à Posição Base dele. Não pule nenhum jogador — a resposta final deve conter exatamente ${lote.length} itens, um pra cada número da lista, na mesma ordem.
+
+Lista:
+${listaTexto}
+
+Retorne APENAS um array JSON puro, sem marcação markdown, com um item por jogador NA MESMA ORDEM da lista acima:
+[{"indice": 1, "posicao": "Especialidade classificada"}, {"indice": 2, "posicao": "Especialidade classificada"}]`;
+
+        try {
+            const data = await chamarIA({ contents: [{ parts: [{ text: prompt }] }] });
+            let rawText = data.candidates[0].content.parts[0].text;
+            let jsonMatch = rawText.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                let classificados = JSON.parse(jsonMatch[0]);
+                classificados.forEach(c => {
+                    let idxLote = Number(c.indice) - 1;
+                    if (idxLote >= 0 && idxLote < lote.length) resultado[inicio + idxLote] = c.posicao;
+                });
+            }
+        } catch (e) {
+            console.error("Erro na classificação de especialidades em lote:", e);
+        }
+    }
+
+    return resultado;
+}
+
 async function lerImagensIAPlantel(event) {
             if (currentSave !== 'clube') return alert("Apenas para o modo Clube!");
 
@@ -180,35 +224,40 @@ async function lerImagensIAPlantel(event) {
 
             atualizarLoaderPlantel("Iniciando leitura...");
 
-            // Loop para ler várias imagens selecionadas de uma vez
+            let extraidos = [];
+            let imagensComFalha = [];
+
+            // Loop para ler várias imagens selecionadas de uma vez. Cada chamada só faz a
+            // extração "crua" da tabela (nome, posição base, OVR, idade) — sem classificar
+            // especialidade — pra manter a tarefa simples o bastante pra IA não pular jogador
+            // nenhum mesmo em elencos grandes.
             for (let i = 0; i < files.length; i++) {
                 let file = files[i];
                 atualizarLoaderPlantel(`Lendo imagem ${i + 1} de ${files.length}... aguarde`);
 
                 // Converte a imagem em Base64 para enviar para a IA
                 let base64Data = await new Promise((resolve) => {
-                    let reader = new FileReader(); 
-                    reader.onload = () => resolve(reader.result.split(',')[1]); 
+                    let reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
                     reader.readAsDataURL(file);
                 });
 
-                // Prompt detalhado: extrai os jogadores da tela e classifica cada um numa
-                // especialidade real (não um mapeamento fixo de 1 sigla -> 1 especialidade
-                // sempre igual — ver PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA em funcoes-ea.js).
                 let prompt = `Analise a imagem da tela de "Central do Elenco" de um jogo de futebol.
 Existem colunas mostrando a Posição, Nome, GER/OVR e, se disponível, a Idade.
-Extraia TODOS os jogadores da lista visíveis na imagem.
 
-${PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA}
-Use o valor classificado no campo "posicao" de cada jogador.
+TAREFA CRÍTICA: extraia TODOS os jogadores da lista visíveis na imagem, sem exceção. Não pule, resuma ou omita nenhuma linha — inclusive as que estiverem com texto pequeno, cortado na borda ou com contraste ruim (nesses casos, faça sua melhor leitura em vez de descartar a linha). Percorra a tabela de cima para baixo, linha por linha, contando quantas linhas existem antes de responder: a sua resposta final DEVE conter exatamente uma entrada pra cada linha de jogador visível na imagem.
 
-O nome deve ser copiado exatamente como está na tela (ex: O. Vlachodimos).
-Se a idade do jogador estiver visível na tela, extraia como número em "idade". Se não estiver visível, omita o campo (não invente um valor).
+Para cada jogador retorne:
+- "nome": copiado exatamente como está na tela (ex: O. Vlachodimos)
+- "posicaoBase": a sigla de posição EXATA como aparece na tela (ex: "ZAG", "LD", "MEI"), sem traduzir ou classificar
+- "ovr": o valor de GER/OVR como número
+- "idade": se a idade estiver visível na tela, extraia como número. Se não estiver visível, omita o campo (não invente um valor)
+
 Retorne APENAS um array JSON válido e puro, sem marcações markdown como \`\`\`json.
 Exemplo do formato exigido:
 [
-  {"nome": "O. Vlachodimos", "posicao": "Goleiro/Tradicional", "ovr": 79, "idade": 30},
-  {"nome": "Marcão", "posicao": "Zagueiro/Rebatedor", "ovr": 74}
+  {"nome": "O. Vlachodimos", "posicaoBase": "GOL", "ovr": 79, "idade": 30},
+  {"nome": "Marcão", "posicaoBase": "ZAG", "ovr": 74}
 ]`;
 
                 try {
@@ -218,39 +267,60 @@ Exemplo do formato exigido:
                     // Extrai o Array JSON da resposta da IA
                     let jsonMatch = rawText.match(/\[[\s\S]*\]/);
                     if (jsonMatch) {
-                        let jogadoresExtraidos = JSON.parse(jsonMatch[0]);
-
-                        jogadoresExtraidos.forEach(j => {
-                            let nomeExtraido = j.nome.trim();
-                            let posExtraida = ESPECIALIDADES_JOGADOR[j.posicao] ? j.posicao : "MeioCampo/Dinâmico";
-                            let ovrExtraido = Number(j.ovr) || 70;
-                            let idadeExtraida = j.idade ? Number(j.idade) : null;
-
-                            // Verifica se o jogador já existe para atualizar, senão cria um novo
-                            let jogadorExistente = db.clube.plantel.find(p => p.nome.toLowerCase() === nomeExtraido.toLowerCase());
-
-                            if (jogadorExistente) {
-                                jogadorExistente.ovr = ovrExtraido;
-                                jogadorExistente.posicao = posExtraida;
-                                if (idadeExtraida) jogadorExistente.idade = idadeExtraida;
-                            } else {
-                                let novoJog = {
-                                    nome: nomeExtraido,
-                                    posicao: posExtraida,
-                                    ovr: ovrExtraido,
-                                    status: 'Ativo',
-                                    jogosAvaliacao: 0
-                                };
-                                if (idadeExtraida) novoJog.idade = idadeExtraida;
-                                if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJog);
-                                db.clube.plantel.push(novoJog);
-                            }
-                        });
+                        let jogadoresImagem = JSON.parse(jsonMatch[0]);
+                        if (Array.isArray(jogadoresImagem) && jogadoresImagem.length > 0) {
+                            jogadoresImagem.forEach(j => { if (j && j.nome) extraidos.push(j); });
+                        } else {
+                            imagensComFalha.push(i + 1);
+                        }
+                    } else {
+                        imagensComFalha.push(i + 1);
                     }
                 } catch(e) {
                     console.error("Erro na leitura da imagem do plantel pela IA:", e);
+                    imagensComFalha.push(i + 1);
                 }
             }
+
+            if (extraidos.length === 0) {
+                atualizarLoaderPlantel("");
+                event.target.value = "";
+                alert("Não foi possível ler nenhum jogador nas imagens enviadas. Tente novamente com prints mais nítidos, de preferência mostrando menos jogadores por imagem.");
+                return;
+            }
+
+            // Segunda etapa: classifica a especialidade de todos os jogadores extraídos numa
+            // (ou poucas) chamada(s) de texto só, separada da leitura visual.
+            atualizarLoaderPlantel("Classificando especialidades...");
+            let classificacoes = await classificarEspecialidadesEmLote(extraidos);
+
+            extraidos.forEach((j, idx) => {
+                let nomeExtraido = String(j.nome || '').trim();
+                if (!nomeExtraido) return;
+                let posExtraida = ESPECIALIDADES_JOGADOR[classificacoes[idx]] ? classificacoes[idx] : "MeioCampo/Dinâmico";
+                let ovrExtraido = Number(j.ovr) || 70;
+                let idadeExtraida = j.idade ? Number(j.idade) : null;
+
+                // Verifica se o jogador já existe para atualizar, senão cria um novo
+                let jogadorExistente = db.clube.plantel.find(p => p.nome.toLowerCase() === nomeExtraido.toLowerCase());
+
+                if (jogadorExistente) {
+                    jogadorExistente.ovr = ovrExtraido;
+                    jogadorExistente.posicao = posExtraida;
+                    if (idadeExtraida) jogadorExistente.idade = idadeExtraida;
+                } else {
+                    let novoJog = {
+                        nome: nomeExtraido,
+                        posicao: posExtraida,
+                        ovr: ovrExtraido,
+                        status: 'Ativo',
+                        jogosAvaliacao: 0
+                    };
+                    if (idadeExtraida) novoJog.idade = idadeExtraida;
+                    if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJog);
+                    db.clube.plantel.push(novoJog);
+                }
+            });
 
             atualizarLoaderPlantel("");
             event.target.value = "";
@@ -262,7 +332,12 @@ Exemplo do formato exigido:
             salvarDados();
             atualizarPlantelUI();
             preencherDatalistJogadores();
-            alert("Leitura de Elenco concluída! O plantel foi atualizado.");
+
+            let msg = `Leitura de Elenco concluída! ${extraidos.length} jogador(es) lido(s) a partir de ${files.length} imagem(ns).`;
+            if (imagensComFalha.length > 0) {
+                msg += `\n\n⚠️ Não foi possível ler ${imagensComFalha.length === files.length ? 'nenhuma imagem' : `a(s) imagem(ns) ${imagensComFalha.join(', ')}`} corretamente. Se faltar jogador, tente reenviar essa(s) imagem(ns) sozinha(s) — de preferência com menos jogadores por print.`;
+            }
+            alert(msg);
         }
 
         // --- FUNÇÕES DE CONDIÇÃO FÍSICA E AUXILIARES FALTANTES ---
