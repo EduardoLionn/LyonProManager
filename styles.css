@@ -603,6 +603,31 @@
 .banco-reserva-item strong { color: white; font-size: 13px; }
 .banco-reserva-item span { font-size: 11px; color: var(--text-muted); }
 .banco-reserva-item .banco-reserva-papel { color: var(--accent); font-style: italic; }
+/* --- DNA Tático: as 4 fases do jogo (substitui o antigo resumo por posição) --- */
+.dna-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+.dna-fase { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.dna-fase-titulo { font-family: var(--font-display); font-size: 14px; color: var(--primary); letter-spacing: 0.4px; text-transform: uppercase; display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.dna-fase-titulo span { font-family: var(--font-body, inherit); font-size: 11px; color: var(--text-muted); text-transform: none; letter-spacing: 0; font-weight: normal; }
+.dna-eixo { padding: 8px 0; border-top: 1px solid var(--border); }
+.dna-eixo:first-of-type { border-top: none; padding-top: 0; }
+.dna-eixo-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.dna-eixo-nome { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.dna-eixo-valor { font-size: 13px; color: var(--accent); text-align: right; }
+.dna-eixo-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; margin: 4px 0 0 0; }
+.dna-fase-form .linha-form { margin-bottom: 10px; }
+.dna-fase-form .linha-form label { font-size: 11px; }
+
+/* Abas do estilo Personalizado: texto livre x Modo Avançado (4 fases) */
+.modo-personalizado-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.modo-personalizado-btn { flex: 1; min-width: 180px; background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-muted); padding: 10px 12px; font-size: 12.5px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+.modo-personalizado-btn.ativo { border-color: var(--primary); color: var(--primary); background: rgba(232, 184, 75, 0.08); }
+
+/* Detalhe técnico por posição — fica recolhido, não é mais o resumo principal do estilo */
+.funcoes-detalhe { margin-top: 14px; }
+.funcoes-detalhe > summary { cursor: pointer; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+.funcoes-detalhe > summary:hover { color: var(--accent); }
+.funcoes-detalhe[open] > summary { color: var(--accent); margin-bottom: 8px; }
+
 .funcao-exemplo-toggle { color: var(--accent); text-decoration: underline; font-size: 10px; cursor: pointer; }
 .funcao-exemplo-toggle:hover { color: var(--primary); }
 .funcao-exemplo-card { margin-top: 6px; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px; font-size: 10.5px; line-height: 1.6; color: var(--text-muted); width: 100%; box-sizing: border-box; }

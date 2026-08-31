@@ -677,7 +677,7 @@ const PLAYSTYLE_PRESETS = [
         formacoesIdeais: ['4-3-3', '4-2-3-1'],
         funcoesPorGrupo: {
             zagueiro: [{ funcao: 'marcador', foco: 'combatividade' }],
-            lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }],
+            lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }, { funcao: 'ala', foco: 'apoio' }],
             volante: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
             meio_campo_central: [{ funcao: 'contencao', foco: 'roubada-de-bola' }, { funcao: 'box-to-box', foco: 'roubada-de-bola' }],
             meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'ataque' }],
@@ -759,7 +759,7 @@ const PLAYSTYLE_PRESETS = [
         funcoesPorGrupo: {
             goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
             zagueiro: [{ funcao: 'sai-jogando', foco: 'defesa' }],
-            lateral: [{ funcao: 'lateral-invertido', foco: 'equilibrado' }],
+            lateral: [{ funcao: 'lateral-invertido', foco: 'equilibrado' }, { funcao: 'ala', foco: 'apoio' }],
             volante: [{ funcao: 'armador-recuado', foco: 'defesa' }],
             meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
             meia_lateral: [{ funcao: 'ala', foco: 'equilibrado' }],
@@ -826,7 +826,7 @@ const PLAYSTYLE_PRESETS = [
         formacoesIdeais: ['4-2-3-1', '4-3-3'],
         funcoesPorGrupo: {
             zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
-            lateral: [{ funcao: 'lateral', foco: 'versatil' }],
+            lateral: [{ funcao: 'lateral', foco: 'versatil' }, { funcao: 'ala', foco: 'apoio' }],
             volante: [{ funcao: 'armador-recuado', foco: 'deslocamento' }],
             meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
             meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
@@ -893,7 +893,7 @@ const PLAYSTYLE_PRESETS = [
         formacoesIdeais: ['5-2-3', '3-5-2', '4-4-2'],
         funcoesPorGrupo: {
             zagueiro: [{ funcao: 'defesa', foco: 'defesa' }, { funcao: 'zagueiro-aberto', foco: 'defesa' }],
-            lateral: [{ funcao: 'ala', foco: 'equilibrado' }],
+            lateral: [{ funcao: 'ala', foco: 'equilibrado' }, { funcao: 'lateral', foco: 'defesa' }],
             meia_lateral: [{ funcao: 'ala', foco: 'equilibrado' }],
             ponta: [{ funcao: 'ala', foco: 'equilibrado' }],
             volante: [{ funcao: 'contencao', foco: 'defesa' }],
@@ -963,7 +963,7 @@ const PLAYSTYLE_PRESETS = [
         predefinicao: 'jogadas-pelas-pontas', estiloArmacao: 'equilibrado', abordagemDefensiva: 50,
         formacoesIdeais: ['4-4-2', '4-2-3-1'],
         funcoesPorGrupo: {
-            lateral: [{ funcao: 'ala-atacante', foco: 'apoio' }],
+            lateral: [{ funcao: 'ala-atacante', foco: 'apoio' }, { funcao: 'ala', foco: 'equilibrado' }],
             meia_lateral: [{ funcao: 'ala', foco: 'ataque' }],
             ponta: [{ funcao: 'ala', foco: 'ataque' }],
             meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
@@ -1029,7 +1029,7 @@ const PLAYSTYLE_PRESETS = [
         funcoesPorGrupo: {
             goleiro: [{ funcao: 'goleiro', foco: 'equilibrado' }],
             zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
-            lateral: [{ funcao: 'lateral', foco: 'defesa' }],
+            lateral: [{ funcao: 'lateral', foco: 'defesa' }, { funcao: 'ala', foco: 'equilibrado' }],
             volante: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
             atacante: [{ funcao: 'pivo', foco: 'equilibrado' }, { funcao: 'oportunista', foco: 'ataque' }]
         },
@@ -1087,7 +1087,7 @@ const PLAYSTYLE_PRESETS = [
         formacoesIdeais: ['4-4-2', '4-2-3-1'],
         funcoesPorGrupo: {
             zagueiro: [{ funcao: 'defesa', foco: 'defesa' }],
-            lateral: [{ funcao: 'ala', foco: 'equilibrado' }],
+            lateral: [{ funcao: 'ala', foco: 'equilibrado' }, { funcao: 'lateral', foco: 'defesa' }],
             volante: [{ funcao: 'contencao', foco: 'deslocamento' }],
             meio_campo_central: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
             meia_lateral: [{ funcao: 'corta-pra-dentro', foco: 'equilibrado' }],
@@ -1150,7 +1150,7 @@ const PLAYSTYLE_PRESETS = [
         funcoesPorGrupo: {
             goleiro: [{ funcao: 'gl-sai-jogando', foco: 'armacao' }],
             zagueiro: [{ funcao: 'sai-jogando', foco: 'armacao' }],
-            lateral: [{ funcao: 'ala-invertido', foco: 'armacao' }],
+            lateral: [{ funcao: 'ala-invertido', foco: 'armacao' }, { funcao: 'ala-atacante', foco: 'ataque' }],
             volante: [{ funcao: 'armador-recuado', foco: 'armacao' }],
             meio_campo_central: [{ funcao: 'box-to-box', foco: 'equilibrado' }],
             meia_atacante: [{ funcao: 'armador', foco: 'deslocamento' }],
@@ -1213,7 +1213,7 @@ const PLAYSTYLE_PRESETS = [
         funcoesPorGrupo: {
             goleiro: [{ funcao: 'goleiro-libero', foco: 'equilibrado' }],
             zagueiro: [{ funcao: 'marcador', foco: 'combatividade' }],
-            lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }],
+            lateral: [{ funcao: 'ala-atacante', foco: 'ataque' }, { funcao: 'lateral', foco: 'versatil' }],
             volante: [{ funcao: 'contencao', foco: 'roubada-de-bola' }],
             meio_campo_central: [{ funcao: 'box-to-box', foco: 'roubada-de-bola' }],
             meia_lateral: [{ funcao: 'meia-aberto', foco: 'apoio' }],
@@ -1274,7 +1274,7 @@ const PLAYSTYLE_PRESETS = [
         formacoesIdeais: ['4-3-3', '4-2-3-1'],
         funcoesPorGrupo: {
             zagueiro: [{ funcao: 'sai-jogando', foco: 'defesa' }],
-            lateral: [{ funcao: 'lateral', foco: 'equilibrado' }],
+            lateral: [{ funcao: 'lateral', foco: 'equilibrado' }, { funcao: 'ala', foco: 'apoio' }],
             volante: [{ funcao: 'armador-recuado', foco: 'armacao' }],
             meio_campo_central: [{ funcao: 'armador', foco: 'deslocamento' }],
             meia_atacante: [{ funcao: 'camisa-10-classico', foco: 'ataque' }],
@@ -1565,6 +1565,109 @@ function _ordenarSlotsDoGrupo(grupoKey, coordsFormacao) {
     return doGrupo.slice().sort((a, b) => parseFloat(a.left) - parseFloat(b.left)); // esquerda -> direita
 }
 
+// -------------------------------------------------------------------------------------
+// VARIAÇÃO POR ELENCO (pedido do treinador) — dois clubes com o MESMO estilo não podem sair
+// com exatamente a mesma matriz de funções: o estilo define o LEQUE de funções aceitas por
+// grupo (a identidade tática), e quem decide qual delas vai pra cada lado é o elenco de
+// verdade. Um lateral cadastrado como "Ala Ofensivo" fica com a instrução mais ofensiva do
+// leque; o do outro lado, cadastrado como "Defensivo", fica com a mais contida — sem que o
+// treinador precise configurar nada. Isso NUNCA muda quem joga (isso continua sendo da
+// diretriz/escalação), só qual função cada slot recebe dentro do que o estilo já permite.
+// -------------------------------------------------------------------------------------
+function _jogadorProvavelDoSlot(role) {
+    let plantel = (db[currentSave] && db[currentSave].plantel) || [];
+    if (!plantel.length || typeof posicaoCompativelComRole !== 'function') return null;
+    let compativeis = plantel.filter(p => p.status === 'Ativo' && posicaoCompativelComRole(role, p.posicao));
+    if (!compativeis.length) return null;
+    return compativeis.slice().sort((a, b) => (b.ovr || 0) - (a.ovr || 0))[0];
+}
+
+// O quanto uma função do estilo combina com a especialidade cadastrada do jogador:
+// 2 = é a função PADRÃO dele; 1 = ele sabe exercer, mas não é a principal; 0 = não é dele.
+function _pontuacaoFuncaoParaJogador(candidato, grupoKey, jogador) {
+    if (!jogador || typeof ESPECIALIDADES_JOGADOR === 'undefined') return 0;
+    let especialidade = ESPECIALIDADES_JOGADOR[jogador.posicao];
+    let aptas = (especialidade && especialidade.gruposFuncao[grupoKey]) || [];
+    let posicaoNaLista = aptas.indexOf(candidato.funcao);
+    if (posicaoNaLista === 0) return 2;
+    if (posicaoNaLista > 0) return 1;
+    return 0;
+}
+
+// Monta a matriz inteira de funções (role -> {funcao, foco}) de uma vez, em vez de slot a slot:
+// só assim dá pra distribuir as funções de um grupo entre os slots daquele grupo sem repetir a
+// mesma instrução nos dois lados quando o estilo oferece mais de uma opção.
+function montarFuncoesPorRoleDoPreset(esquema, preset, taticaResultante) {
+    let coords = coordsFormacoes[esquema] || [];
+    let atribuidas = {};
+    let gruposPresentes = [];
+    coords.forEach(c => {
+        let grupo = grupoFuncaoDoRole(c.role);
+        if (grupo && gruposPresentes.indexOf(grupo) === -1) gruposPresentes.push(grupo);
+    });
+
+    gruposPresentes.forEach(grupo => {
+        let candidatos = preset.funcoesPorGrupo && preset.funcoesPorGrupo[grupo];
+        let slots = _ordenarSlotsDoGrupo(grupo, coords).map(c => c.role);
+        if (!candidatos || !candidatos.length) {
+            // Grupo sem regra no estilo — o motor genérico já dá uma função padrão coerente.
+            slots.forEach(role => {
+                let escolha = escolherFuncaoJogador(role, null, taticaResultante);
+                if (escolha) atribuidas[role] = { funcao: escolha.funcao.id, foco: escolha.foco.id };
+            });
+            return;
+        }
+        // A variação por elenco só vale nos grupos em que o lado existe de verdade (lateral,
+        // ponta, meia-lateral): ali o slot da direita só pode ser ocupado por um jogador de
+        // direita, então dá pra saber com segurança quem vai jogar ali e escolher a instrução
+        // pensando nele. Nos grupos sem lado (zagueiro, volante, meio-campo, atacante) qualquer
+        // um dos slots aceita qualquer jogador do grupo — o "provável ocupante" seria o mesmo pros
+        // dois lados e o palpite pode discordar da escalação real que a diretriz monta depois,
+        // fazendo o jogador cair numa função que não é dele. Nesses grupos fica a distribuição
+        // determinística de sempre (1º slot -> 1ª opção do estilo).
+        if (!(typeof GRUPOS_COM_LADO !== 'undefined' && GRUPOS_COM_LADO.has(grupo))) {
+            slots.forEach((role, i) => {
+                let escolha = candidatos[Math.min(i, candidatos.length - 1)];
+                atribuidas[role] = { funcao: escolha.funcao, foco: escolha.foco };
+            });
+            return;
+        }
+
+        // Distribui as funções do estilo entre os slots do grupo pelo melhor encaixe: o par
+        // (slot, função) com a maior pontuação é fechado primeiro, depois o próximo melhor entre
+        // o que sobrou. Isso evita que um jogador que não combina com nenhuma das opções
+        // "consuma" a função mais característica antes do dono natural dela escolher — e, como
+        // cada opção é usada uma vez só, os dois lados nunca recebem a mesma instrução enquanto
+        // houver variedade no estilo. Sem elenco cadastrado, todas as pontuações empatam em 0 e
+        // o desempate pela ordem devolve exatamente o comportamento antigo (slot 1 -> opção 1).
+        let disponiveis = candidatos.map((c, i) => ({ candidato: c, ordem: i }));
+        let pendentes = slots.map((role, i) => ({ role: role, ordem: i, jogador: _jogadorProvavelDoSlot(role) }));
+
+        while (pendentes.length && disponiveis.length > 1) {
+            let melhor = null;
+            pendentes.forEach(slot => {
+                disponiveis.forEach(opcao => {
+                    let pontos = _pontuacaoFuncaoParaJogador(opcao.candidato, grupo, slot.jogador);
+                    if (!melhor || pontos > melhor.pontos) melhor = { slot: slot, opcao: opcao, pontos: pontos };
+                });
+            });
+            atribuidas[melhor.slot.role] = { funcao: melhor.opcao.candidato.funcao, foco: melhor.opcao.candidato.foco };
+            pendentes = pendentes.filter(s => s !== melhor.slot);
+            disponiveis = disponiveis.filter(o => o !== melhor.opcao);
+        }
+        // Acabou a variedade: quem sobrou fica com a última opção disponível do estilo.
+        let ultima = disponiveis.length ? disponiveis[0].candidato : candidatos[candidatos.length - 1];
+        pendentes.forEach(slot => { atribuidas[slot.role] = { funcao: ultima.funcao, foco: ultima.foco }; });
+    });
+    // Devolve na MESMA ordem das coordenadas da formação. A ordem das chaves importa: o motor
+    // de escalação por Afinidade Tática (chat-ia.js) percorre este mapa e usa a ordem como
+    // desempate — montar por grupo e devolver fora de ordem trocava jogadores de slot sem que
+    // nenhuma função tivesse mudado.
+    let funcoesPorRole = {};
+    coords.forEach(c => { if (atribuidas[c.role]) funcoesPorRole[c.role] = atribuidas[c.role]; });
+    return funcoesPorRole;
+}
+
 function resolverFuncaoDoSlot(role, formacao, preset, taticaResultante) {
     let grupo = grupoFuncaoDoRole(role);
     let candidatos = grupo ? preset.funcoesPorGrupo[grupo] : null;
@@ -1598,11 +1701,7 @@ function gerarRelatorioTaticoPorPreset(formacoesPreferidas, presetId) {
         estiloArmacao: preset.estiloArmacao, abordagemDefensiva: preset.abordagemDefensiva
     });
 
-    let funcoesPorRole = {};
-    (coordsFormacoes[esquema] || []).forEach(c => {
-        let f = resolverFuncaoDoSlot(c.role, esquema, preset, taticaResultante);
-        if (f) funcoesPorRole[c.role] = f;
-    });
+    let funcoesPorRole = montarFuncoesPorRoleDoPreset(esquema, preset, taticaResultante);
 
     return {
         esquemaEscolhido: esquema,
@@ -1640,11 +1739,7 @@ function gerarRelatorioTaticoRefinadoPorFoco(formacoesPreferidas, presetId, foco
     });
 
     let presetComoFuncoes = { funcoesPorGrupo: tier.funcoesPorGrupo };
-    let funcoesPorRole = {};
-    (coordsFormacoes[esquema] || []).forEach(c => {
-        let f = resolverFuncaoDoSlot(c.role, esquema, presetComoFuncoes, taticaResultante);
-        if (f) funcoesPorRole[c.role] = f;
-    });
+    let funcoesPorRole = montarFuncoesPorRoleDoPreset(esquema, presetComoFuncoes, taticaResultante);
 
     let nomeFoco = (typeof FOCOS_TATICOS_PARTIDA !== 'undefined' && FOCOS_TATICOS_PARTIDA[focoId]) ? FOCOS_TATICOS_PARTIDA[focoId] : focoId;
     return {
@@ -2028,6 +2123,61 @@ function aplicarRelatorioTaticoNoSave(relatorio) {
 // =====================================================================================
 
 let _estiloJogoSelecionado = {}; // prefixo -> id do preset, ou null quando "Personalizado" está ativo
+let _estiloJogoModoPersonalizado = {}; // prefixo -> 'livre' (texto) ou 'avancado' (formulário das 4 fases)
+
+// Alterna, dentro do estilo "Personalizado", entre descrever em texto livre (a IA interpreta) e
+// montar o estilo fase a fase no Modo Avançado (tradução determinística, sem IA).
+function alternarModoPersonalizado(prefixo, modo) {
+    _estiloJogoModoPersonalizado[prefixo] = modo;
+    let livre = document.getElementById(`${prefixo}modo-livre-wrap`);
+    let avancado = document.getElementById(`${prefixo}modo-avancado-wrap`);
+    if (livre) livre.style.display = modo === 'livre' ? 'block' : 'none';
+    if (avancado) avancado.style.display = modo === 'avancado' ? 'block' : 'none';
+    let btnLivre = document.getElementById(`${prefixo}modo-livre-btn`);
+    let btnAvancado = document.getElementById(`${prefixo}modo-avancado-btn`);
+    if (btnLivre) btnLivre.classList.toggle('ativo', modo === 'livre');
+    if (btnAvancado) btnAvancado.classList.toggle('ativo', modo === 'avancado');
+}
+
+// -------------------------------------------------------------------------------------
+// MODO AVANÇADO — o treinador escolhe cada eixo das 4 fases do jogo e isso vira configuração
+// real na hora: predefinição, estilo de armação, abordagem defensiva e matriz de funções.
+// Determinístico de ponta a ponta (dnaParaPacoteTatico, em js/dna-tatico.js): nenhuma chamada
+// de IA, nenhum id fora dos catálogos reais, e corrigirTatica() ainda roda como rede de
+// segurança contra combinações proibidas pela predefinição escolhida.
+// -------------------------------------------------------------------------------------
+function gerarRelatorioTaticoPorDnaAvancado(formacoesPreferidas, dna) {
+    let validas = (formacoesPreferidas || []).filter(f => f && coordsFormacoes[f]).slice(0, MAX_FORMACOES_PREFERIDAS);
+    if (!validas.length) return null;
+
+    let dnaNormalizado = normalizarDna(dna);
+    let pacote = dnaParaPacoteTatico(dnaNormalizado);
+
+    // Aqui quem manda é a ordem de prioridade do treinador — não existe "formato ideal" de
+    // preset pra disputar com a escolha dele.
+    let { esquema, preteridas } = escolherEsquemaPorPrioridade(validas, []);
+    esquema = esquema || validas[0];
+
+    let { tatica: taticaResultante, ajustes: ajustesRegra } = corrigirTatica({
+        predefinicao: pacote.predefinicao, esquema: esquema,
+        estiloArmacao: pacote.estiloArmacao, abordagemDefensiva: pacote.abordagemDefensiva
+    });
+
+    let funcoesPorRole = montarFuncoesPorRoleDoPreset(esquema, { funcoesPorGrupo: pacote.funcoesPorGrupo }, taticaResultante);
+
+    return {
+        esquemaEscolhido: esquema,
+        esquemaPreteridas: preteridas,
+        formacoesPreferidas: validas,
+        predefinicao: taticaResultante.predefinicao,
+        estiloArmacao: taticaResultante.estiloArmacao,
+        abordagemDefensiva: taticaResultante.abordagemDefensiva,
+        funcoesPorRole: funcoesPorRole,
+        ajustesAutomaticos: ajustesRegra,
+        justificativa: `🎛️ Personalizado (Avançado): ${resumoCurtoDna(dnaNormalizado)}.`,
+        origem: { tipo: 'dna-avancado', rotulo: 'Personalizado (Avançado)', dna: dnaNormalizado }
+    };
+}
 let _estiloJogoModoEdicao = {}; // prefixo -> true quando o treinador pediu pra alterar uma config já salva
 
 // No Perfil do Treinador, uma vez que o estilo já foi salvo no save, não faz sentido
@@ -2050,6 +2200,13 @@ function renderizarSeletorEstiloJogo(prefixo) {
         renderizarResumoEstiloJogoSalvo(prefixo, container, salva);
         return;
     }
+
+    // Modo Avançado do Personalizado: se já existe uma config salva feita nesse modo, o
+    // formulário reabre exatamente com as escolhas do treinador em vez de voltar pro padrão.
+    let origemSalva = salva && salva.estiloJogoSelecionado;
+    let dnaInicialAvancado = (origemSalva && origemSalva.tipo === 'dna-avancado' && origemSalva.dna)
+        ? origemSalva.dna
+        : ((typeof dnaPadrao === 'function') ? dnaPadrao() : null);
 
     let optionsFormacoes = listaFormacoesDisponiveis().map(f => `<option value="${f}">${f}</option>`).join('');
     let seletoresFormacao = [1, 2, 3, 4].map(i => `
@@ -2081,9 +2238,19 @@ function renderizarSeletorEstiloJogo(prefixo) {
         <div class="grid-2">${seletoresFormacao}</div>
         <p class="tatica-ajuda" style="margin-top:14px;">Estilo de jogo</p>
         <div class="tatica-grade">${cardsPreset}${cardCamaleao}${cardLivre}</div>
-        <div class="linha-form" id="${prefixo}estilo-texto-livre-wrap" style="display:none; margin-top:10px;">
-            <label>Descreva o estilo que você quer</label>
-            <textarea id="${prefixo}estilo-texto-livre" rows="2" placeholder="Ex: quero jogar recuado mas com muita posse quando recuperar a bola" style="width:100%; background:var(--bg-dark);"></textarea>
+        <div id="${prefixo}estilo-texto-livre-wrap" style="display:none; margin-top:10px;">
+            <div class="modo-personalizado-tabs">
+                <button type="button" id="${prefixo}modo-livre-btn" class="modo-personalizado-btn ativo" onclick="alternarModoPersonalizado('${prefixo}', 'livre')">✍️ Escrever com minhas palavras</button>
+                <button type="button" id="${prefixo}modo-avancado-btn" class="modo-personalizado-btn" onclick="alternarModoPersonalizado('${prefixo}', 'avancado')">🎛️ Modo Avançado (4 fases do jogo)</button>
+            </div>
+            <div class="linha-form" id="${prefixo}modo-livre-wrap" style="margin-top:12px;">
+                <label>Descreva o estilo que você quer</label>
+                <textarea id="${prefixo}estilo-texto-livre" rows="2" placeholder="Ex: quero jogar recuado mas com muita posse quando recuperar a bola" style="width:100%; background:var(--bg-dark);"></textarea>
+            </div>
+            <div id="${prefixo}modo-avancado-wrap" style="display:none; margin-top:12px;">
+                <p class="tatica-ajuda">Monte o estilo fase a fase, como um treinador descreve o time de verdade — isso vira configuração do jogo direto, sem passar pela IA.</p>
+                <div class="dna-grid">${(typeof renderizarFormularioDnaAvancado === 'function') ? renderizarFormularioDnaAvancado(prefixo, dnaInicialAvancado) : ''}</div>
+            </div>
         </div>
         <button type="button" onclick="gerarConfiguracaoEstiloJogo('${prefixo}')" style="width:100%; margin-top:14px; background:var(--primary); color:black; padding:12px; font-weight:bold;">${rotuloBotao}</button>
         ${botaoCancelar}
@@ -2104,6 +2271,9 @@ function renderizarSeletorEstiloJogo(prefixo) {
             if (preset) escolherPresetEstiloJogo(prefixo, preset.id);
         } else if (origem.tipo === 'camaleao') {
             escolherPresetEstiloJogo(prefixo, 'camaleao');
+        } else if (origem.tipo === 'dna-avancado') {
+            escolherPresetEstiloJogo(prefixo, null);
+            alternarModoPersonalizado(prefixo, 'avancado');
         } else {
             escolherPresetEstiloJogo(prefixo, null);
             let txt = document.getElementById(`${prefixo}estilo-texto-livre`);
@@ -2119,6 +2289,7 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
     let origem = t.estiloJogoSelecionado;
     let rotuloOrigem = origem.tipo === 'preset' ? origem.rotulo
         : origem.tipo === 'camaleao' ? '🦎 Camaleão'
+        : origem.tipo === 'dna-avancado' ? '🎛️ Personalizado (Avançado)'
         : `Personalizado: "${origem.rotulo}"`;
     // Marca visualmente qual formação preferida está de fato em uso — sem isso, quando o esquema
     // escolhido não é a 1ª prioridade (porque uma formação mais abaixo na lista é mais ideal pra
@@ -2136,6 +2307,9 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
     let esquemaTxt = esquemaOfensivo
         ? `🛡️ ${t.esquema} (defende) → ⚔️ <strong style="color:var(--accent);">${esquemaOfensivo}</strong> (ataca)`
         : t.esquema;
+    // O que descreve o estilo é o DNA das 4 fases do jogo — o detalhamento por posição vira
+    // detalhe técnico, escondido atrás de um "ver" (pedido do treinador).
+    let dnaHtml = (typeof renderizarDnaTatico === 'function') ? renderizarDnaTatico(dnaDoEstiloSalvo(t)) : '';
 
     container.innerHTML = `
         <div class="tatica-resumo">
@@ -2144,7 +2318,8 @@ function renderizarResumoEstiloJogoSalvo(prefixo, container, t) {
         </div>
         <p class="tatica-ajuda" style="margin-top:10px;">Formações preferidas (ordem de prioridade) — ✓ marca a que está em uso: ${formacoesTxt}</p>
         ${preteridasHtml}
-        ${funcoesHtml ? `<p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo (${t.esquema})</p><div class="banco-reservas-grid funcoes-campo-grid">${funcoesHtml}</div>` : ''}
+        ${dnaHtml}
+        ${funcoesHtml ? `<details class="funcoes-detalhe"><summary>🔍 Ver função de cada posição em campo (${t.esquema})</summary><div class="banco-reservas-grid funcoes-campo-grid">${funcoesHtml}</div></details>` : ''}
         <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin-top:14px;">💡 Isto é a <strong>base</strong> — não é engessado. Partida a partida, o Auxiliar Técnico ajusta a abordagem, a formação (entre as preferidas acima) e a função de cada jogador de acordo com o adversário específico, sempre dentro do espírito deste estilo.</p>
         ${origem.tipo === 'camaleao' ? `<button type="button" onclick="atualizarCamaleaoManual('${prefixo}', this)" style="width:100%; margin-top:10px; background:var(--primary); color:black; padding:10px; font-weight:bold;">🔄 Atualizar com o Elenco Atual</button>` : ''}
         <button type="button" onclick="alternarEdicaoEstiloJogo('${prefixo}', true)" style="width:100%; margin-top:10px; background:var(--bg-dark); border:1px solid var(--border); color:var(--text); padding:10px; font-weight:bold;">✏️ Alterar Configuração</button>
@@ -2163,6 +2338,8 @@ function escolherPresetEstiloJogo(prefixo, presetId) {
     if (elAtivo) elAtivo.classList.add('tatica-card-ativo');
     let wrapLivre = document.getElementById(`${prefixo}estilo-texto-livre-wrap`);
     if (wrapLivre) wrapLivre.style.display = presetId ? 'none' : 'block';
+    // Ao abrir o Personalizado, respeita o modo que já estava ativo (texto livre por padrão).
+    if (!presetId) alternarModoPersonalizado(prefixo, _estiloJogoModoPersonalizado[prefixo] || 'livre');
 }
 
 function _formacoesPreferidasDoSeletor(prefixo) {
@@ -2181,7 +2358,10 @@ async function gerarConfiguracaoEstiloJogo(prefixo) {
     let loader = document.getElementById(`${prefixo}estilo-loader`);
     let relatorio;
     try {
-        if (presetId === null) {
+        if (presetId === null && _estiloJogoModoPersonalizado[prefixo] === 'avancado') {
+            if (loader) { loader.style.display = 'block'; loader.style.color = 'var(--warning)'; loader.innerText = '⏳ Montando a configuração a partir das 4 fases...'; }
+            relatorio = gerarRelatorioTaticoPorDnaAvancado(formacoes, lerFormularioDnaAvancado(prefixo));
+        } else if (presetId === null) {
             let texto = (document.getElementById(`${prefixo}estilo-texto-livre`) || {}).value;
             texto = (texto || '').trim();
             if (!texto) return alert('Descreva o estilo que você quer.');
@@ -2304,6 +2484,11 @@ function renderizarResultadoEstiloJogo(prefixo, relatorio) {
     let esquemaTxt = esquemaOfensivo
         ? `🛡️ ${relatorio.esquemaEscolhido} (defende) → ⚔️ <strong style="color:var(--accent);">${esquemaOfensivo}</strong> (ataca)`
         : relatorio.esquemaEscolhido;
+    let dnaHtml = (typeof renderizarDnaTatico === 'function') ? renderizarDnaTatico(dnaDoEstiloSalvo({
+        estiloJogoSelecionado: relatorio.origem,
+        predefinicao: relatorio.predefinicao, estiloArmacao: relatorio.estiloArmacao,
+        abordagemDefensiva: relatorio.abordagemDefensiva, funcoesPorRoleSugeridas: relatorio.funcoesPorRole
+    })) : '';
 
     box.innerHTML = `
         <div class="tatica-resumo">
@@ -2312,7 +2497,7 @@ function renderizarResultadoEstiloJogo(prefixo, relatorio) {
         </div>
         ${preteridasHtml}
         ${ajustesHtml}
-        <p class="tatica-ajuda" style="margin-top:14px;">Função de cada posição em campo</p>
-        <div class="banco-reservas-grid funcoes-campo-grid">${funcoesHtml}</div>
+        ${dnaHtml}
+        ${funcoesHtml ? `<details class="funcoes-detalhe"><summary>🔍 Ver função de cada posição em campo</summary><div class="banco-reservas-grid funcoes-campo-grid">${funcoesHtml}</div></details>` : ''}
     `;
 }
