@@ -606,8 +606,12 @@ ${textoRegrasCompatibilidadePosicional()}
 
             // Com uma partida em aberto (montando ou ao vivo), o que importa é o espelho dela —
             // não o plano que talvez tenha virado essa própria partida ou já esteja desatualizado.
+            // Mas os relatórios das partidas JÁ finalizadas continuam existindo embaixo da tela
+            // e precisam ser renderizados aqui também, senão o painel "Relatórios do Auxiliar"
+            // abre vazio sempre que há uma partida ao vivo (bug reportado pelo treinador).
             if (d.partidaAuxiliar) {
                 renderizarEspelhoPartidaAuxiliar(d.partidaAuxiliar);
+                renderizarRelatoriosAuxiliar();
                 return;
             }
 
