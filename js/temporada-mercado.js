@@ -473,9 +473,10 @@ ${blocoAvaliacao}
                 let noticia = gerarNoticiaTransferencia('Emprestimo', nome, 0, jogador.temporadasEmprestimo);
                 adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
             } 
-            else if(tipo === 'Dispensa') { 
-                jogador.status = 'Aposentado'; 
-                
+            else if(tipo === 'Dispensa') {
+                jogador.status = 'Aposentado';
+                jogador.motivoSaida = 'Dispensa';
+
                 let noticia = gerarNoticiaTransferencia('Dispensa', nome, 0, 0);
                 adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
             }
@@ -549,6 +550,7 @@ ${blocoAvaliacao}
             } else {
                 jog.status = status;
                 if (status === 'Aposentado') {
+                    jog.motivoSaida = 'Aposentadoria';
                     let noticia = gerarNoticiaTransferencia('Aposentadoria', nome, 0, 0);
                     adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
                 }
@@ -888,6 +890,7 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                     adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
                 } else if (tipo === 'Dispensa') {
                     jogador.status = 'Aposentado';
+                    jogador.motivoSaida = 'Dispensa';
                     let noticia = gerarNoticiaTransferencia('Dispensa', nome, 0, 0);
                     adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
                 }
