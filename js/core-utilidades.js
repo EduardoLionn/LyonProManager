@@ -213,6 +213,16 @@ function lerTexto(texto) {
             }
         }
 
+        // Pedido do treinador: "os chats estão minúsculo pra digitar, deve abrir a barra de
+        // digitar, igual WhatsApp" — a caixa de texto do chat cresce sozinha conforme o
+        // treinador digita, em vez de ficar travada numa altura fixa de uma linha só.
+        // "height:auto" antes de medir é o que permite ENCOLHER de volta ao apagar texto —
+        // sem isso, scrollHeight só cresce e nunca diminui.
+        function autoAjustarAlturaChat(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 140) + 'px';
+        }
+
         // Variável global para manter a instância do microfone ativa (Evita alguns prompts repetidos)
         let globalSpeechRec = null;
 

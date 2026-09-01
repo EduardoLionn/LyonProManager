@@ -112,6 +112,7 @@
             if(!texto) texto = imagensAnexadas.length > 1 ? "📸 (prints do jogo anexados, sem mensagem)" : "📸 (print do jogo anexado, sem mensagem)";
 
             inputEl.value = '';
+            inputEl.style.height = ''; // volta pra altura inicial (CSS) — senão fica do tamanho da última mensagem
             let history = db[currentSave].chatHistory[tipo]; if(!history) history = [];
             history.push({ role: 'user', text: imagensAnexadas.length > 0 ? `📸 ${texto}` : texto });
             let quickContainer = document.getElementById(`quick-${tipo}`);

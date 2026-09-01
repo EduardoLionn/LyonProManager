@@ -64,10 +64,10 @@
 
                 tbody.innerHTML += `
                 <tr id="linha-jogador-${idx}">
-                    <td>${p.posicao}</td><td><strong>${p.nome}</strong>${badgeLideranca} ${isListado} ${badgeCondicao}${badgeMoral}</td>
-                    <td style="${getOvrClass(p.ovr)} font-weight:bold; font-size:16px;">${p.ovr}</td>
-                    <td>${p.idade || '-'}</td>
-                    <td style="display:flex; gap: 10px; align-items: center;">
+                    <td data-label="Posição">${p.posicao}</td><td class="tc-titulo"><strong>${p.nome}</strong>${badgeLideranca} ${isListado} ${badgeCondicao}${badgeMoral}</td>
+                    <td data-label="OVR" style="${getOvrClass(p.ovr)} font-weight:bold; font-size:16px;">${p.ovr}</td>
+                    <td data-label="Idade">${p.idade || '-'}</td>
+                    <td class="tc-acoes" style="display:flex; gap: 10px; align-items: center;">
                         <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXPlantel('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
                         <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; border-color: var(--warning); color: var(--warning);" onclick="abrirModalEditarJogador('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar</button>
                         <select onchange="alterarStatus('${p.nome.replace(/'/g, "\\'")}', this.value)" style="padding:6px; font-size:13px; width: 120px;">
@@ -156,7 +156,7 @@
            if (status === 'Comprado') nomeStatus = 'Comprado';
            if (status === 'EmprestadoIn') nomeStatus = 'Chegou Emp.';
 
-           let tdValor = mostrarColunaValor ? `<td>€${(p.valor || 0).toFixed(1)}M</td>` : '';
+           let tdValor = mostrarColunaValor ? `<td data-label="Valor (€M)">€${(p.valor || 0).toFixed(1)}M</td>` : '';
 
             // NOVO: Botões extras para o mercado (Editar Valor e Excluir)
             let btnEdit = mostrarColunaValor ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--warning); border-color:var(--warning);" onclick="editarValorTransferencia('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar Valor</button>` : '';
@@ -167,12 +167,12 @@
 
             tbody.innerHTML += `
             <tr>
-                <td><span class="badge ${badgeClass}">${nomeStatus}</span>${extraInfo}</td>
-                <td>${p.posicao}</td><td><strong>${p.nome}</strong></td>
-                <td><strong style="${getOvrClass(p.ovr)} font-size:15px;">${p.ovr}</strong></td>
-                <td>${p.idade || '-'}</td>
+                <td data-label="Status"><span class="badge ${badgeClass}">${nomeStatus}</span>${extraInfo}</td>
+                <td data-label="Posição">${p.posicao}</td><td class="tc-titulo"><strong>${p.nome}</strong></td>
+                <td data-label="OVR"><strong style="${getOvrClass(p.ovr)} font-size:15px;">${p.ovr}</strong></td>
+                <td data-label="Idade">${p.idade || '-'}</td>
                 ${tdValor}
-                <td style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <td class="tc-acoes" style="display: flex; gap: 5px; flex-wrap: wrap;">
                     <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXMercado('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
                     ${btnEdit}
                     ${btnChamarVolta}
@@ -254,11 +254,11 @@
                     let cor = jogador.ovrPendente > 0 ? 'var(--primary)' : 'var(--danger)';
                     let sinal = jogador.ovrPendente > 0 ? '+' : '';
                     let btn = `<button style="padding:6px 10px; font-size:12px;" onclick="aplicarUpgradePendente('${jogador.nome.replace(/'/g, "\\'")}')">✅ Aplicar</button>`;
-                    tbodyAcao.innerHTML += `<tr><td>${jogador.posicao}</td><td><strong>${jogador.nome}</strong></td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td><td><strong style="color:${cor};">${sinal}${jogador.ovrPendente}</strong></td><td><strong style="${getOvrClass(final)}">${final}</strong></td><td>${btn}</td></tr>`;
+                    tbodyAcao.innerHTML += `<tr><td data-label="Posição">${jogador.posicao}</td><td class="tc-titulo"><strong>${jogador.nome}</strong></td><td data-label="OVR Atual"><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td><td data-label="Acumulado"><strong style="color:${cor};">${sinal}${jogador.ovrPendente}</strong></td><td data-label="OVR se Aplicar"><strong style="${getOvrClass(final)}">${final}</strong></td><td class="tc-acoes">${btn}</td></tr>`;
                     acumuladosCount++;
                 }
 
-                tbodyProg.innerHTML += `<tr><td>${jogador.posicao}</td><td>${jogador.nome}</td><td style="color:var(--text-muted)">${nAvaliados} / 5 jg</td><td><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td></tr>`;
+                tbodyProg.innerHTML += `<tr><td data-label="Posição">${jogador.posicao}</td><td class="tc-titulo">${jogador.nome}</td><td data-label="Progresso" style="color:var(--text-muted)">${nAvaliados} / 5 jg</td><td data-label="OVR Atual"><strong style="${getOvrClass(jogador.ovr)}">${jogador.ovr}</strong></td></tr>`;
                 progressoCount++;
             });
             if(acumuladosCount === 0) tbodyAcao.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:25px;">Nenhum ajuste acumulado aguardando aplicação.</td></tr>`;
