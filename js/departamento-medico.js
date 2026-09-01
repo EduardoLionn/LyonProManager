@@ -282,10 +282,16 @@ function verificarRotacaoEscalacao(escalacao) {
 
 // ---------------------- INTERFACE (ABA DEPARTAMENTO MÉDICO) ----------------------
 
-function forcarDescansoPreventivo(nome) {
+// Pedido do treinador: "tem um botão com símbolo de dormir q clico e descansa 100% o jogador,
+// odiei isso" — o ícone é pequeno (22x22px, no canto do card) e ficava fácil de tocar sem querer
+// no celular, zerando a fadiga/sequência de jogos do jogador na hora, sem chance de desfazer.
+// Uma confirmação explícita não tira a função de quem usa de propósito, só evita o toque errado.
+async function forcarDescansoPreventivo(nome) {
     if (!db[currentSave]) return;
     let p = db[currentSave].plantel.find(x => x.nome === nome);
     if (!p) return;
+    let ok = await confirmarModerno(`Dar descanso preventivo pra ${nome}? Isso zera a fadiga e a sequência de jogos dele na hora.`, '💤 Descanso Preventivo');
+    if (!ok) return;
     garantirCondicaoFisica(p);
     p.jogosSeguidos = 0;
     p.fadiga = 0;

@@ -9,19 +9,25 @@
             --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
         }
 
-/* Ajuste das caixas de texto do chat para aceitarem múltiplas linhas (textarea) */
-.chat-input-row textarea, .reply-box textarea { 
-    flex: 1; 
-    padding: 12px; 
-    font-size: 15px; 
+/* Ajuste das caixas de texto do chat para aceitarem múltiplas linhas (textarea). Pedido do
+   treinador: "os chats estão minúsculo pra digitar, deve abrir a barra de digitar, igual
+   WhatsApp" — a caixa cresce sozinha conforme o texto (ver autoAjustarAlturaChat, chamada no
+   oninput), começando alta o bastante pra ler o que se digita, até um teto de 6 linhas. */
+.chat-input-row textarea, .reply-box textarea {
+    flex: 1;
+    padding: 12px;
+    font-size: 15px;
     border-radius: 6px;
     background: var(--input-bg);
     border: 1px solid var(--border);
     color: white;
     font-family: var(--font-body);
     resize: none; /* Impede que o usuário "estique" a caixa e quebre o layout */
-    min-height: 20px;
-    height: 24px;
+    line-height: 1.4;
+    min-height: 44px;
+    height: 44px;
+    max-height: 140px;
+    overflow-y: auto;
 }
 .chat-input-row textarea:focus, .reply-box textarea:focus {
     outline: none; 
@@ -335,6 +341,45 @@
         white-space: nowrap;
     }
 
+    /* Tabelas de listagem de jogador (Elenco, Transferências, Upgrades) — pedido do treinador:
+       "tem q rolar pros lados... só tem escrita... precisa de algum método pra tornar
+       confortável pra celular". O fallback genérico acima (rolar a tabela inteira de lado)
+       continua valendo pras tabelas comuns; estas viram CARDS empilhados, uma linha por
+       jogador, com o rótulo da coluna ao lado de cada valor (via "data-label" + ::before).
+       Duas classes tratam as células que não são um par rótulo/valor simples:
+         · "tc-titulo"  — o nome do jogador, vira o cabeçalho do card (sem rótulo);
+         · "tc-acoes"   — botões/select da linha, ficam soltos embaixo (sem rótulo).
+       As linhas de Raio-X expandido (".row-raiox") são deixadas de fora: elas já têm o próprio
+       grid interno (".raiox-container") e não fazem sentido como par rótulo/valor. */
+    table.tabela-cards-mobile {
+        display: block; width: 100%; overflow-x: visible; white-space: normal;
+    }
+    table.tabela-cards-mobile thead { display: none; }
+    table.tabela-cards-mobile tbody { display: block; }
+    table.tabela-cards-mobile tr:not(.row-raiox) {
+        display: block; margin-bottom: 10px; padding: 12px 14px;
+        border: 1px solid var(--border); border-radius: 10px; background: var(--panel-bg);
+    }
+    table.tabela-cards-mobile tr.row-raiox { display: block; }
+    table.tabela-cards-mobile tr.row-raiox > td { display: block; }
+    table.tabela-cards-mobile tr:not(.row-raiox) > td {
+        display: flex; justify-content: space-between; align-items: center; gap: 12px;
+        padding: 5px 0; border-bottom: none; white-space: normal; text-align: right;
+    }
+    table.tabela-cards-mobile td[data-label]::before {
+        content: attr(data-label);
+        font-size: 10.5px; color: var(--text-muted); text-transform: uppercase;
+        letter-spacing: 0.05em; font-weight: bold; text-align: left; flex-shrink: 0;
+    }
+    table.tabela-cards-mobile td.tc-titulo {
+        font-size: 15.5px; justify-content: flex-start; text-align: left;
+        padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+    }
+    table.tabela-cards-mobile td.tc-acoes {
+        justify-content: flex-start; text-align: left; flex-wrap: wrap;
+        padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--border);
+    }
+
     .raiox-container {
         grid-template-columns: minmax(0, 1fr) !important;
     }
@@ -390,6 +435,15 @@
         padding-top: 11px !important; padding-bottom: 11px !important;
         font-size: 13px !important;
     }
+
+    /* Linha de digitar do chat (Auxiliar/Diretoria): mic + foto + campo de texto + "Conversar"
+       não cabem lado a lado numa tela estreita — o botão "Conversar" sozinho toma mais da metade
+       da linha, sobrando ~26px pro campo de texto (impossível de usar). O campo de texto passa a
+       ocupar a linha inteira sozinho (via "order", sem mexer no HTML), com os controles pequenos
+       embaixo — a mesma ideia do WhatsApp: a caixa de digitar é o que domina a tela. */
+    .chat-input-row { flex-wrap: wrap; }
+    .chat-input-row textarea { flex: 1 1 100%; order: -1; }
+    .chat-input-row > button:last-of-type { flex: 1 1 auto; }
 }
 
 /* Telas baixas (celular deitado): o menu em gaveta já resolve a largura, falta a altura —
