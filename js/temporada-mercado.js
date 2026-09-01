@@ -69,6 +69,11 @@
         }
 
         async function processarConclusaoTemporada(posTabelaInput, novaContinental, novaDivisao) {
+            // Transferências e partidas ainda esperando o lote fechar (coletânea/resumo) não
+            // podem atravessar a virada de temporada em silêncio — publica o que sobrou agora.
+            if (typeof publicarColetaneaTransferencias === 'function') publicarColetaneaTransferencias();
+            if (typeof publicarResumoPartidas === 'function') publicarResumoPartidas();
+
             let pFiltradas = db[currentSave].partidas.filter(p => p.temporada === db[currentSave].temporadaAtual);
             let comps = {}; let trofeusGanhos = []; let detalhesComp = [];
             pFiltradas.forEach(p => { comps[p.comp] = p; });
@@ -405,7 +410,7 @@ ${blocoAvaliacao}
 
             // Chama o gerador dinâmico de notícias
             let noticiaDin = gerarNoticiaTransferencia(tipoTransicao, nomeNovo, custo, duracao);
-            adicionarNoticiaAutomatica(noticiaDin.titulo, noticiaDin.detalhe);
+            registrarNoticiaTransferenciaFeed(tipoTransicao, nomeNovo, noticiaDin);
             
             document.getElementById('add-nome').value = '';
             document.getElementById('add-idade').value = '';
@@ -462,23 +467,23 @@ ${blocoAvaliacao}
                 // alto) pesa bem mais que vender um reserva.
                 let impactoVenda = gerarNumeroAleatorio(2, 6) + (jogador.ovr >= 78 ? gerarNumeroAleatorio(4, 8) : 0);
                 atualizarTermometroTorcida(-impactoVenda);
-                
+
                 let noticia = gerarNoticiaTransferencia('Venda', nome, valor, 0);
-                adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
-            } 
-            else if(tipo === 'Emprestimo') { 
-                jogador.status = 'Emprestado'; 
-                jogador.temporadasEmprestimo = Number(document.getElementById('saida-duracao').value); 
-                
+                registrarNoticiaTransferenciaFeed('Venda', nome, noticia);
+            }
+            else if(tipo === 'Emprestimo') {
+                jogador.status = 'Emprestado';
+                jogador.temporadasEmprestimo = Number(document.getElementById('saida-duracao').value);
+
                 let noticia = gerarNoticiaTransferencia('Emprestimo', nome, 0, jogador.temporadasEmprestimo);
-                adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
-            } 
+                registrarNoticiaTransferenciaFeed('Emprestimo', nome, noticia);
+            }
             else if(tipo === 'Dispensa') {
                 jogador.status = 'Aposentado';
                 jogador.motivoSaida = 'Dispensa';
 
                 let noticia = gerarNoticiaTransferencia('Dispensa', nome, 0, 0);
-                adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                registrarNoticiaTransferenciaFeed('Dispensa', nome, noticia);
             }
 
             // Quem sai perde a braçadeira automaticamente
@@ -552,7 +557,7 @@ ${blocoAvaliacao}
                 if (status === 'Aposentado') {
                     jog.motivoSaida = 'Aposentadoria';
                     let noticia = gerarNoticiaTransferencia('Aposentadoria', nome, 0, 0);
-                    adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                    registrarNoticiaTransferenciaFeed('Aposentadoria', nome, noticia);
                 }
             }
         }
@@ -866,7 +871,7 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
 
                 if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Chegada de ${nome} (${tipo}) via import de print`);
                 let noticiaDin = gerarNoticiaTransferencia(tipo, nome, custo, duracao);
-                adicionarNoticiaAutomatica(noticiaDin.titulo, noticiaDin.detalhe);
+                registrarNoticiaTransferenciaFeed(tipo, nome, noticiaDin);
                 return { ok: true };
             }
 
@@ -883,16 +888,16 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                     let impactoVenda = gerarNumeroAleatorio(2, 6) + (jogador.ovr >= 78 ? gerarNumeroAleatorio(4, 8) : 0);
                     atualizarTermometroTorcida(-impactoVenda);
                     let noticia = gerarNoticiaTransferencia('Venda', nome, valor, 0);
-                    adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                    registrarNoticiaTransferenciaFeed('Venda', nome, noticia);
                 } else if (tipo === 'Emprestimo') {
                     jogador.status = 'Emprestado'; jogador.temporadasEmprestimo = duracao;
                     let noticia = gerarNoticiaTransferencia('Emprestimo', nome, 0, duracao);
-                    adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                    registrarNoticiaTransferenciaFeed('Emprestimo', nome, noticia);
                 } else if (tipo === 'Dispensa') {
                     jogador.status = 'Aposentado';
                     jogador.motivoSaida = 'Dispensa';
                     let noticia = gerarNoticiaTransferencia('Dispensa', nome, 0, 0);
-                    adicionarNoticiaAutomatica(noticia.titulo, noticia.detalhe);
+                    registrarNoticiaTransferenciaFeed('Dispensa', nome, noticia);
                 }
 
                 if (db.clube.capitao === nome) db.clube.capitao = '';

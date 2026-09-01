@@ -519,6 +519,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-convocacao') { renderizarConvocacaoUI(); }
             if(abaId === 'tab-mensagens') { renderizarCaixaMensagens(); if (typeof renderizarComandosJogo === 'function') renderizarComandosJogo(); }
             if(typeof atualizarBadgeMensagens === 'function') atualizarBadgeMensagens();
+            if(typeof atualizarBadgeSocial === 'function') atualizarBadgeSocial();
         }
 
         function trocarSave() { currentSave = document.getElementById('select-save').value; ajustarInterfaceSave(); }

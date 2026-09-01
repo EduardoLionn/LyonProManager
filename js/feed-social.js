@@ -35,6 +35,110 @@
                 svg: '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="24" width="68" height="52" rx="4"/><line x1="26" y1="36" x2="46" y2="36"/><line x1="26" y1="44" x2="46" y2="44"/><line x1="26" y1="52" x2="40" y2="52"/><rect x="54" y="34" width="20" height="16"/><line x1="54" y1="58" x2="74" y2="58"/><line x1="54" y1="65" x2="74" y2="65"/></svg>' }
         };
 
+        // =====================================================================================
+        // COLETÂNEAS — pedido do treinador: 1 post por transferência e 1 post por partida
+        // lotava o feed sem dar motivo real pra abrir a aba. Agora esses dois tipos de evento
+        // se acumulam numa fila e só viram post de verdade quando o lote fecha — uma
+        // transferência ou um resultado isolado nunca aparece sozinho, exceto quando o
+        // treinador marca a partida como Final/Clássico (aí ela é notícia grande o bastante
+        // pra não esperar).
+        // =====================================================================================
+        const LOTE_COLETANEA_TRANSFERENCIAS = 3;
+        const LOTE_RESUMO_PARTIDAS = 5;
+
+        const EMOJI_TIPO_TRANSFERENCIA = {
+            Comprado: '✍️', EmprestadoIn: '📥', Venda: '💰', Emprestimo: '📤',
+            Dispensa: '📄', Aposentadoria: '🥾'
+        };
+
+        // Chamado no lugar de adicionarNoticiaAutomatica direto, nos eventos de mercado — vai pra
+        // fila em vez de virar post na hora.
+        function registrarNoticiaTransferenciaFeed(tipo, nome, noticia) {
+            let d = db[currentSave];
+            if (!d) return;
+            if (!d.pendentesColetaneaTransferencias) d.pendentesColetaneaTransferencias = [];
+            d.pendentesColetaneaTransferencias.push({ tipo: tipo, nome: nome, titulo: noticia.titulo });
+            if (d.pendentesColetaneaTransferencias.length >= LOTE_COLETANEA_TRANSFERENCIAS) {
+                publicarColetaneaTransferencias();
+            } else {
+                salvarDados();
+            }
+        }
+
+        function publicarColetaneaTransferencias() {
+            let d = db[currentSave];
+            if (!d) return;
+            let pendentes = d.pendentesColetaneaTransferencias || [];
+            if (pendentes.length === 0) return;
+            let linhas = pendentes.map(p => `${EMOJI_TIPO_TRANSFERENCIA[p.tipo] || '🔄'} ${p.nome}`).join(' · ');
+            let titulo = `📋 Coletânea de Transferências (${pendentes.length})`;
+            let detalhe = `O mercado não parou: ${linhas}. Confira os detalhes de cada negociação na aba Transferências.`;
+            d.pendentesColetaneaTransferencias = [];
+            adicionarNoticiaAutomatica(titulo, detalhe, 'contratacao');
+        }
+
+        // Chamado no lugar de adicionarNoticiaAutomatica direto, no resultado de cada partida.
+        // dadosPartida = { adversario, golsPro, golsContra, finalOuClassico }
+        function registrarResultadoParaFeed(manchete, detalheNoticia, categoria, dadosPartida) {
+            let d = db[currentSave];
+            if (!d) return;
+            if (dadosPartida && dadosPartida.finalOuClassico) {
+                // Final ou clássico: notícia grande o bastante pra não esperar o lote.
+                adicionarNoticiaAutomatica(manchete, detalheNoticia, categoria);
+                return;
+            }
+            if (!d.pendentesResumoPartidas) d.pendentesResumoPartidas = [];
+            d.pendentesResumoPartidas.push({
+                adversario: (dadosPartida && dadosPartida.adversario) || 'Adversário',
+                golsPro: (dadosPartida && dadosPartida.golsPro) || 0,
+                golsContra: (dadosPartida && dadosPartida.golsContra) || 0,
+                resultado: categoria // 'vitoria' | 'derrota' | 'empate'
+            });
+            if (d.pendentesResumoPartidas.length >= LOTE_RESUMO_PARTIDAS) {
+                publicarResumoPartidas();
+            } else {
+                salvarDados();
+            }
+        }
+
+        function publicarResumoPartidas() {
+            let d = db[currentSave];
+            if (!d) return;
+            let pendentes = d.pendentesResumoPartidas || [];
+            if (pendentes.length === 0) return;
+            let v = pendentes.filter(p => p.resultado === 'vitoria').length;
+            let e = pendentes.filter(p => p.resultado === 'empate').length;
+            let der = pendentes.filter(p => p.resultado === 'derrota').length;
+            let golsPro = pendentes.reduce((s, p) => s + (p.golsPro || 0), 0);
+            let golsContra = pendentes.reduce((s, p) => s + (p.golsContra || 0), 0);
+            let categoriaResumo = v > der ? 'vitoria' : (der > v ? 'derrota' : 'empate');
+            let icone = categoriaResumo === 'vitoria' ? '📈' : (categoriaResumo === 'derrota' ? '📉' : '➖');
+            let titulo = `${icone} Resumo de ${pendentes.length} Jogos: ${v}V ${e}E ${der}D`;
+            let linhas = pendentes.map(p => `${p.golsPro}x${p.golsContra} vs ${p.adversario}`).join(' · ');
+            let saldo = golsPro - golsContra;
+            let detalhe = `${linhas}. Saldo de gols no recorte: ${saldo > 0 ? '+' : ''}${saldo} (${golsPro} pró, ${golsContra} contra).`;
+            d.pendentesResumoPartidas = [];
+            adicionarNoticiaAutomatica(titulo, detalhe, categoriaResumo);
+        }
+
+        // =====================================================================================
+        // BADGE DE "NÃO VISTOS" — antes o feed não dava nenhum motivo pra abrir a aba (nada
+        // indicava se tinha post novo). Agora funciona igual à Central de Mensagens: conta quem
+        // ainda não foi visto e mostra na bolinha do menu; abrir a aba marca tudo como visto.
+        // =====================================================================================
+        function contarPostsSocialNaoVistos() {
+            let feed = (db[currentSave] && db[currentSave].socialFeed) || [];
+            return feed.filter(p => !p.vistoPeloUser).length;
+        }
+
+        function atualizarBadgeSocial() {
+            let badge = document.getElementById('badge-social');
+            if (!badge) return;
+            let n = contarPostsSocialNaoVistos();
+            badge.innerText = n > 99 ? '99+' : String(n);
+            badge.style.display = n > 0 ? 'inline-flex' : 'none';
+        }
+
         // Classifica um post pelo texto do título — mesma ideia do isMercado que já existia,
         // só que cobrindo todas as categorias agora (não só mercado). Roda sobre QUALQUER post
         // antigo/novo, então nenhum evento já disparado pelo app precisa ser reescrito.
@@ -78,7 +182,12 @@
             renderizarTermometroUI();
             let feed = db[currentSave].socialFeed || [];
             let container = document.getElementById('feed-social-container');
-            
+
+            // Abrir a aba conta como "ler" o feed inteiro — some com a bolinha de não vistos.
+            let tinhaNaoVistos = feed.some(p => !p.vistoPeloUser);
+            if (tinhaNaoVistos) { feed.forEach(p => { p.vistoPeloUser = true; }); salvarDados(); }
+            atualizarBadgeSocial();
+
             if(feed.length === 0) {
                 container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding: 40px;">O feed está vazio. Avance as partidas ou realize contratações para gerar repercussão.</p>';
                 return;
@@ -334,8 +443,10 @@
 
                     p.id = 'post_' + Date.now() + Math.random().toString(36).substr(2, 9);
                     p.categoria = 'corneta';
+                    p.vistoPeloUser = false;
                     if (!p.opcoesRapidas) p.opcoesRapidas = ["Seguimos trabalhando forte!", "O foco é o próximo desafio.", "Não vou comentar arbitragem/críticas."];
                     db[currentSave].socialFeed.unshift(p);
+                    if (typeof atualizarBadgeSocial === 'function') atualizarBadgeSocial();
 
                     // Lógica da Caça às Bruxas: pressão repetida da torcida por um jogador vira exigência da diretoria
                     if(p.pede_venda_jogador && p.pede_venda_jogador.trim() !== "") {
@@ -402,8 +513,10 @@
                 texto: `${titulo} ${detalhe}`, // mantido só pros prompts de IA (resposta/curtida) lerem o contexto completo
                 likes: gerarNumeroAleatorio(5000, 25000),
                 pede_venda_jogador: "",
-                opcoesRapidas: ["Seguimos trabalhando forte!", "O foco é no campo.", "Sem comentários no momento."]
+                opcoesRapidas: ["Seguimos trabalhando forte!", "O foco é no campo.", "Sem comentários no momento."],
+                vistoPeloUser: false
             });
+            if (typeof atualizarBadgeSocial === 'function') atualizarBadgeSocial();
 
             // CORREÇÃO (Claude): também registra em noticiasFeed, que é o que
             // gerarResumoContexto() usa para contar à IA (Diretoria/Auxiliar) as
