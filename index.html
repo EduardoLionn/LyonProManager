@@ -428,7 +428,7 @@
         <button class="nav-btn" id="nav-btn-convocacao" style="display:none;" onclick="mudarAba('tab-convocacao')">📋 Convocação</button>
         <button class="nav-btn" onclick="mudarAba('tab-perfil-treinador')">🧑‍💼 Perfil do Treinador</button>
         <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
-        <button class="nav-btn" onclick="mudarAba('tab-social')">📱 Feed Social & Mídia</button>
+        <button class="nav-btn" onclick="mudarAba('tab-social')">📱 Feed Social & Mídia <span id="badge-social" class="badge-nav" style="display:none;">0</span></button>
 
         <div class="save-controls">
             <label style="color:white; font-size: 12px;">Slot de Save:</label>
@@ -1138,6 +1138,9 @@
 
                         <label style="display:flex; align-items:center; gap:8px; margin-top: 15px; color: var(--warning); font-size: 14px; cursor:pointer; font-weight:bold;">
                             <input type="checkbox" id="vitoria-penaltis" style="width:16px; height:16px;"> Vitória nos Pênaltis (Marque em caso de empate na Copa)
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; margin-top: 10px; color: var(--accent); font-size: 14px; cursor:pointer; font-weight:bold;" title="Jogos comuns entram num resumo a cada 5 partidas — marque aqui pra esse ganhar um post só dele no Feed Social.">
+                            <input type="checkbox" id="partida-final-classico" style="width:16px; height:16px;"> 🏆 Final ou Clássico (publica sozinha no Feed Social, sem esperar o resumo)
                         </label>
                     </div> <!-- FIM DO ESCONDIDO -->
 

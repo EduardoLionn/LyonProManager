@@ -694,6 +694,10 @@
             let mando = document.getElementById('partida-mando').value;
             let contexto = document.getElementById('partida-contexto').value.trim();
             let diasPassados = Math.max(0, Number(document.getElementById('partida-dias-proxima').value) || 3);
+            // Pedido do treinador: jogo comum entra num resumo a cada 5 partidas no Feed Social;
+            // só final ou clássico ganha post individual na hora (ver registrarResultadoParaFeed).
+            let finalOuClassicoEl = document.getElementById('partida-final-classico');
+            let finalOuClassico = finalOuClassicoEl ? finalOuClassicoEl.checked : false;
 
             // Cartão vermelho declarado durante a partida só vira suspensão de verdade agora, ao
             // encerrar — reaproveita o campo suspensoVermelho que o Departamento Médico já usa
@@ -787,7 +791,7 @@
                     `Quem viu, viu! Uma partida sólida onde o sistema defensivo funcionou e o ataque foi eficiente. Criar <strong>${finP} chances</strong> não é para qualquer um. O projeto do Manager está rendendo frutos impressionantes.`
                 ];
                 detalheNoticia = detalhesVitoria[Math.floor(Math.random() * detalhesVitoria.length)];
-                adicionarNoticiaAutomatica(manchete, detalheNoticia, 'vitoria');
+                registrarResultadoParaFeed(manchete, detalheNoticia, 'vitoria', { adversario: adv, golsPro: golsP, golsContra: golsC, finalOuClassico: finalOuClassico });
             }
             else if (golsC > golsP) {
                 // Contexto: Derrota
@@ -828,7 +832,7 @@
                     `Apagão em campo! A equipe pareceu desconcentrada e foi engolida pela proposta de jogo do ${adv}. Reuniões tensas no vestiário são esperadas após esse resultado terrível.`
                 ];
                 detalheNoticia = detalhesDerrota[Math.floor(Math.random() * detalhesDerrota.length)];
-                adicionarNoticiaAutomatica(manchete, detalheNoticia, 'derrota');
+                registrarResultadoParaFeed(manchete, detalheNoticia, 'derrota', { adversario: adv, golsPro: golsP, golsContra: golsC, finalOuClassico: finalOuClassico });
             }
             else {
                 // Contexto: Empate
@@ -849,7 +853,7 @@
                     `Equilíbrio puro! Nenhuma das equipes conseguiu se impor totalmente. Um empate que deixa lições claras sobre onde o time precisa evoluir para quebrar linhas de defesas fechadas.`
                 ];
                 detalheNoticia = detalhesEmpate[Math.floor(Math.random() * detalhesEmpate.length)];
-                adicionarNoticiaAutomatica(manchete, detalheNoticia, 'empate');
+                registrarResultadoParaFeed(manchete, detalheNoticia, 'empate', { adversario: adv, golsPro: golsP, golsContra: golsC, finalOuClassico: finalOuClassico });
             }
 
             // --- APLICA GATILHOS DE DEMISSÃO ---
@@ -901,6 +905,7 @@
             let elAdv = document.getElementById('inicio-partida-adversario'); if (elAdv) elAdv.value = '';
 
             salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
+            let elFinalClassico = document.getElementById('partida-final-classico'); if (elFinalClassico) elFinalClassico.checked = false;
             alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!");
 
             // Ciclos da Central de Mensagens: partida conta como ação (diretoria) e alimenta
