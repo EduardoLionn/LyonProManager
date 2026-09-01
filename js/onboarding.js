@@ -21,6 +21,9 @@ function menuPrincipalResetView() {
     // que só volta a aparecer quando um save é de fato aberto (ver menuNovoJogo/ajustarInterfaceSave).
     let sidebar = document.querySelector('.sidebar');
     if (sidebar) sidebar.style.display = 'none';
+    // Sem save aberto não há pra onde a gaveta mobile levar — esconde a barra do ☰ junto.
+    let topbarMobile = document.querySelector('.mobile-topbar');
+    if (topbarMobile) topbarMobile.style.display = 'none';
 
     document.getElementById('wizard-tela-hero').style.display = 'block';
     document.getElementById('menu-carregar-save-lista').style.display = 'none';

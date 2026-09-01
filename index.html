@@ -405,6 +405,13 @@
         </div>
     </div>
 
+    <!-- BARRA SUPERIOR MOBILE (só aparece em telas estreitas) — abre o menu em gaveta -->
+    <div class="mobile-topbar">
+        <button class="btn-hamburguer" onclick="toggleMenuMobile()" aria-label="Abrir menu">☰</button>
+        <span class="mobile-topbar-titulo">⚽ LyonPro Manager</span>
+    </div>
+    <div id="menu-mobile-backdrop" class="menu-mobile-backdrop" onclick="fecharMenuMobile()"></div>
+
     <!-- SIDEBAR -->
     <div class="sidebar">
         <h1>⚽ LyonPro Manager</h1>
@@ -604,7 +611,7 @@
                     </div>
                     <label class="btn-upload" style="margin:0; cursor:pointer; background: rgba(0, 163, 255, 0.1); white-space:nowrap;">
                         📸 Ler Elenco (IA)
-                        <input type="file" multiple style="display:none;" accept="image/*" onchange="lerImagensIAPlantel(event)">
+                        <input type="file" multiple style="display:none;" accept="image/*" capture="environment" onchange="lerImagensIAPlantel(event)">
                     </label>
                 </div>
                 <span id="wizard-loader-elenco" style="font-size:12px; color:var(--warning); font-weight:bold;"></span>
@@ -933,7 +940,7 @@
                     <button onclick="montarEscalacaoAutomatica()" style="flex:1; min-width:170px; background:var(--primary); color:black; padding:12px;">⚡ Escalar manual</button>
                     <label class="btn-upload" style="margin:0; cursor:pointer; flex:1; min-width:170px; text-align:center; box-sizing:border-box; padding:12px;">
                         📸 Enviar print da escalação
-                        <input type="file" accept="image/*" style="display:none;" onchange="lerEscalacaoDoPrint(event)">
+                        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="lerEscalacaoDoPrint(event)">
                     </label>
                     <button onclick="mudarAba('tab-auxiliar')" style="flex:1; min-width:170px; background:var(--panel-bg); border:1px solid var(--accent); color:var(--accent); padding:12px;">🤖 Sugestão do Auxiliar</button>
                 </div>
@@ -972,7 +979,7 @@
                             <!-- Botão IA SEMPRE visível -->
                             <label class="btn-upload" style="margin:0; cursor:pointer; background: rgba(0, 163, 255, 0.1);">
                                 📸 Ler Lote de Stats (IA)
-                                <input type="file" multiple style="display:none;" accept="image/*" onchange="lerImagensIAJogadores(event)">
+                                <input type="file" multiple style="display:none;" accept="image/*" capture="environment" onchange="lerImagensIAJogadores(event)">
                             </label>
                         </div>
                     </div>
@@ -1097,7 +1104,7 @@
                         <!-- Botão IA SEMPRE visível -->
                         <label class="btn-upload" style="margin:0; cursor:pointer;">
                             📸 Ler Placar TV (IA)
-                            <input type="file" style="display:none;" accept="image/*" onchange="lerImagemIA(event, 'partida')">
+                            <input type="file" style="display:none;" accept="image/*" capture="environment" onchange="lerImagemIA(event, 'partida')">
                         </label>
                     </div>
                     <div class="loader" id="loader-partida"></div>
@@ -1150,7 +1157,7 @@
                         <span id="loader-plantel-text" style="font-size:12px; color:var(--warning); font-weight:bold;"></span>
                         <label class="btn-upload" style="margin:0; cursor:pointer; background: rgba(0, 163, 255, 0.1);">
                             📸 Ler Elenco (IA)
-                            <input type="file" multiple style="display:none;" accept="image/*" onchange="lerImagensIAPlantel(event)">
+                            <input type="file" multiple style="display:none;" accept="image/*" capture="environment" onchange="lerImagensIAPlantel(event)">
                         </label>
                     </div>
                 </div>
@@ -1270,7 +1277,7 @@
                 <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                     <label class="btn-upload" style="cursor:pointer;">
                         📎 Anexar Print(s)
-                        <input type="file" accept="image/*" multiple style="display:none;" onchange="anexarImagensHistoricoTransferencias(event)">
+                        <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="anexarImagensHistoricoTransferencias(event)">
                     </label>
                     <button id="btn-analisar-prints-transferencias" onclick="analisarPrintsTransferencias()" disabled style="background: var(--primary); color:#14150F; padding:10px 18px;">🔍 Analisar Prints</button>
                 </div>
@@ -1614,7 +1621,7 @@
                         <span id="loader-convocacao-text" style="font-size:13px; color:var(--text-muted);"></span>
                         <label style="cursor:pointer; background:var(--primary); color:black; padding:10px 16px; border-radius:8px; font-weight:bold;">
                             📸 Ler Lista de Convocados
-                            <input type="file" accept="image/*" multiple style="display:none;" onchange="lerImagemConvocacao(event)">
+                            <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="lerImagemConvocacao(event)">
                         </label>
                     </div>
                 </div>
@@ -1676,11 +1683,11 @@
                     <div class="grid-2">
                         <label class="btn-upload" style="cursor:pointer; width:100%; box-sizing:border-box; text-align:center;" id="label-declarar-escalacao">
                             📸 Print: Escalação Provável do Adversário
-                            <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, 'escalacao')">
+                            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="anexarImagemAdversario(event, 'escalacao')">
                         </label>
                         <label class="btn-upload" style="cursor:pointer; width:100%; box-sizing:border-box; text-align:center;" id="label-declarar-tatica">
                             📸 Print: Predefinições Táticas do Adversário
-                            <input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, 'tatica')">
+                            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="anexarImagemAdversario(event, 'tatica')">
                         </label>
                     </div>
                     <div class="grid-3" style="margin-top:15px;">
@@ -1762,7 +1769,7 @@
                         <button class="btn-mic" id="mic-btn-auxiliar" onclick="iniciarGravacao('input-auxiliar', 'mic-btn-auxiliar')">🎤</button>
                         <label class="btn-mic" style="cursor:pointer;" title="Anexar print do jogo (campo térmico, estatísticas da partida)">
                             📸
-                            <input type="file" accept="image/*" multiple style="display:none;" onchange="anexarImagemAuxiliar(event)">
+                            <input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="anexarImagemAuxiliar(event)">
                         </label>
                         <textarea id="input-auxiliar" placeholder="Digite ordens, ou conte o contexto do jogo e anexe um print (📸) pra sugestão de mudança..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('auxiliar'); }"></textarea>
                         <button onclick="enviarChat('auxiliar')" style="padding: 10px 20px; font-size:14px;">Conversar</button>

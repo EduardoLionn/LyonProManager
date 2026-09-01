@@ -166,8 +166,15 @@
                     // treinador costuma escalar esse jogador — é o mesmo sinal usado na escalação
                     // pré-jogo (ver regra 10 de regrasEstrategistaTexto), agora também disponível
                     // pra sugestão de substituição AO VIVO.
+                    // Substitutos que já entraram nesta partida (pedido do treinador: "um jogador
+                    // entra, ele não deve sair... só por lesão") — mostrado à parte pra IA nunca
+                    // escolher um deles como "jogadorSai" mais adiante, mesmo estando entre os
+                    // "titulares" atuais (que é onde ele aparece depois de entrar em campo).
+                    let entrantesSubStr = (partidaAtual && Array.isArray(partidaAtual.substituicoes) && partidaAtual.substituicoes.length)
+                        ? partidaAtual.substituicoes.map(s => s.entrou).filter((nome, i, arr) => arr.indexOf(nome) === i && !((partidaAtual.lesoesDeclaradas || []).includes(nome)))
+                        : [];
                     let escalacaoStr = (partidaAtual && partidaAtual.titulares)
-                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares (sigla da posição no campo: nome): ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco (nome, posição real e histórico de uso do jogador): ${(partidaAtual.banco || []).map(b => { let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome); let posTxt = (jogBD ? jogBD.posicao : b.posicao) || 'posição desconhecida'; let habituaisStr = posicoesHabituaisTexto(b.nome); return `${b.nome} (${posTxt}${habituaisStr ? ' | costuma jogar: ' + habituaisStr : ''})`; }).join(', ') || 'nenhum registrado'}.${(partidaAtual.jogadoresForaDaPartida && partidaAtual.jogadoresForaDaPartida.length > 0) ? ` JÁ SAÍRAM DA PARTIDA E NÃO PODEM MAIS ENTRAR: ${partidaAtual.jogadoresForaDaPartida.join(', ')}.` : ''}`
+                        ? `Partida ${partidaAtual.status === 'em_andamento' ? 'EM ANDAMENTO' : 'declarada'} contra ${partidaAtual.adversarioNome}. Formação atual em campo: ${partidaAtual.formacaoEscolhida}. Titulares (sigla da posição no campo: nome): ${Object.entries(partidaAtual.titulares).map(([pos, j]) => `${pos}: ${j.nome}`).join(', ')}. Banco (nome, posição real e histórico de uso do jogador): ${(partidaAtual.banco || []).map(b => { let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome); let posTxt = (jogBD ? jogBD.posicao : b.posicao) || 'posição desconhecida'; let habituaisStr = posicoesHabituaisTexto(b.nome); return `${b.nome} (${posTxt}${habituaisStr ? ' | costuma jogar: ' + habituaisStr : ''})`; }).join(', ') || 'nenhum registrado'}.${(partidaAtual.jogadoresForaDaPartida && partidaAtual.jogadoresForaDaPartida.length > 0) ? ` JÁ SAÍRAM DA PARTIDA E NÃO PODEM MAIS ENTRAR: ${partidaAtual.jogadoresForaDaPartida.join(', ')}.` : ''}${entrantesSubStr.length ? ` JÁ ENTRARAM COMO SUBSTITUTOS NESTA PARTIDA (NUNCA escolha nenhum destes como "jogadorSai" — só saem por lesão real, declarada pelo treinador): ${entrantesSubStr.join(', ')}.` : ''}`
                         : "Nenhuma partida declarada/escalação em campo no momento.";
 
                     let jogoAoVivo = partidaAtual && partidaAtual.status === 'em_andamento';
@@ -193,6 +200,7 @@
         - APRENDA COMO ESTE TREINADOR USA CADA JOGADOR: quando o Banco acima trouxer "costuma jogar: ...", isso é o padrão que ESTE treinador já estabeleceu com esse jogador neste time (ex: um zagueiro que ele sempre usa como volante) — prefira colocá-lo numa das posições desse histórico, sem sair da compatibilidade posicional da vaga que está saindo. Pode variar quando o contexto pedir claramente, mas isso é exceção, não padrão.
         - Se não houver mais substituições disponíveis (restam 0), NÃO sugira substituição — dê apenas orientação tática/posicional.
         - Se a situação não pedir substituição nenhuma, deixe "sugestaoSubstituicao" como null. Não sugira trocas só por sugerir.
+        - NUNCA escolha como "jogadorSai" alguém que já entrou como substituto nesta partida (listado acima, se houver) — um substituto que acabou de entrar não é tirado de novo minutos depois só por ajuste tático. A única forma dele sair é uma lesão real, que o treinador declara por fora deste chat.
         - SE você sugerir substituição JUNTO com uma mudança de formação (ambos os campos preenchidos na mesma resposta), pense primeiro em qual vaga da FORMAÇÃO NOVA o jogador que entra vai ocupar — "jogadorSai" tem que ser o titular que, depois de aplicada a formação nova, fica na posição que o jogador que entra pode substituir. Nunca pense a substituição em cima da formação antiga quando as duas mudanças vêm juntas.
 
         🔄 MUDANÇA DE FORMAÇÃO: você também pode sugerir mudar a formação inteira do time (não gasta substituição, os mesmos 11 jogadores em campo só mudam de esquema). Se a leitura do jogo pedir isso claramente (ex: time sendo dominado no meio, precisa de mais gente na frente, etc), preencha "sugestaoFormacao" com uma formação DIFERENTE da atual (${partidaAtual.formacaoEscolhida}), escolhida EXATAMENTE entre as formações preferidas do treinador: ${formacoesPreferidasChat.join(', ')}. Nunca sugira uma formação fora dessa lista. Caso contrário deixe "sugestaoFormacao" como null. Não sugira isso à toa — é uma mudança grande.` : '';
@@ -236,7 +244,8 @@
                 let res = extrairJsonDaResposta(rawText);
                 if (res) {
                     let sugestaoSub = null;
-                    if (tipo === 'auxiliar' && res.sugestaoSubstituicao && res.sugestaoSubstituicao.jogadorSai && res.sugestaoSubstituicao.jogadorEntra) {
+                    if (tipo === 'auxiliar' && res.sugestaoSubstituicao && res.sugestaoSubstituicao.jogadorSai && res.sugestaoSubstituicao.jogadorEntra
+                        && !jogadorTravadoPorJaTerEntrado(db[currentSave].partidaAuxiliar, res.sugestaoSubstituicao.jogadorSai)) {
                         sugestaoSub = { jogadorSai: res.sugestaoSubstituicao.jogadorSai, jogadorEntra: res.sugestaoSubstituicao.jogadorEntra, instrucao: res.sugestaoSubstituicao.instrucao || '', status: 'pendente' };
                     }
                     let sugestaoFormacao = null;
@@ -420,6 +429,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             let jaEmCampo = Object.values(partida.titulares).some(j => j.nome === sug.jogadorEntra);
             if (jaEmCampo) { alert(`${sug.jogadorEntra} já está em campo.`); return; }
             if ((partida.jogadoresForaDaPartida || []).includes(sug.jogadorEntra)) { alert(`${sug.jogadorEntra} já saiu da partida antes e não pode voltar.`); return; }
+            if (jogadorTravadoPorJaTerEntrado(partida, sug.jogadorSai)) { alert(`${sug.jogadorSai} entrou como substituto nesta partida — só sai por lesão declarada. Essa sugestão ficou desatualizada.`); msg.sugestaoSub.status = 'rejeitada'; salvarDados(); renderizarChat('auxiliar'); return; }
 
             let minutoStr = await promptModerno(`Em que minuto ${sug.jogadorEntra} entrou em campo?`, '', '⏱️ Minuto da Substituição');
             if (minutoStr === null) return;
@@ -1023,7 +1033,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 let dados = { base64: reader.result.split(',')[1], mimeType: file.type, nomeArquivo: file.name };
                 if (tipo === 'escalacao') imagemAdvEscalacao = dados; else imagemAdvTatica = dados;
                 let label = document.getElementById(tipo === 'escalacao' ? 'label-declarar-escalacao' : 'label-declarar-tatica');
-                if (label) label.innerHTML = `✅ ${file.name}<input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, '${tipo}')">`;
+                if (label) label.innerHTML = `✅ ${file.name}<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="anexarImagemAdversario(event, '${tipo}')">`;
             };
             reader.readAsDataURL(file);
             event.target.value = '';
@@ -1032,7 +1042,7 @@ ${textoRegrasCompatibilidadePosicional()}
         function removerImagemAdversario(tipo) {
             if (tipo === 'escalacao') imagemAdvEscalacao = null; else imagemAdvTatica = null;
             let label = document.getElementById(tipo === 'escalacao' ? 'label-declarar-escalacao' : 'label-declarar-tatica');
-            if (label) label.innerHTML = `📸 Print: ${tipo === 'escalacao' ? 'Escalação Provável do Adversário' : 'Predefinições Táticas do Adversário'}<input type="file" accept="image/*" style="display:none;" onchange="anexarImagemAdversario(event, '${tipo}')">`;
+            if (label) label.innerHTML = `📸 Print: ${tipo === 'escalacao' ? 'Escalação Provável do Adversário' : 'Predefinições Táticas do Adversário'}<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="anexarImagemAdversario(event, '${tipo}')">`;
         }
 
         // =====================================================================================
@@ -2584,7 +2594,10 @@ ${textoRegrasCompatibilidadePosicional()}
                 // Expulso (cartão vermelho) não pode ser substituído — regra do futebol, sair por
                 // expulsão não abre vaga pro banco. Só resta trocar de posição com outro titular.
                 let expulsoAqui = jogadorExpulsoNestaPartida(partida, nomeAtual);
-                let opcoesBanco = (subsUsadas < 5 && !expulsoAqui) ? (partida.banco || []).filter(b => b.nome && !fora.includes(b.nome)).map(b => {
+                // Pedido do treinador: quem já entrou como substituto só sai por lesão declarada —
+                // nunca oferece trazer mais alguém do banco pra tirá-lo de novo.
+                let travadoAqui = jogadorTravadoPorJaTerEntrado(partida, nomeAtual);
+                let opcoesBanco = (subsUsadas < 5 && !expulsoAqui && !travadoAqui) ? (partida.banco || []).filter(b => b.nome && !fora.includes(b.nome)).map(b => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
                     return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: `Banco — declara substituição (${subsUsadas}/5)`, onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
                 }) : [];
@@ -2597,6 +2610,8 @@ ${textoRegrasCompatibilidadePosicional()}
                 opcoesTodos = opcoesBanco.concat(opcoesPosicao).sort((a, b) => (a._ordemPos - b._ordemPos) || (b.ovr - a.ovr));
                 subtitulo = expulsoAqui
                     ? `🟥 ${nomeAtual} foi expulso — não pode ser substituído, só trocado de posição com outro titular.`
+                    : travadoAqui
+                    ? `⛔ ${nomeAtual} entrou como substituto nesta partida — só sai por lesão declarada. Você ainda pode trocá-lo de posição com outro titular.`
                     : (subsUsadas < 5
                         ? `Traga alguém do banco (gasta 1 das ${5 - subsUsadas} substituições restantes e pede o minuto) ou troque de posição com outro titular (não gasta substituição).`
                         : 'Limite de 5 substituições já atingido — só dá pra trocar de posição com outro titular.');
@@ -2664,7 +2679,8 @@ ${textoRegrasCompatibilidadePosicional()}
 
             let opcoesSlots = Object.entries(partida.titulares || {})
                 // Vaga de quem foi expulso não aparece aqui — expulso não é substituído (só troca de posição).
-                .filter(([r, j]) => j.nome && j.nome !== '???' && !(aoVivo && jogadorExpulsoNestaPartida(partida, j.nome)))
+                // Mesma coisa pra quem já entrou como substituto: só sai por lesão declarada.
+                .filter(([r, j]) => j.nome && j.nome !== '???' && !(aoVivo && jogadorExpulsoNestaPartida(partida, j.nome)) && !(aoVivo && jogadorTravadoPorJaTerEntrado(partida, j.nome)))
                 .map(([r, j]) => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
                     let posTxt = jogBD ? jogBD.posicao : r;
@@ -2758,6 +2774,7 @@ ${textoRegrasCompatibilidadePosicional()}
             if ((partida.jogadoresForaDaPartida || []).includes(nomeEntra)) { alert(`${nomeEntra} já saiu da partida antes e não pode voltar.`); return; }
             let jogadorSaindo = partida.titulares && partida.titulares[roleSai];
             if (jogadorSaindo && jogadorExpulsoNestaPartida(partida, jogadorSaindo.nome)) { alert(`${jogadorSaindo.nome} foi expulso e não pode ser substituído — só trocado de posição com outro titular.`); return; }
+            if (jogadorSaindo && jogadorTravadoPorJaTerEntrado(partida, jogadorSaindo.nome)) { alert(`${jogadorSaindo.nome} entrou como substituto nesta partida — só sai por lesão declarada.`); return; }
 
             let minutoStr = await promptModerno(`Em que minuto ${nomeEntra} entrou em campo?`, '', '⏱️ Minuto da Substituição');
             if (minutoStr === null) return;
@@ -2812,6 +2829,17 @@ ${textoRegrasCompatibilidadePosicional()}
         // Já foi expulso NESTA partida? Usado pra travar a substituição dele (só pode trocar de posição).
         function jogadorExpulsoNestaPartida(partida, nome) {
             return !!(partida && Array.isArray(partida.cartoes) && partida.cartoes.some(c => c.tipo === 'vermelho' && c.nome === nome));
+        }
+
+        // Pedido do treinador: "um jogador entra, ele não deve sair... só por lesão" — um
+        // substituto que acabou de entrar em campo não é candidato a sair de novo minutos depois
+        // por ajuste tático (nem sugerido pelo Auxiliar, nem pelo seletor manual). A única saída
+        // válida pra quem já entrou como substituto é uma lesão declarada nesta mesma partida.
+        function jogadorEntrouComoSubstituto(partida, nome) {
+            return !!(partida && Array.isArray(partida.substituicoes) && partida.substituicoes.some(s => s.entrou === nome));
+        }
+        function jogadorTravadoPorJaTerEntrado(partida, nome) {
+            return jogadorEntrouComoSubstituto(partida, nome) && !((partida.lesoesDeclaradas || []).includes(nome));
         }
 
         // --- DECLARAR LESÃO DURANTE A PARTIDA AO VIVO ---
