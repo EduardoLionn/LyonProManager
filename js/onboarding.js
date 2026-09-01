@@ -302,7 +302,11 @@ function wizardValidarLiga() {
 // --- ETAPA: CLUBE (apenas modo Clube) ---
 function wizardRenderStepClube() {
     let liga = document.getElementById('setup-liga').value;
-    window._wizardClubesLista = (typeof clubesPorLiga !== 'undefined' && clubesPorLiga[liga]) ? clubesPorLiga[liga] : [];
+    // A lista de clubes sugeridos muda pela temporada inicial escolhida no passo Perfil — a
+    // temporada "25/26" reflete a edição FC26 do jogo de futebol, "26/27" reflete FC27 etc.
+    let temporadaWizard = document.getElementById('setup-temporada') ? document.getElementById('setup-temporada').value : '';
+    let clubesDaTemporada = (typeof clubesPorLigaDaTemporada === 'function') ? clubesPorLigaDaTemporada(temporadaWizard) : clubesPorLiga;
+    window._wizardClubesLista = (clubesDaTemporada && clubesDaTemporada[liga]) ? clubesDaTemporada[liga] : [];
     document.getElementById('wizard-busca-clube').value = '';
     wizardFiltrarClubes();
 }

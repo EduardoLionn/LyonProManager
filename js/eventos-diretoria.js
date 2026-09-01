@@ -97,9 +97,10 @@ function clubeInteressadoAleatorio() {
     let d = db[currentSave];
     let ligaAtual = d.liga || '';
     let destino = (typeof ligaMap !== 'undefined' && ligaMap[ligaAtual] && ligaMap[ligaAtual].up) ? ligaMap[ligaAtual].up : ligaAtual;
-    let lista = (typeof clubesPorLiga !== 'undefined' && clubesPorLiga[destino]) ? clubesPorLiga[destino] : null;
+    let clubesDaTemporada = (typeof clubesPorLigaDaTemporada === 'function') ? clubesPorLigaDaTemporada(d.temporadaAtual) : clubesPorLiga;
+    let lista = (clubesDaTemporada && clubesDaTemporada[destino]) ? clubesDaTemporada[destino] : null;
     if (!lista) {
-        let todas = (typeof clubesPorLiga !== 'undefined') ? Object.values(clubesPorLiga).flat() : [];
+        let todas = clubesDaTemporada ? Object.values(clubesDaTemporada).flat() : [];
         lista = todas.length ? todas : ['um clube do exterior'];
     }
     let candidatos = lista.filter(c => c.toLowerCase() !== String(d.nome || '').toLowerCase());
