@@ -594,7 +594,7 @@
                 let botaoDefesas = ehGoleiro ? `
                     <label class="btn-upload" style="margin:0; padding:6px 10px; font-size:12px; cursor:pointer;" title="Print da tela de defesas do goleiro (é uma tela separada do resumo geral)">
                         🧤 Defesas: ${j.defesas || 0}
-                        <input type="file" accept="image/*" style="display:none;" onchange="lerDefesasGoleiroIA(event, ${j.idTemp})">
+                        <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="lerDefesasGoleiroIA(event, ${j.idTemp})">
                     </label>` : '';
                 return `
                 <div style="background:rgba(0,255,136,0.05); border: 1px solid var(--border); border-radius:8px; margin-bottom:10px; padding:15px;">

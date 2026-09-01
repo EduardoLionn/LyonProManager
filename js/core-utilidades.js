@@ -343,6 +343,34 @@ function lerTexto(texto) {
             mostrarMenuPrincipal();
         }
         
+        // --- MENU MOBILE EM GAVETA (pedido do treinador) ---
+        // Abaixo de 900px a sidebar vira uma gaveta (ver @media max-width:900px em styles.css) —
+        // estas três funções abrem/fecham ela e o fundo escurecido atrás. mudarAba() chama
+        // fecharMenuMobile() sempre que uma aba é escolhida, então trocar de tela já fecha o menu
+        // sozinho (sem isso, a gaveta ficava aberta cobrindo a tela nova).
+        function abrirMenuMobile() {
+            let sidebar = document.querySelector('.sidebar');
+            let backdrop = document.getElementById('menu-mobile-backdrop');
+            if (sidebar) sidebar.classList.add('menu-aberto');
+            if (backdrop) backdrop.classList.add('ativo');
+            document.body.classList.add('menu-mobile-travado');
+        }
+        function fecharMenuMobile() {
+            let sidebar = document.querySelector('.sidebar');
+            let backdrop = document.getElementById('menu-mobile-backdrop');
+            if (sidebar) sidebar.classList.remove('menu-aberto');
+            if (backdrop) backdrop.classList.remove('ativo');
+            document.body.classList.remove('menu-mobile-travado');
+        }
+        function toggleMenuMobile() {
+            let sidebar = document.querySelector('.sidebar');
+            if (sidebar && sidebar.classList.contains('menu-aberto')) fecharMenuMobile();
+            else abrirMenuMobile();
+        }
+        // Girar o celular ou usar um tablet pode cruzar o breakpoint de 900px com o menu aberto —
+        // sem isso a gaveta ficaria com o transform de "aberta" mesmo depois de virar sidebar fixa.
+        window.addEventListener('resize', () => { if (window.innerWidth > 900) fecharMenuMobile(); });
+
         function toggleChatAuxiliar() {
             let panel = document.getElementById('panel-chat-auxiliar');
             let btn = document.getElementById('btn-toggle-chat-aux');
@@ -460,6 +488,9 @@ function toggleChatDiretoria() {
             document.getElementById(abaId).classList.add('active');
             let btn = document.querySelector(`.nav-btn[onclick="mudarAba('${abaId}')"]`);
             if(btn) btn.classList.add('active');
+            // Escolher uma aba fecha o menu em gaveta no celular — inofensivo no desktop, onde a
+            // sidebar não tem essa classe pra remover.
+            if (typeof fecharMenuMobile === 'function') fecharMenuMobile();
 
             if(abaId === 'tab-menu-principal') {
                 if (typeof menuPrincipalResetView === 'function') menuPrincipalResetView();
@@ -495,6 +526,10 @@ function toggleChatDiretoria() {
             // Restaura a navegação completa (o Menu Principal esconde tudo, inclusive a barra lateral)
             let sidebar = document.querySelector('.sidebar');
             if (sidebar) sidebar.style.display = 'flex';
+            // Devolve o controle da barra do ☰ pro @media (inline vazio = "usa a regra CSS de novo"),
+            // em vez de travar 'flex' fixo, que apareceria até no desktop.
+            let topbarMobile = document.querySelector('.mobile-topbar');
+            if (topbarMobile) topbarMobile.style.display = '';
             document.querySelectorAll('.sidebar .nav-btn').forEach(b => b.style.display = '');
             let saveControls = document.querySelector('.save-controls');
             if (saveControls) saveControls.style.display = 'block';

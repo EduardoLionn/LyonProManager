@@ -195,8 +195,8 @@
         .forma-recente-grande .forma-dot { width: 36px; height: 36px; font-size: 16px; }
 
         @media screen and (max-width: 900px) {
-            .kpi-container { grid-template-columns: 1fr 1fr; } /* Fica com 2 colunas no celular */
-            .dash-top-grid { grid-template-columns: 1fr; }
+            .kpi-container { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } /* Fica com 2 colunas no celular */
+            .dash-top-grid { grid-template-columns: minmax(0, 1fr); }
         }
 
         /* --- DASHBOARD: GRID PRINCIPAL (linha central + donuts à esquerda, partidas + barras à direita) --- */
@@ -240,48 +240,83 @@
         .modal-partidas-lista { max-height: 70vh; overflow-y: auto; padding-right: 6px; }
 
         @media screen and (max-width: 1150px) {
-            .dash-main-grid { grid-template-columns: 1fr; }
+            .dash-main-grid { grid-template-columns: minmax(0, 1fr); }
         }
         @media screen and (max-width: 700px) {
-            .donut-row { grid-template-columns: 1fr; }
+            .donut-row { grid-template-columns: minmax(0, 1fr); }
             .donut-card-body { flex-direction: column; }
         }
-        /* --- RESPONSIVIDADE PARA CELULARES E TELAS PEQUENAS --- */
+        /* =====================================================================================
+           MENU MOBILE EM GAVETA (pedido do treinador) — abaixo de 900px, a sidebar deixa de
+           empilhar no topo da página (empurrando todo o conteúdo pra baixo) e vira uma gaveta que
+           desliza por cima da tela, aberta pelo ☰ de uma barra fixa no topo. Fechar é automático
+           ao escolher uma aba (ver mudarAba(), em core-utilidades.js) ou tocar fora dela.
+           ===================================================================================== */
+        .mobile-topbar { display: none; }
+        .menu-mobile-backdrop { display: none; }
+
 @media screen and (max-width: 900px) {
     body {
         flex-direction: column !important;
         height: auto !important;
+        min-height: 100vh;
         overflow: auto !important;
     }
 
-    /* No desktop a barra da conta (e-mail + Sair) fica "flutuando" fixa no canto porque
-       normalmente não há nada embaixo dela. No mobile o layout inteiro é uma coluna só que
-       rola — "fixed" faz ela ficar grudada no topo da TELA (não da página) e cobrir/cortar
-       qualquer conteúdo que passe por trás dela ao rolar (botões, textos do chat, etc).
-       Tira do "fixed" e deixa ela no fluxo normal, no topo da página, acima da sidebar. */
-    #barra-conta {
-        position: static !important;
-        width: 100%;
-        box-sizing: border-box;
-        justify-content: flex-end;
-        border-radius: 0;
-    }
-    
-    .sidebar {
-        width: 100% !important;
-        height: auto !important;
-        border-right: none !important;
+    .mobile-topbar {
+        display: flex; align-items: center; gap: 12px;
+        position: sticky; top: 0; z-index: 1500;
+        padding: 12px 16px;
+        background-image: linear-gradient(180deg, #1A2620 0%, var(--sidebar-bg) 100%);
         border-bottom: 1px solid var(--border);
+        box-shadow: 0 6px 18px -12px rgba(0,0,0,0.6);
     }
-    
+    .btn-hamburguer {
+        flex: 0 0 auto; width: 40px; height: 40px; padding: 0;
+        background: var(--input-bg); border: 1px solid var(--border); color: var(--text-main);
+        border-radius: 10px; font-size: 19px; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .btn-hamburguer:hover { background: var(--panel-bg); transform: none; }
+    .mobile-topbar-titulo {
+        font-family: var(--font-display); color: var(--primary); font-size: 15px;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        text-shadow: 0 0 20px rgba(232, 184, 75, 0.3);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .menu-mobile-backdrop {
+        display: block; position: fixed; inset: 0; z-index: 2400;
+        background: rgba(6, 9, 8, 0.6); backdrop-filter: blur(2px);
+        opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .menu-mobile-backdrop.ativo { opacity: 1; pointer-events: auto; }
+    body.menu-mobile-travado { overflow: hidden !important; }
+
+    /* A sidebar vira a gaveta: fixa na tela inteira, começa fora da área visível (translateX)
+       e desliza pra dentro quando ganha ".menu-aberto" (ver toggleMenuMobile, em
+       core-utilidades.js). Some tudo que fazia sentido só no layout empilhado antigo. */
+    .sidebar {
+        position: fixed !important; top: 0; left: 0; z-index: 2500;
+        width: min(82vw, 300px) !important; height: 100vh !important; height: 100dvh !important;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.22, 0.9, 0.32, 1);
+        border-right: 1px solid var(--border) !important; border-bottom: none !important;
+        box-shadow: 18px 0 45px -20px rgba(0,0,0,0.75);
+    }
+    .sidebar.menu-aberto { transform: translateX(0); }
+
     .main-content {
-        padding: 15px !important;
+        padding: 16px !important;
         overflow: visible !important;
     }
 
-    /* Transforma os grids de colunas múltiplas em coluna única no mobile */
+    /* Transforma os grids de colunas múltiplas em coluna única no mobile. "minmax(0, 1fr)" (não
+       só "1fr") é o que realmente trava a coluna na largura da tela — sem o "0", a trilha do
+       grid ainda cresce pra caber o filho mais largo (um <select> com texto de opção comprido,
+       ex: "Capitão"/"Vice-capitão" no Elenco), e a página inteira ganha rolagem horizontal. */
     .grid-2, .grid-3, .grid-4, .grid-5 {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: minmax(0, 1fr) !important;
         gap: 10px !important;
     }
     /* Alguns itens desses grids têm "grid-column: span N" fixo no HTML (pra ocupar
@@ -301,7 +336,7 @@
     }
 
     .raiox-container {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: minmax(0, 1fr) !important;
     }
 
     /* Muitos cabeçalhos de painel (título + filtros/selects à direita) e alguns selects/inputs
@@ -336,6 +371,36 @@
         flex: 1 1 130px;
         min-width: 0;
     }
+}
+
+@media screen and (max-width: 600px) {
+    /* Fileiras de botões de ação (ex: cartão/lesão/pedir sugestão na partida ao vivo) usam
+       "flex:1; min-width:140-180px" — sozinho numa linha de ~340px de tela, isso vira um botão
+       gigante ocupando a largura toda, um atrás do outro ("nada dinâmico", "rolando eternamente").
+       O seletor de atributo casa qualquer valor de min-width sem precisar saber o número exato
+       (mesma técnica do "[style*=\"display: flex\"]" no bloco de 900px acima) e força 2 por linha. */
+    button[style*="min-width"] {
+        flex: 1 1 calc(50% - 5px) !important;
+        min-width: 128px !important;
+    }
+    /* Botões que já eram deliberadamente largura total (ex: "Iniciar Partida", os pills de
+       "Abrir/Ocultar Painel") continuam largura total — só o texto/padding encolhe um pouco pra
+       não virar uma barra enorme de canto a canto. */
+    button[style*="width: 100%"], button[style*="width:100%"] {
+        padding-top: 11px !important; padding-bottom: 11px !important;
+        font-size: 13px !important;
+    }
+}
+
+/* Telas baixas (celular deitado): o menu em gaveta já resolve a largura, falta a altura —
+   painéis com altura fixa em px (chat, modais) usam mais viewport do que sobra e cortam o
+   próprio conteúdo. Troca por uma fração da altura visível, então em pé ou deitado ele sempre
+   cabe. Regra por altura, funciona em qualquer largura de tela pequena. */
+@media screen and (max-height: 500px) and (max-width: 900px) {
+    .chat-container[style*="height"] {
+        height: min(78vh, 78dvh) !important;
+    }
+    .setup-box, .evento-box, .auth-box { max-height: 92vh; max-height: 92dvh; }
 }
 
         /* --- ESTILOS DO NOVO CAMPINHO E TOOLTIP --- */
@@ -488,7 +553,7 @@
     .medico-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
-    .medico-grid { grid-template-columns: 1fr; }
+    .medico-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Sugestões de Desenvolvimento Individual: uma linha por jogador, nome à esquerda e a função
@@ -702,7 +767,7 @@
 
 @media screen and (max-width: 700px) {
     .wizard-card { padding: 22px; }
-    .wizard-resumo-grid { grid-template-columns: 1fr; }
+    .wizard-resumo-grid { grid-template-columns: minmax(0, 1fr); }
     .save-card { flex-direction: column; align-items: flex-start; }
 }
 
@@ -959,7 +1024,7 @@
 .tatica-resumo span { color: var(--text-main); font-family: var(--font-display); letter-spacing: 0.4px; }
 
 @media (max-width: 768px) {
-    .tatica-grade { grid-template-columns: 1fr; }
+    .tatica-grade { grid-template-columns: minmax(0, 1fr); }
     .tatica-faixas { grid-template-columns: repeat(2, 1fr); }
     .tatica-slider-valor { width: 100%; }
 }
@@ -1250,15 +1315,15 @@ th { background-image: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,
 .secao-titulo-com-acoes::after { order: -1; min-width: 20px; }
 
 @media screen and (max-width: 1150px) {
-    .situacao-grid { grid-template-columns: 1fr 1fr; }
+    .situacao-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 @media screen and (max-width: 900px) {
-    .clube-hero { grid-template-columns: 1fr; gap: 16px; padding: 18px; }
+    .clube-hero { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px; }
     .clube-hero-nome { font-size: 24px; }
     .btn-iniciar-partida { width: 100%; }
 }
 @media screen and (max-width: 560px) {
-    .situacao-grid { grid-template-columns: 1fr; }
+    .situacao-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* =====================================================================================
@@ -1335,7 +1400,7 @@ th { background-image: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,
 .matchday-chip-destaque { border-color: var(--primary); color: var(--primary); background: rgba(232,184,75,0.1); font-weight: 600; }
 
 @media screen and (max-width: 600px) {
-    .matchday-confronto { grid-template-columns: 1fr; gap: 10px; text-align: center; padding: 16px 14px 12px; }
+    .matchday-confronto { grid-template-columns: minmax(0, 1fr); gap: 10px; text-align: center; padding: 16px 14px 12px; }
     .matchday-time, .matchday-time-adv { align-items: center; text-align: center; }
     .matchday-time-nome { font-size: 18px; }
     .matchday-vs { padding: 2px 0; }
