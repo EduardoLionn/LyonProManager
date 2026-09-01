@@ -243,7 +243,10 @@ function gerarRelatorioMedicoTexto() {
     let r = gerarRelatorioMedico();
     let partes = [];
     if (r.lesionados.length) partes.push(`Lesionados: ${r.lesionados.map(p => `${p.nome} (${p.diasLesao}d)`).join(', ')}`);
-    if (r.suspensos.length) partes.push(`Suspensos: ${r.suspensos.map(p => p.nome).join(', ')}`);
+    // Suspensão por cartão vermelho é assunto de partida, não de departamento médico — o
+    // pedido do treinador foi tirar essa "ocorrência médica" daqui. A exclusão de jogadores
+    // suspensos na escalação continua funcionando à parte, via checagem direta de
+    // p.suspensoVermelho (ver chat-ia.js), então nada de gameplay depende desta linha.
     if (r.critico.length) partes.push(`RISCO CRÍTICO DE LESÃO (rotação obrigatória): ${r.critico.map(p => `${p.nome} (${p.jogosSeguidos} jogos seguidos, fadiga ${Math.round(p.fadiga)}%)`).join(', ')}`);
     if (r.risco.length) partes.push(`Risco de lesão (priorizar descanso): ${r.risco.map(p => `${p.nome} (${p.jogosSeguidos} jogos seguidos, fadiga ${Math.round(p.fadiga)}%)`).join(', ')}`);
     if (r.alerta.length) partes.push(`Fadiga moderada: ${r.alerta.map(p => p.nome).join(', ')}`);
@@ -378,7 +381,6 @@ function atualizarDepartamentoMedicoUI() {
         cards.innerHTML = `
             <div class="stat-card" style="border-left-color: var(--primary);"><span>Elenco Ativo</span><strong>${totalAtivos}</strong></div>
             <div class="stat-card" style="border-left-color: var(--danger);"><span>Lesionados</span><strong>${r.lesionados.length}</strong></div>
-            <div class="stat-card" style="border-left-color: var(--warning);"><span>Suspensos</span><strong>${r.suspensos.length}</strong></div>
             <div class="stat-card" style="border-left-color: var(--danger);"><span>Risco de Lesão</span><strong>${r.risco.length + r.critico.length}</strong></div>
             <div class="stat-card" style="border-left-color: var(--warning);"><span>Fadiga Moderada</span><strong>${r.alerta.length}</strong></div>
         `;
@@ -413,8 +415,9 @@ function atualizarDepartamentoMedicoUI() {
         let ativos = [...db[currentSave].plantel].filter(p => p.status === 'Ativo');
         ativos.sort((a, b) => {
             let ca = condicaoJogador(a), cb = condicaoJogador(b);
-            let na = (a.diasLesao > 0 || a.suspensoVermelho) ? -1 : ordem[ca.nivel];
-            let nb = (b.diasLesao > 0 || b.suspensoVermelho) ? -1 : ordem[cb.nivel];
+            // Suspensão por cartão não fura fila aqui — é assunto de partida, não médico.
+            let na = (a.diasLesao > 0) ? -1 : ordem[ca.nivel];
+            let nb = (b.diasLesao > 0) ? -1 : ordem[cb.nivel];
             return na - nb;
         });
 
@@ -423,6 +426,13 @@ function atualizarDepartamentoMedicoUI() {
         // a rolagem da tela com o elenco inteiro.
         let cardsHtml = ativos.map(p => {
             let c = condicaoJogador(p);
+            // Suspensão por cartão vermelho não é uma "ocorrência médica" — o Departamento
+            // Médico só trata lesão e fadiga. O selo de suspenso continua na aba Elenco; aqui
+            // ele só deixa de aparecer quando esse era o ÚNICO motivo de indisponibilidade
+            // (uma lesão junto continua indisponível normalmente).
+            if (c.indisponivel && !(p.diasLesao > 0) && p.suspensoVermelho) {
+                c = Object.assign({}, c, { indisponivel: false, motivoIndisponivel: '' });
+            }
             // A barra reflete FADIGA (cansaço), não fôlego: quanto mais cheia/vermelha, mais
             // cansado o atleta está — por isso usa p.fadiga direto, nunca p.stamina.
             let fadigaPct = Math.max(0, Math.min(100, Math.round(p.fadiga)));
@@ -466,7 +476,8 @@ function atualizarDepartamentoMedicoUI() {
     // Alerta compacto reaproveitado na aba do Auxiliar Técnico
     let alertaAux = document.getElementById('auxiliar-alerta-medico');
     if (alertaAux) {
-        let indisp = r.lesionados.length + r.suspensos.length;
+        // Suspensão por cartão não entra na contagem "médica" — só lesão e fadiga.
+        let indisp = r.lesionados.length;
         let riscoTotal = r.risco.length + r.critico.length;
         if (indisp === 0 && riscoTotal === 0 && r.alerta.length === 0) {
             alertaAux.innerHTML = `🟢 <strong>Departamento Médico:</strong> elenco 100% saudável, sem sinais de fadiga.`;

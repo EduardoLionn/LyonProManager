@@ -155,6 +155,10 @@
            let nomeStatus = p.status;
            if (status === 'Comprado') nomeStatus = 'Comprado';
            if (status === 'EmprestadoIn') nomeStatus = 'Chegou Emp.';
+           // "Aposentado" é usado internamente pra qualquer saída sem venda/empréstimo, mas o
+           // motivo real pode ser bem diferente (o treinador reclamou que rescisão de contrato
+           // aparecia igual a aposentadoria de verdade) — motivoSaida guarda a distinção.
+           if (status === 'Aposentado') nomeStatus = p.motivoSaida === 'Dispensa' ? 'Dispensado' : 'Aposentado';
 
            let tdValor = mostrarColunaValor ? `<td data-label="Valor (€M)">€${(p.valor || 0).toFixed(1)}M</td>` : '';
 

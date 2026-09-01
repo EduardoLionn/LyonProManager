@@ -2509,9 +2509,14 @@ ${textoRegrasCompatibilidadePosicional()}
 
             let wrapExtra = document.getElementById('modal-trocar-botao-extra-wrap');
             if (wrapExtra) {
-                if (botaoExtra) {
-                    wrapExtra.style.display = 'block';
-                    wrapExtra.innerHTML = `<button onclick="${botaoExtra.onclick}" style="width:100%; background:var(--warning); color:#14150F; padding:11px; font-weight:bold; border-radius:8px; border:none; cursor:pointer;">${botaoExtra.label}</button>`;
+                // botaoExtra aceita um botão único (compatibilidade) ou uma lista de botões
+                // (ex: as ações rápidas de cartão/lesão ao clicar num jogador em campo).
+                let extras = botaoExtra ? (Array.isArray(botaoExtra) ? botaoExtra : [botaoExtra]) : [];
+                if (extras.length) {
+                    wrapExtra.style.display = 'flex';
+                    wrapExtra.style.flexDirection = 'column';
+                    wrapExtra.style.gap = '8px';
+                    wrapExtra.innerHTML = extras.map(b => `<button onclick="${b.onclick}" style="width:100%; background:${b.cor || 'var(--warning)'}; color:${b.corTexto || '#14150F'}; padding:11px; font-weight:bold; border-radius:8px; border:none; cursor:pointer;">${b.label}</button>`).join('');
                 } else {
                     wrapExtra.style.display = 'none';
                     wrapExtra.innerHTML = '';
@@ -2622,6 +2627,22 @@ ${textoRegrasCompatibilidadePosicional()}
                         : 'Limite de 5 substituições já atingido — só dá pra trocar de posição com outro titular.');
             }
 
+            // Pedido do treinador: em vez de só os botões genéricos lá embaixo (que abrem um
+            // seletor com o time inteiro), clicar direto no jogador já oferece declarar
+            // cartão/lesão PARA ELE — sem precisar escolher o nome de novo. Cartão amarelo/
+            // vermelho some da lista se ele já foi expulso nesta partida (não tem como cartear
+            // duas vezes o mesmo jogador).
+            let extrasAoVivo = null;
+            if (aoVivo && nomeAtual) {
+                let nomeEsc = nomeAtual.replace(/'/g, "\\'");
+                extrasAoVivo = [];
+                if (!jogadorExpulsoNestaPartida(partida, nomeAtual)) {
+                    extrasAoVivo.push({ label: '🟨 Cartão Amarelo', cor: 'var(--warning)', corTexto: '#14150F', onclick: `fecharModalTrocaEAbrirCartao('amarelo', '${nomeEsc}')` });
+                    extrasAoVivo.push({ label: '🟥 Cartão Vermelho', cor: 'var(--danger)', corTexto: 'white', onclick: `fecharModalTrocaEAbrirCartao('vermelho', '${nomeEsc}')` });
+                }
+                extrasAoVivo.push({ label: '🏥 Declarar Lesão', cor: 'var(--panel-bg)', corTexto: 'var(--text)', onclick: `fecharModalTrocaEAbrirLesao('${nomeEsc}')` });
+            }
+
             // "Não Relacionados": elenco ativo que nem está no banco de hoje — só faz sentido pré-jogo,
             // já que ao vivo não dá pra chamar alguém que não fazia parte da partida declarada.
             let opcoesNaoRelacionados = [];
@@ -2634,7 +2655,18 @@ ${textoRegrasCompatibilidadePosicional()}
                     .sort((a, b) => (a._ordemPos - b._ordemPos) || (b.ovr - a.ovr));
             }
 
-            abrirModalTroca(opcoesRecomendados, opcoesTodos, opcoesNaoRelacionados, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo);
+            abrirModalTroca(opcoesRecomendados, opcoesTodos, opcoesNaoRelacionados, `Trocar ${nomeAtual || 'vaga (' + role + ')'}`, subtitulo, extrasAoVivo);
+        }
+
+        // Fecha o modal de troca antes de abrir o de cartão/lesão (são modais diferentes —
+        // sem isso os dois ficariam sobrepostos na tela).
+        function fecharModalTrocaEAbrirCartao(tipo, nome) {
+            document.getElementById('modal-trocar-jogador').style.display = 'none';
+            abrirDeclararCartao(tipo, nome);
+        }
+        function fecharModalTrocaEAbrirLesao(nome) {
+            document.getElementById('modal-trocar-jogador').style.display = 'none';
+            abrirDeclararLesao(nome);
         }
 
         // Troca dois titulares de posição entre si — não mexe no banco, não conta como substituição.
@@ -2800,15 +2832,18 @@ ${textoRegrasCompatibilidadePosicional()}
         // que o Departamento Médico já usa.
         let _tipoCartaoAtual = null;
 
-        function abrirDeclararCartao(tipo) {
+        function abrirDeclararCartao(tipo, nomePreSelecionado) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || partida.status !== 'em_andamento' || !partida.titulares) return;
             _tipoCartaoAtual = tipo;
             let titulo = document.getElementById('modal-cartao-titulo');
             if (titulo) titulo.innerText = tipo === 'vermelho' ? '🟥 Declarar Cartão Vermelho' : '🟨 Declarar Cartão Amarelo';
             let jogadoresEmCampo = Object.values(partida.titulares).filter(j => j && j.nome && j.nome !== '???');
-            document.getElementById('modal-cartao-jogador').innerHTML = jogadoresEmCampo
+            let selectEl = document.getElementById('modal-cartao-jogador');
+            selectEl.innerHTML = jogadoresEmCampo
                 .map(j => `<option value="${j.nome}">${j.nome}</option>`).join('');
+            // Veio de um clique direto no jogador em campo — já entra selecionado, sem precisar escolher de novo.
+            if (nomePreSelecionado) selectEl.value = nomePreSelecionado;
             document.getElementById('modal-declarar-cartao').style.display = 'flex';
         }
 
@@ -2853,12 +2888,14 @@ ${textoRegrasCompatibilidadePosicional()}
         // QUANTOS DIAS ele fica de fora só é perguntado ao encerrar a partida (salvarPartida, em
         // js/diretoria-partidas.js) — o valor entra direto em diasLesao, que o Departamento Médico
         // já sabe descontar dos dias até a próxima partida (processarCondicaoFisicaPosPartida).
-        function abrirDeclararLesao() {
+        function abrirDeclararLesao(nomePreSelecionado) {
             let partida = db[currentSave].partidaAuxiliar;
             if (!partida || partida.status !== 'em_andamento' || !partida.titulares) return;
             let jogadoresEmCampo = Object.values(partida.titulares).filter(j => j && j.nome && j.nome !== '???');
-            document.getElementById('modal-lesao-jogador').innerHTML = jogadoresEmCampo
+            let selectEl = document.getElementById('modal-lesao-jogador');
+            selectEl.innerHTML = jogadoresEmCampo
                 .map(j => `<option value="${j.nome}">${j.nome}</option>`).join('');
+            if (nomePreSelecionado) selectEl.value = nomePreSelecionado;
             document.getElementById('modal-declarar-lesao').style.display = 'flex';
         }
 
