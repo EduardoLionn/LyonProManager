@@ -55,7 +55,7 @@ function scoutAbrirTab() {
     if (!db.clube.chatHistory.scout || db.clube.chatHistory.scout.length === 0) {
         db.clube.chatHistory.scout = [{
             role: 'ai',
-            text: `Fala, treinador! Sou o olheiro-chefe do ${db.clube.nome || 'clube'}. Me conta o que o elenco está precisando — uma posição, um perfil de jogo, uma faixa de idade, "algo mais barato"... — que eu trago nomes reais que fazem sentido pro nosso nível e pro nosso caixa. Sem spoiler de nota: isso você confere direto no seu jogo de futebol.`
+            text: `Fala, treinador! Sou ${(typeof nomeOlheiroExibicao === 'function') ? nomeOlheiroExibicao() : 'o Olheiro-Chefe'}, olheiro do ${db.clube.nome || 'clube'}. Me conta o que o elenco está precisando (posição, perfil, "algo mais barato"...) que eu já trago nomes reais no nosso nível — sem spoiler de nota.`
         }];
         salvarDados();
     }

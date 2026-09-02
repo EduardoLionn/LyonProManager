@@ -287,6 +287,10 @@ function lerTexto(texto) {
             let n = db[currentSave] && db[currentSave].nomeAuxiliar;
             return (n && n.trim()) ? n.trim() : 'Auxiliar Técnico';
         }
+        function nomeOlheiroExibicao() {
+            let n = db[currentSave] && db[currentSave].nomeOlheiro;
+            return (n && n.trim()) ? n.trim() : 'Olheiro-Chefe';
+        }
 
         function gerarResumoContexto() {
             let data = db[currentSave];
@@ -310,7 +314,28 @@ function lerTexto(texto) {
             let momento = (typeof contextoCompeticaoIA === 'function') ? contextoCompeticaoIA() : '';
             let vestiario = (typeof contextoVestiarioIA === 'function') ? contextoVestiarioIA() : '';
 
-            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${Math.round(data.notaDiretoria)}/100 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr} | Departamento Médico: ${boletimMedico || "Sem novidades."}]${momento ? `\n[MOMENTO DO TIME NA TEMPORADA: ${momento}]` : ''}${vestiario ? `\n[CLIMA DO VESTIÁRIO: ${vestiario}]` : ''}`;
+            // O elenco completo entra no contexto de TODO chat (Diretoria, Auxiliar, Scout) — sem
+            // isso a IA não tinha ideia de quem já está no time e podia "delirar" (ex: sugerir
+            // contratar um jogador que já é nosso). Vai pra todo mundo, não só pro Scout, porque
+            // o mesmo risco existe em qualquer conversa que fale de reforços ou do elenco.
+            let elencoIA = (typeof gerarResumoElencoIA === 'function') ? gerarResumoElencoIA() : '';
+
+            return `[CONTEXTO: Time: ${data.nome} | Temp: ${data.temporadaAtual} | Liga: ${data.liga} | Orçamento: €${data.orcamento.toFixed(2)}M | Prestigio: ${Math.round(data.notaDiretoria)}/100 | Últimos Resultados: ${ultimasPartidas} | Últimas Notícias e Movimentações: ${ultimasNoticias} | Metas: ${objStr} | Departamento Médico: ${boletimMedico || "Sem novidades."}]${momento ? `\n[MOMENTO DO TIME NA TEMPORADA: ${momento}]` : ''}${vestiario ? `\n[CLIMA DO VESTIÁRIO: ${vestiario}]` : ''}${elencoIA ? `\n[ELENCO ATUAL — NUNCA sugira contratar ou tratar como novidade alguém já listado aqui: ${elencoIA}]` : ''}`;
+        }
+
+        // Lista compacta do elenco atual pro contexto da IA (todo chat usa isso, não só o Scout) —
+        // nome, posição, idade e OVR de cada jogador Ativo, mais quem está fora (vendido,
+        // emprestado, lesionado, suspenso, aposentado) pra IA nunca contar com eles por engano.
+        function gerarResumoElencoIA() {
+            let elenco = (db[currentSave] && db[currentSave].plantel) || [];
+            if (elenco.length === 0) return '';
+            let ativos = elenco.filter(p => p.status === 'Ativo');
+            let indisponiveis = elenco.filter(p => p.status !== 'Ativo');
+            let listaAtivos = ativos.map(p => `${p.nome} (${p.posicao}, ${p.idade || '?'} anos, OVR ${p.ovr})`).join('; ');
+            let listaIndisponiveis = indisponiveis.length
+                ? ` | Fora do elenco disponível agora (${indisponiveis.map(p => `${p.nome}: ${p.status}`).join('; ')})`
+                : '';
+            return `${listaAtivos || 'nenhum jogador ativo cadastrado'}${listaIndisponiveis}`;
         }
 
         function toggleModoVideo() {
@@ -429,6 +454,8 @@ function toggleChatDiretoria() {
             document.getElementById('perfil-nome-tecnico').value = db[currentSave].nomeTecnico || '';
             document.getElementById('perfil-nome-diretor').value = db[currentSave].nomeDiretor || '';
             document.getElementById('perfil-nome-auxiliar').value = db[currentSave].nomeAuxiliar || '';
+            let campoOlheiro = document.getElementById('perfil-nome-olheiro');
+            if (campoOlheiro) campoOlheiro.value = db[currentSave].nomeOlheiro || '';
         }
 
         function salvarPerfilTreinador() {
@@ -438,6 +465,8 @@ function toggleChatDiretoria() {
             db[currentSave].nomeTecnico = nome;
             db[currentSave].nomeDiretor = document.getElementById('perfil-nome-diretor').value.trim();
             db[currentSave].nomeAuxiliar = document.getElementById('perfil-nome-auxiliar').value.trim();
+            let campoOlheiro = document.getElementById('perfil-nome-olheiro');
+            if (campoOlheiro && currentSave === 'clube') db[currentSave].nomeOlheiro = campoOlheiro.value.trim();
             salvarDados();
             document.getElementById('header-nome-tecnico').innerText = nome;
             alert("Perfil salvo!");
