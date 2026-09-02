@@ -364,8 +364,77 @@ function wizardValidarTatica() {
     return true;
 }
 
+// Traduz a sigla de posição EA (do banco de jogadores reais, ex: "CB", "ST", "LW") pra sigla
+// de "Posição Base" que classificarEspecialidadesEmLote()/PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA
+// já entendem (mesmas siglas que a leitura de print por IA usa) — assim o elenco real passa
+// pela mesma classificação de especialidade (scout) que qualquer outro jogador cadastrado.
+const MAPA_POSICAO_EA_PARA_BASE = {
+    GK: 'GL',
+    CB: 'ZAG', LCB: 'ZAG', RCB: 'ZAG',
+    LB: 'LE', RB: 'LD',
+    CDM: 'VOL', LDM: 'VOL', RDM: 'VOL',
+    CM: 'MC', LCM: 'MC', RCM: 'MC',
+    CAM: 'MEI', LAM: 'MEI', RAM: 'MEI',
+    LM: 'ME', RM: 'MD',
+    LW: 'ME', RW: 'MD',
+    LS: 'ATA', RS: 'ATA', ST: 'ATA'
+};
+
+// Mostra (ou esconde) o banner "encontramos o elenco real desse clube" na etapa de Elenco —
+// só aparece se o clube escolhido tem base real cadastrada E o elenco ainda está vazio (nunca
+// sobrescreve cadastro manual ou leitura por print já feita).
+function wizardVerificarElencoReal() {
+    let banner = document.getElementById('wizard-elenco-real-banner');
+    if (!banner) return;
+
+    if (currentSave !== 'clube' || typeof elencoRealDoClube !== 'function') { banner.style.display = 'none'; return; }
+
+    let nomeClube = (document.getElementById('setup-nome-time').value || '').trim();
+    let temporada = document.getElementById('setup-temporada') ? document.getElementById('setup-temporada').value : '';
+    let elencoReal = nomeClube ? elencoRealDoClube(nomeClube, temporada) : null;
+
+    if (!elencoReal || (db.clube.plantel || []).length > 0) { banner.style.display = 'none'; return; }
+
+    banner.style.display = 'flex';
+    banner.innerHTML = `
+        <span>⚽ Encontramos o elenco real do <strong>${nomeClube}</strong> (${elencoReal.length} jogadores) — quer carregar tudo automaticamente em vez de cadastrar um por um?</span>
+        <button type="button" onclick="wizardCarregarElencoReal()">✅ Carregar Elenco Real</button>
+    `;
+}
+
+// Carrega o elenco real do clube escolhido: pega nome/idade/OVR do banco de jogadores reais e
+// classifica a especialidade de cada um pela mesma IA de scout usada na leitura de print
+// (classificarEspecialidadesEmLote), pra virar um jogador jogável de verdade (com função certa
+// pra escalação), não só um nome com uma sigla EA que o jogo nem usa.
+async function wizardCarregarElencoReal() {
+    let nomeClube = (document.getElementById('setup-nome-time').value || '').trim();
+    let temporada = document.getElementById('setup-temporada') ? document.getElementById('setup-temporada').value : '';
+    let elencoReal = elencoRealDoClube(nomeClube, temporada);
+    if (!elencoReal || elencoReal.length === 0) return;
+
+    atualizarLoaderPlantel('Classificando a especialidade de cada jogador do elenco real...');
+
+    let lote = elencoReal.map(p => ({
+        nome: p.nome,
+        posicaoBase: MAPA_POSICAO_EA_PARA_BASE[p.posicao] || 'MC',
+        ovr: p.ovr
+    }));
+    let classificacoes = await classificarEspecialidadesEmLote(lote);
+
+    db.clube.plantel = elencoReal.map((p, idx) => {
+        let posicaoClassificada = ESPECIALIDADES_JOGADOR[classificacoes[idx]] ? classificacoes[idx] : 'MeioCampo/Dinâmico';
+        let jogador = { nome: p.nome, posicao: posicaoClassificada, ovr: p.ovr, idade: p.idade, status: 'Ativo', jogosAvaliacao: 0 };
+        if (typeof garantirCamposElenco === 'function') garantirCamposElenco(jogador);
+        return jogador;
+    });
+
+    atualizarLoaderPlantel('');
+    wizardRenderElenco();
+}
+
 // --- ETAPA: ELENCO INICIAL (apenas modo Clube) ---
 function wizardRenderElenco() {
+    wizardVerificarElencoReal();
     let tbody = document.querySelector('#wizard-tabela-elenco tbody');
     let elenco = db.clube.plantel || [];
     if (elenco.length === 0) {
