@@ -501,7 +501,7 @@
                         <input type="text" id="setup-nome-tecnico" list="lista-tecnicos" placeholder="Ex: Carlo Ancelotti (ou digite o seu)">
                     </div>
                 </div>
-                <div class="grid-2">
+                <div class="grid-3">
                     <div class="linha-form">
                         <label>Nome do Diretor Executivo</label>
                         <input type="text" id="setup-nome-diretor" placeholder="Ex: Florentino Perez (opcional)">
@@ -509,6 +509,10 @@
                     <div class="linha-form">
                         <label>Nome do Auxiliar Técnico</label>
                         <input type="text" id="setup-nome-auxiliar" placeholder="Ex: Zico (opcional)">
+                    </div>
+                    <div class="linha-form">
+                        <label>Nome do Olheiro-Chefe</label>
+                        <input type="text" id="setup-nome-olheiro" placeholder="Ex: Juni Calafat (opcional)">
                     </div>
                 </div>
                 <div class="grid-2" id="wizard-linha-nome-time" style="display:none;">
@@ -1462,6 +1466,18 @@
                     </div>
                     <button onclick="apagarChat('scout')" style="background: var(--danger); color: white; padding: 6px 12px; font-size: 12px; white-space:nowrap;">🗑️ Apagar Conversa</button>
                 </div>
+                <div style="text-align:right; margin-top:10px;">
+                    <button id="btn-toggle-perfil-clube" onclick="scoutToggleConfigPerfilClube()" style="background: transparent; border:1px solid var(--gold); color:var(--gold); padding:8px 14px; font-size:13px;">⚙️ Perfil do Clube (ligas que costumamos contratar)</button>
+                </div>
+                <div id="scout-perfil-clube-corpo" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid var(--border);">
+                    <div class="linha-form" style="max-width:340px;">
+                        <label>Valor Máximo por Jogador (€M) <span style="font-weight:normal; color:var(--text-muted); font-size:11px;">— estimativa própria, não é dado real de mercado</span></label>
+                        <input type="number" id="scout-valor-maximo" placeholder="Deixe vazio pra não limitar" onchange="scoutSalvarValorMaximo()">
+                    </div>
+                    <p style="font-size:12px; color:var(--text-muted); margin:15px 0 8px;">Prioridade de contratação por liga — A é onde o clube mais costuma comprar, E é raríssimo. Dá pra aplicar por país inteiro ou ajustar liga por liga.</p>
+                    <div id="scout-ligas-prioridade-grid" style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));"></div>
+                </div>
+
                 <div class="chat-log" id="chat-log-scout" style="margin-top:15px;"></div>
                 <div class="chat-input-area">
                     <div class="quick-replies" id="quick-scout"></div>
@@ -1471,6 +1487,12 @@
                         <button onclick="enviarChat('scout')" style="padding: 10px 20px; font-size:14px; background: var(--primary); color:#14150F;">Perguntar</button>
                     </div>
                 </div>
+            </div>
+
+            <div class="panel" style="border-top: 4px solid var(--gold);">
+                <h3 style="margin-top:0;">⭐ Lista de Interesse</h3>
+                <p class="wizard-subtitle" style="margin-bottom:10px;">Jogadores que o olheiro sugeriu e você quis guardar pra decidir depois.</p>
+                <div id="scout-lista-interesse-corpo"></div>
             </div>
         </div>
 
@@ -1684,6 +1706,10 @@
                     <div class="linha-form">
                         <label>Nome do Auxiliar Técnico</label>
                         <input type="text" id="perfil-nome-auxiliar" placeholder="Ex: Zico (opcional)">
+                    </div>
+                    <div class="linha-form">
+                        <label>Nome do Olheiro-Chefe</label>
+                        <input type="text" id="perfil-nome-olheiro" placeholder="Ex: Juni Calafat (opcional)">
                     </div>
                 </div>
                 <button style="margin-top:10px;" onclick="salvarPerfilTreinador()">💾 Salvar Perfil</button>

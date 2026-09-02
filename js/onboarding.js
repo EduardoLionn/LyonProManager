@@ -155,7 +155,7 @@ function wizardIniciar() {
 
     // Reseta os campos do assistente (evita "vazamento" de dados entre saves/slots)
     ['setup-nome-time', 'setup-nome-time-selecao', 'setup-save-name', 'setup-nome-tecnico',
-     'setup-nome-diretor', 'setup-nome-auxiliar',
+     'setup-nome-diretor', 'setup-nome-auxiliar', 'setup-nome-olheiro',
      'setup-dir-media-gasto', 'setup-dir-media-arrecadacao', 'setup-dir-titulos', 'setup-dir-posicao', 'setup-dir-posicao-copa']
         .forEach(id => { let el = document.getElementById(id); if (el) el.value = ''; });
     wizardLigaSelecionada = null;
@@ -485,6 +485,7 @@ function wizardRenderResumo() {
     let tecnico = document.getElementById('setup-nome-tecnico').value.trim();
     let nomeDiretor = document.getElementById('setup-nome-diretor').value.trim();
     let nomeAuxiliar = document.getElementById('setup-nome-auxiliar').value.trim();
+    let nomeOlheiro = document.getElementById('setup-nome-olheiro').value.trim();
     let liga = document.getElementById('setup-liga').value;
     let temporada = currentSave === 'clube' ? document.getElementById('setup-temporada').value : document.getElementById('setup-ciclo').value;
     let mediaGasto = document.getElementById('setup-dir-media-gasto').value || 0;
@@ -509,7 +510,10 @@ function wizardRenderResumo() {
         ['Posição média na liga', posicao],
         ['Desempenho médio na copa', posicaoCopa]
     ];
-    if (currentSave === 'clube') itens.push(['Jogadores declarados', (db.clube.plantel || []).length]);
+    if (currentSave === 'clube') {
+        itens.push(['Olheiro-Chefe', nomeOlheiro || 'O Olheiro-Chefe']);
+        itens.push(['Jogadores declarados', (db.clube.plantel || []).length]);
+    }
 
     document.getElementById('wizard-resumo-grid').innerHTML = itens.map(([label, val]) =>
         `<div class="wizard-resumo-item"><span>${label}</span><strong>${val}</strong></div>`
@@ -526,6 +530,7 @@ async function wizardFinalizar() {
     let nomeTecnico = document.getElementById('setup-nome-tecnico').value.trim();
     let nomeDiretor = document.getElementById('setup-nome-diretor').value.trim();
     let nomeAuxiliar = document.getElementById('setup-nome-auxiliar').value.trim();
+    let nomeOlheiro = document.getElementById('setup-nome-olheiro').value.trim();
     let liga = document.getElementById('setup-liga').value;
     let temporada = currentSave === 'clube' ? document.getElementById('setup-temporada').value : document.getElementById('setup-ciclo').value;
 
@@ -534,6 +539,7 @@ async function wizardFinalizar() {
     db[currentSave].nomeTecnico = nomeTecnico;
     db[currentSave].nomeDiretor = nomeDiretor;
     db[currentSave].nomeAuxiliar = nomeAuxiliar;
+    if (currentSave === 'clube') db[currentSave].nomeOlheiro = nomeOlheiro;
     db[currentSave].liga = liga;
     db[currentSave].temporadaAtual = temporada;
 

@@ -35,8 +35,12 @@ const SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA = {
 };
 
 // Quantos candidatos (no máximo) entram no pool de cada grupo de posição — controla o tamanho
-// do prompt enviado à IA.
-const SCOUT_CANDIDATOS_POR_GRUPO = 12;
+// do prompt enviado à IA. Setor prioritário (curto ou fraco) ganha mais opções; os outros ganham
+// só um punhado, caso o treinador pergunte por eles mesmo assim. Com os 7 grupos possíveis, isso
+// mantém o pool bem menor que mandar o máximo em todo setor (que deixava a IA lenta demais e
+// estourava o timeout da conversa).
+const SCOUT_CANDIDATOS_GRUPO_PRIORITARIO = 8;
+const SCOUT_CANDIDATOS_GRUPO_PADRAO = 4;
 
 function scoutObterBaseDaEdicao() {
     if (currentSave !== 'clube' || typeof jogadoresPorClubePorEdicao !== 'object') return null;
@@ -45,17 +49,121 @@ function scoutObterBaseDaEdicao() {
     return jogadoresPorClubePorEdicao[edicao] || jogadoresPorClubePorEdicao.fc26 || null;
 }
 
-// Abre a aba: garante o histórico do chat e manda uma mensagem de boas-vindas na primeira vez.
+// Abre a aba: garante o histórico do chat, manda uma mensagem de boas-vindas na primeira vez, e
+// renderiza o Perfil do Clube + a Lista de Interesse.
 function scoutAbrirTab() {
     if (!db.clube.chatHistory) db.clube.chatHistory = {};
     if (!db.clube.chatHistory.scout || db.clube.chatHistory.scout.length === 0) {
         db.clube.chatHistory.scout = [{
             role: 'ai',
-            text: `Fala, treinador! Sou o olheiro-chefe do ${db.clube.nome || 'clube'}. Me conta o que o elenco está precisando — uma posição, um perfil de jogo, uma faixa de idade, "algo mais barato"... — que eu trago nomes reais que fazem sentido pro nosso nível e pro nosso caixa. Sem spoiler de nota: isso você confere direto no seu jogo de futebol.`
+            text: `Fala, treinador! Sou ${(typeof nomeOlheiroExibicao === 'function') ? nomeOlheiroExibicao() : 'o Olheiro-Chefe'}, olheiro do ${db.clube.nome || 'clube'}. Me conta o que o elenco está precisando (posição, perfil, "algo mais barato"...) que eu já trago nomes reais no nosso nível — sem spoiler de nota.`
         }];
         salvarDados();
     }
     renderizarChat('scout');
+    scoutRenderPerfilClube();
+    scoutRenderListaInteresse();
+}
+
+// ============================================================
+// PERFIL DO CLUBE — ligas prioritárias de contratação (A a E) + teto de valor por jogador.
+// Pedido do treinador: o olheiro deve preferir ligas de onde o clube "costuma comprar" (definido
+// por país inteiro ou liga específica) e nunca sugerir alguém acima do teto de valor — como não
+// existe uma base real de valores de mercado nesse app, o teto usa uma ESTIMATIVA própria (por
+// OVR e idade), só pra filtrar de forma realista, nunca exibida ao treinador.
+// ============================================================
+
+const SCOUT_ORDEM_PRIORIDADE = ['A', 'B', 'C', 'D', 'E'];
+
+function scoutObterPerfilClube() {
+    if (!db.clube.scoutPerfil) db.clube.scoutPerfil = { valorMaximo: null, prioridadePorLiga: {} };
+    if (!db.clube.scoutPerfil.prioridadePorLiga) db.clube.scoutPerfil.prioridadePorLiga = {};
+    return db.clube.scoutPerfil;
+}
+
+// Estimativa própria de valor de mercado (NÃO é dado real — o app não tem uma base de valores de
+// transferência). Serve só pra aplicar o teto que o treinador define; nunca é mostrada na tela.
+function scoutEstimarValorMercado(ovr, idade) {
+    let base = Math.pow(1.22, Math.max(0, ovr - 60)) * 0.5;
+    let fatorIdade = idade <= 23 ? 1.3 : idade <= 27 ? 1.15 : idade <= 30 ? 0.9 : idade <= 33 ? 0.55 : 0.3;
+    return Math.max(0.1, Math.round(base * fatorIdade * 10) / 10);
+}
+
+// Lê os países/ligas a partir do select oculto "#setup-liga" (fonte única já usada pelo wizard e
+// pela Troca de Liga) — evita duplicar essa lista de novo só pro Scout.
+function scoutObterPaisesELigas() {
+    let optgroups = [...document.querySelectorAll('#setup-liga optgroup')].filter(og => !og.label.includes('Seleções'));
+    return optgroups.map(og => ({ pais: og.label, ligas: [...og.children].map(opt => opt.value) }));
+}
+
+function scoutToggleConfigPerfilClube() {
+    let corpo = document.getElementById('scout-perfil-clube-corpo');
+    let btn = document.getElementById('btn-toggle-perfil-clube');
+    if (!corpo) return;
+    if (corpo.style.display === 'none') {
+        corpo.style.display = 'block';
+        if (btn) btn.innerHTML = '👁️ Ocultar Perfil do Clube';
+        scoutRenderPerfilClube();
+    } else {
+        corpo.style.display = 'none';
+        if (btn) btn.innerHTML = '⚙️ Perfil do Clube (ligas que costumamos contratar)';
+    }
+}
+
+function scoutSalvarValorMaximo() {
+    let valor = document.getElementById('scout-valor-maximo').value;
+    scoutObterPerfilClube().valorMaximo = valor ? Number(valor) : null;
+    salvarDados();
+}
+
+function scoutDefinirPrioridadeLiga(liga, tier) {
+    let perfil = scoutObterPerfilClube();
+    if (tier) perfil.prioridadePorLiga[liga] = tier;
+    else delete perfil.prioridadePorLiga[liga];
+    salvarDados();
+}
+
+// "Colocar por país": aplica a mesma prioridade a todas as ligas daquele país de uma vez.
+function scoutDefinirPrioridadePais(pais, tier) {
+    if (!tier) return;
+    let grupo = scoutObterPaisesELigas().find(g => g.pais === pais);
+    if (!grupo) return;
+    let perfil = scoutObterPerfilClube();
+    grupo.ligas.forEach(liga => perfil.prioridadePorLiga[liga] = tier);
+    salvarDados();
+    scoutRenderPerfilClube();
+}
+
+function scoutRenderPerfilClube() {
+    let container = document.getElementById('scout-ligas-prioridade-grid');
+    if (!container) return;
+    let perfil = scoutObterPerfilClube();
+
+    let campoValor = document.getElementById('scout-valor-maximo');
+    if (campoValor) campoValor.value = (perfil.valorMaximo !== null && perfil.valorMaximo !== undefined) ? perfil.valorMaximo : '';
+
+    let opcoesTier = (selecionado) => ['', ...SCOUT_ORDEM_PRIORIDADE].map(t =>
+        `<option value="${t}" ${t === (selecionado || '') ? 'selected' : ''}>${t || '—'}</option>`).join('');
+
+    container.innerHTML = scoutObterPaisesELigas().map(({ pais, ligas }) => {
+        let linhasLigas = ligas.map(liga => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0 3px 14px; font-size:12.5px;">
+                <span>${liga}</span>
+                <select onchange="scoutDefinirPrioridadeLiga('${liga.replace(/'/g, "\\'")}', this.value)" style="width:64px; padding:2px;">
+                    ${opcoesTier(perfil.prioridadePorLiga[liga])}
+                </select>
+            </div>`).join('');
+        return `<div style="border:1px solid var(--border); border-radius:8px; padding:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <strong style="font-size:13px;">${pais}</strong>
+                <select onchange="scoutDefinirPrioridadePais('${pais.replace(/'/g, "\\'")}', this.value)" style="width:130px; padding:2px; font-size:12px;">
+                    <option value="">Aplicar a todo país...</option>
+                    ${SCOUT_ORDEM_PRIORIDADE.map(t => `<option value="${t}">${t}</option>`).join('')}
+                </select>
+            </div>
+            ${linhasLigas}
+        </div>`;
+    }).join('');
 }
 
 // Extrai o OVR de referência da liga (ex: "Premier League (OVR 77)" -> 77) — é o proxy mais
@@ -76,26 +184,38 @@ function scoutNivelClubeAtual() {
 }
 
 // Radiografia do elenco atual por setor — uso interno do prompt (a IA usa isso pra embasar a
-// necessidade real, mas não repete os números pro treinador).
-function scoutResumoNecessidadesElenco() {
+// necessidade real, mas não repete os números pro treinador) e também pra decidir quantos
+// candidatos de cada setor entram no pool (setor carente ganha mais opções, setor bem servido
+// ganha menos — mantém o prompt enxuto sem perder profundidade onde ela realmente importa).
+function scoutAnalisarElencoPorGrupo() {
     let ativos = (db.clube.plantel || []).filter(p => p.status === 'Ativo');
+    let nivelClube = scoutNivelClubeAtual();
     let porGrupo = {};
-    Object.keys(SCOUT_GRUPOS_POSICAO).forEach(g => porGrupo[g] = []);
+    Object.keys(SCOUT_GRUPOS_POSICAO).forEach(g => porGrupo[g] = { jogadores: [] });
 
     ativos.forEach(p => {
         let prefixo = String(p.posicao || '').split('/')[0];
         let grupo = prefixo === 'MeioCampo' ? 'Meio-Campo' : prefixo;
-        if (porGrupo[grupo]) porGrupo[grupo].push(p);
+        if (porGrupo[grupo]) porGrupo[grupo].jogadores.push(p);
     });
 
-    let nivelClube = scoutNivelClubeAtual();
-    let linhas = Object.entries(porGrupo).map(([grupo, jogadores]) => {
-        if (jogadores.length === 0) return `- ${grupo}: NENHUM jogador ativo nesse setor — necessidade urgente.`;
-        let idadeMedia = Math.round(jogadores.reduce((s, p) => s + (p.idade || 25), 0) / jogadores.length);
-        let ovrMedio = Math.round(jogadores.reduce((s, p) => s + (p.ovr || 0), 0) / jogadores.length);
-        let alerta = jogadores.length === 1 ? ' (elenco curto — só 1 opção nesse setor)'
-            : (ovrMedio < nivelClube - 5 ? ' (nível visivelmente abaixo da média do time)' : '');
-        return `- ${grupo}: ${jogadores.length} jogador${jogadores.length === 1 ? '' : 'es'}, idade média ${idadeMedia}${alerta}`;
+    Object.values(porGrupo).forEach(info => {
+        let jogadores = info.jogadores;
+        info.idadeMedia = jogadores.length ? Math.round(jogadores.reduce((s, p) => s + (p.idade || 25), 0) / jogadores.length) : null;
+        info.ovrMedio = jogadores.length ? Math.round(jogadores.reduce((s, p) => s + (p.ovr || 0), 0) / jogadores.length) : null;
+        info.prioridade = jogadores.length <= 1 || (info.ovrMedio !== null && info.ovrMedio < nivelClube - 5);
+    });
+
+    return porGrupo;
+}
+
+function scoutResumoNecessidadesElenco() {
+    let porGrupo = scoutAnalisarElencoPorGrupo();
+    let linhas = Object.entries(porGrupo).map(([grupo, info]) => {
+        if (info.jogadores.length === 0) return `- ${grupo}: NENHUM jogador ativo nesse setor — necessidade urgente.`;
+        let alerta = info.jogadores.length === 1 ? ' (elenco curto — só 1 opção nesse setor)'
+            : (info.prioridade ? ' (nível visivelmente abaixo da média do time)' : '');
+        return `- ${grupo}: ${info.jogadores.length} jogador${info.jogadores.length === 1 ? '' : 'es'}, idade média ${info.idadeMedia}${alerta}`;
     });
 
     return `Elenco atual por setor (uso interno pra embasar a necessidade real — não repita esses números pro treinador):\n${linhas.join('\n')}`;
@@ -120,6 +240,8 @@ function scoutMontarCandidatos() {
     let nivelClube = scoutNivelClubeAtual();
     let anos = (typeof anosAlemDaBaseDadosReais === 'function') ? anosAlemDaBaseDadosReais(db.clube.temporadaAtual) : 0;
     let nomeClubeProprio = db.clube.nome;
+    let analiseElenco = scoutAnalisarElencoPorGrupo();
+    let perfil = scoutObterPerfilClube();
 
     let porGrupo = {};
     Object.keys(SCOUT_GRUPOS_POSICAO).forEach(g => porGrupo[g] = []);
@@ -131,15 +253,27 @@ function scoutMontarCandidatos() {
                 let grupo = Object.keys(SCOUT_GRUPOS_POSICAO).find(g => SCOUT_GRUPOS_POSICAO[g].includes(j.posicao));
                 if (!grupo) return;
                 if (j.ovr < nivelClube - 16 || j.ovr > nivelClube + 8) return; // fora de qualquer realismo pro nosso tamanho
-                porGrupo[grupo].push({ nome: j.nome, clube, liga, idade: j.idade + anos, posicaoEA: j.posicao, ovr: j.ovr });
+                let idadeAjustada = j.idade + anos;
+                // Teto de valor (estimativa própria, nunca exibida) — corta quem está claramente
+                // fora do orçamento que o treinador definiu no Perfil do Clube.
+                if (perfil.valorMaximo && scoutEstimarValorMercado(j.ovr, idadeAjustada) > perfil.valorMaximo) return;
+                let prioridade = perfil.prioridadePorLiga[liga] || 'C'; // sem configuração = prioridade neutra
+                porGrupo[grupo].push({ nome: j.nome, clube, liga, idade: idadeAjustada, posicaoEA: j.posicao, ovr: j.ovr, prioridade });
             });
         });
     });
 
     let pool = [];
     let blocos = Object.entries(porGrupo).map(([grupo, lista]) => {
-        lista.sort((a, b) => Math.abs(a.ovr - nivelClube) - Math.abs(b.ovr - nivelClube));
-        let selecionados = lista.slice(0, SCOUT_CANDIDATOS_POR_GRUPO);
+        // Prioridade da liga é o critério principal (A antes de B, antes de C...); dentro da mesma
+        // prioridade, o mais próximo do nosso nível (OVR) vem primeiro.
+        lista.sort((a, b) => {
+            let diffPrioridade = SCOUT_ORDEM_PRIORIDADE.indexOf(a.prioridade) - SCOUT_ORDEM_PRIORIDADE.indexOf(b.prioridade);
+            if (diffPrioridade !== 0) return diffPrioridade;
+            return Math.abs(a.ovr - nivelClube) - Math.abs(b.ovr - nivelClube);
+        });
+        let limite = (analiseElenco[grupo] && analiseElenco[grupo].prioridade) ? SCOUT_CANDIDATOS_GRUPO_PRIORITARIO : SCOUT_CANDIDATOS_GRUPO_PADRAO;
+        let selecionados = lista.slice(0, limite);
         if (selecionados.length === 0) return '';
         pool.push(...selecionados);
         let linhas = selecionados.map(j => `${j.nome} (${j.clube}, ${j.liga}, ${j.idade} anos, ${j.posicaoEA}) — nível: ${scoutRotuloNivel(j.ovr, nivelClube)}`);
@@ -150,16 +284,24 @@ function scoutMontarCandidatos() {
 }
 
 // Card com os jogadores citados nesta resposta do olheiro — SEM ovr em lugar nenhum. Cada um tem
-// um atalho pra já preencher nome/posição/idade no formulário de compra (Transferências); o custo
-// e o OVR ficam de propósito pro treinador preencher depois de ver o jogador no próprio jogo.
+// um atalho pra já preencher nome/posição/idade no formulário de compra (Transferências) e outro
+// pra salvar/remover da Lista de Interesse; o custo e o OVR ficam de propósito pro treinador
+// preencher/descobrir depois de ver o jogador no próprio jogo.
 function renderizarCardSugestoesScout(sugestoes) {
     if (!Array.isArray(sugestoes) || sugestoes.length === 0) return '';
     return `<div class="sugestao-sub-card" style="display:flex; flex-direction:column; gap:10px;">
-        ${sugestoes.map(s => `
+        ${sugestoes.map(s => {
+            let salvo = scoutEstaNaListaInteresse(s.nome, s.clube);
+            let argsJs = `'${s.nome.replace(/'/g, "\\'")}', '${s.clube.replace(/'/g, "\\'")}', '${s.liga.replace(/'/g, "\\'")}', ${s.idade}, '${s.posicaoEA}'`;
+            return `
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
                 <span><strong>${s.nome}</strong> — ${s.clube} (${s.liga}), ${s.idade} anos</span>
-                <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${s.nome.replace(/'/g, "\\'")}', '${s.posicaoEA}', ${s.idade})">📥 Usar no Formulário de Compra</button>
-            </div>`).join('')}
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${s.nome.replace(/'/g, "\\'")}', '${s.posicaoEA}', ${s.idade})">📥 Usar no Formulário de Compra</button>
+                    <button class="${salvo ? 'btn-ssc-rejeitar' : 'btn-ssc-alterar'}" onclick="scoutToggleInteresse(${argsJs})">${salvo ? '🗑️ Remover da Lista' : '⭐ Salvar na Lista'}</button>
+                </div>
+            </div>`;
+        }).join('')}
     </div>`;
 }
 
@@ -182,4 +324,44 @@ function scoutUsarNomeNoFormularioCompra(nome, siglaEA, idade) {
 
     let campoNome = document.getElementById('add-nome');
     if (campoNome) campoNome.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ============================================================
+// LISTA DE INTERESSE — sugestões do olheiro que o treinador quis guardar pra decidir depois.
+// ============================================================
+
+function scoutEstaNaListaInteresse(nome, clube) {
+    let lista = db.clube.scoutListaInteresse || [];
+    return lista.some(j => j.nome === nome && j.clube === clube);
+}
+
+// Alterna: salva se ainda não estiver na lista, remove se já estiver. Sempre re-renderiza tanto a
+// lista quanto o chat (o botão do card precisa trocar de "Salvar" pra "Remover" e vice-versa).
+function scoutToggleInteresse(nome, clube, liga, idade, posicaoEA) {
+    if (!db.clube.scoutListaInteresse) db.clube.scoutListaInteresse = [];
+    let lista = db.clube.scoutListaInteresse;
+    let idx = lista.findIndex(j => j.nome === nome && j.clube === clube);
+    if (idx >= 0) lista.splice(idx, 1);
+    else lista.push({ nome, clube, liga, idade, posicaoEA, salvoEm: Date.now() });
+    salvarDados();
+    scoutRenderListaInteresse();
+    renderizarChat('scout');
+}
+
+function scoutRenderListaInteresse() {
+    let container = document.getElementById('scout-lista-interesse-corpo');
+    if (!container) return;
+    let lista = db.clube.scoutListaInteresse || [];
+    if (lista.length === 0) {
+        container.innerHTML = `<p class="wizard-elenco-vazio">Nenhum jogador salvo ainda — use "⭐ Salvar na Lista" nas sugestões do olheiro.</p>`;
+        return;
+    }
+    container.innerHTML = lista.slice().reverse().map(j => `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 0; border-bottom:1px solid var(--border);">
+            <span><strong>${j.nome}</strong> — ${j.clube} (${j.liga}), ${j.idade} anos</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${j.nome.replace(/'/g, "\\'")}', '${j.posicaoEA}', ${j.idade})">📥 Usar no Formulário de Compra</button>
+                <button class="btn-ssc-rejeitar" onclick="scoutToggleInteresse('${j.nome.replace(/'/g, "\\'")}', '${j.clube.replace(/'/g, "\\'")}', '${j.liga.replace(/'/g, "\\'")}', ${j.idade}, '${j.posicaoEA}')">🗑️ Remover</button>
+            </div>
+        </div>`).join('');
 }

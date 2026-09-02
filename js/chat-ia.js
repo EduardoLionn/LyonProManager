@@ -170,13 +170,17 @@
                     let candidatosScout = scoutMontarCandidatos();
                     poolScoutAtual = candidatosScout.pool;
 
-                    promptFull = `Atue como o Olheiro-Chefe (chefe de observadores) do "${db[currentSave].nome}".\n${contexto}\nHistórico da Conversa:\n${historicoChat}\n
+                    promptFull = `Atue como ${nomeOlheiroExibicao()}, o olheiro-chefe do "${db[currentSave].nome}".\n${contexto}\nHistórico da Conversa:\n${historicoChat}\n
 
 SEU PAPEL: você é um olheiro de futebol experiente, realista e direto — não um vendedor de nomes badalados. O treinador vai perguntar sobre reforços; responda como um scout de verdade conversaria, cruzando o que o elenco precisa com o que é realista pro nosso tamanho de clube.
 
 REGRA MAIS IMPORTANTE DE TODAS: NUNCA escreva um número de OVR/overall/nota/rating na sua resposta, nem repita os números ou o texto "OVR" que aparecem nos dados internos abaixo. Isso estragaria a graça do treinador de descobrir a força real do jogador procurando por ele no próprio jogo de futebol. Fale de nível só de forma qualitativa (ex: "seria uma contratação ambiciosa", "bom custo-benefício pro nosso momento", "uma aposta jovem barata").
 
-REALISMO OBRIGATÓRIO: só sugira nomes que estejam na lista de CANDIDATOS DISPONÍVEIS abaixo — nunca invente um jogador que não esteja nela. Leve em conta o nível do nosso clube (liga: ${db[currentSave].liga}) e o orçamento disponível (€${(db[currentSave].orcamento || 0).toFixed(2)}M) — não empurre um nome claramente fora do nosso alcance a não ser que o treinador peça algo "ousado" ou "acima do nosso nível" explicitamente.
+REALISMO OBRIGATÓRIO: só sugira nomes que estejam na lista de CANDIDATOS DISPONÍVEIS abaixo — nunca invente um jogador que não esteja nela, e NUNCA sugira alguém que já está no nosso elenco atual (veja a lista de elenco no contexto acima). Leve em conta o nível do nosso clube (liga: ${db[currentSave].liga}) e o orçamento disponível (€${(db[currentSave].orcamento || 0).toFixed(2)}M) — não empurre um nome claramente fora do nosso alcance a não ser que o treinador peça algo "ousado" ou "acima do nosso nível" explicitamente.
+
+RESPOSTA CURTA E DIRETA (MUITO IMPORTANTE): fale como quem manda mensagem rápida pelo celular, não como quem escreve um relatório. No máximo 2-3 frases curtas no total, mesmo trazendo mais de um nome. Sem introdução longa, sem repetir o que o treinador já disse, sem parágrafo de fechamento tipo "espero ter ajudado". Se a última mensagem do treinador for só uma saudação ou algo vago, responda em UMA frase perguntando objetivamente o que ele busca (posição, perfil, faixa de idade, "mais barato") — não despeje nomes à toa.
+
+VARIEDADE: não repita a mesma abertura de frase ou estrutura que você já usou nesta conversa (veja o histórico acima) — varie o jeito de falar a cada resposta, como uma pessoa de verdade conversaria.
 
 ${candidatosScout.resumoNecessidades}
 
@@ -184,10 +188,9 @@ CANDIDATOS DISPONÍVEIS (uso interno pra embasar sua resposta — a pista de ní
 ${candidatosScout.texto || 'Nenhum candidato realista disponível no momento.'}
 
 INSTRUÇÕES:
-- Responda à última mensagem do treinador. Se ele ainda não pediu nada específico, pergunte objetivamente o que ele busca (posição, perfil de jogo, faixa de idade, "algo mais barato") antes de despejar nomes à toa.
-- Ao sugerir, traga no máximo 3 nomes por resposta, cada um com uma frase de perfil de jogo (estilo, ponto forte, ponto de atenção) — como um relatório de olheiro de verdade, nunca uma lista seca de nomes.
+- Ao sugerir, traga no máximo 2 nomes por resposta (nunca mais que isso) — cada um com só uma frase curta de perfil de jogo (estilo, ponto forte/fraco), não um parágrafo.
 - Preencha "sugestoes" do JSON com os mesmos jogadores citados na mensagem, usando o nome EXATAMENTE como aparece nos candidatos.
-- Se não houver nenhum candidato realista pro pedido do treinador, diga isso com honestidade em vez de forçar um nome incompatível.
+- Se não houver nenhum candidato realista pro pedido do treinador, diga isso em uma frase, sem forçar um nome incompatível.
 
 Retorne EXATAMENTE este formato JSON puro:
 {
@@ -269,7 +272,11 @@ Se não sugerir jogador nenhum nesta resposta, deixe "sugestoes" como um array v
                 // confundida com um erro nosso ao montar ou processar a resposta (e vice-versa).
                 let rawText;
                 try {
-                    const data = await chamarIA({ contents: [{ parts: parts }] });
+                    // O prompt do Scout carrega um pool grande de candidatos reais — a IA demora
+                    // mais pra processar isso do que os outros chats, então ganha uma folga extra
+                    // de timeout (o timeout padrão de 45s foi curto demais e derrubava a conversa
+                    // à toa, mesmo quando a IA ia responder certinho só um pouco depois).
+                    const data = await chamarIA({ contents: [{ parts: parts }] }, tipo === 'scout' ? 75000 : undefined);
                     rawText = textoDaRespostaIA(data);
                 } catch (e) {
                     history.push({ role: 'ai', text: '⚠️ ' + mensagemErroIA(e) });
