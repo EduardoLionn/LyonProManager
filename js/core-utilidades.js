@@ -258,6 +258,7 @@ function lerTexto(texto) {
             if (actionCallbackName === 'responderColetiva') responderColetiva();
             else if (actionCallbackName === 'enviarChatDiretoria') enviarChat('diretoria');
             else if (actionCallbackName === 'enviarChatAuxiliar') enviarChat('auxiliar');
+            else if (actionCallbackName === 'enviarChatScout') enviarChat('scout');
         }
 
         function getOvrClass(ovr) {
@@ -509,7 +510,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-salvar-partida') { preencherDatalistJogadores(); if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida(); }
             if(abaId === 'tab-plantel') atualizarPlantelUI();
             if(abaId === 'tab-mercado') { filtrarMercado(statusFiltroMercado); checarEmbargoMercado(); }
-            if(abaId === 'tab-scout') { scoutRenderFiltros(); scoutBuscar(); }
+            if(abaId === 'tab-scout') { if (typeof scoutAbrirTab === 'function') scoutAbrirTab(); }
             if(abaId === 'tab-upgrades') atualizarUpgradesUI();
             if(abaId === 'tab-historico') renderizarHistorico();
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); }

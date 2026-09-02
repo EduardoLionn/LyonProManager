@@ -131,6 +131,11 @@
                 // vez que a IA sugeria mudar a formação ao vivo isso estourava um ReferenceError, que
                 // o catch genérico de então escondia atrás de "Conexão interrompida".
                 let formacoesPreferidasChat = [];
+                // Idem, só usado quando tipo === 'scout': o pool de candidatos que embasou o
+                // prompt desta mensagem, pra validar depois que a IA só sugeriu nomes reais
+                // (nunca inventados) e pra pegar os dados confiáveis (clube/liga/idade) direto do
+                // nosso pool, sem confiar no que a IA reescreveu.
+                let poolScoutAtual = [];
 
                 if (tipo === 'diretoria') {
                     // Mapeamento Dinâmico do Perfil da IA baseado na Nota
@@ -161,6 +166,36 @@
             "novaMetaExigida": "",
             "variacao_prestigio": 0.0
         }`;
+                } else if (tipo === 'scout') {
+                    let candidatosScout = scoutMontarCandidatos();
+                    poolScoutAtual = candidatosScout.pool;
+
+                    promptFull = `Atue como o Olheiro-Chefe (chefe de observadores) do "${db[currentSave].nome}".\n${contexto}\nHistórico da Conversa:\n${historicoChat}\n
+
+SEU PAPEL: você é um olheiro de futebol experiente, realista e direto — não um vendedor de nomes badalados. O treinador vai perguntar sobre reforços; responda como um scout de verdade conversaria, cruzando o que o elenco precisa com o que é realista pro nosso tamanho de clube.
+
+REGRA MAIS IMPORTANTE DE TODAS: NUNCA escreva um número de OVR/overall/nota/rating na sua resposta, nem repita os números ou o texto "OVR" que aparecem nos dados internos abaixo. Isso estragaria a graça do treinador de descobrir a força real do jogador procurando por ele no próprio jogo de futebol. Fale de nível só de forma qualitativa (ex: "seria uma contratação ambiciosa", "bom custo-benefício pro nosso momento", "uma aposta jovem barata").
+
+REALISMO OBRIGATÓRIO: só sugira nomes que estejam na lista de CANDIDATOS DISPONÍVEIS abaixo — nunca invente um jogador que não esteja nela. Leve em conta o nível do nosso clube (liga: ${db[currentSave].liga}) e o orçamento disponível (€${(db[currentSave].orcamento || 0).toFixed(2)}M) — não empurre um nome claramente fora do nosso alcance a não ser que o treinador peça algo "ousado" ou "acima do nosso nível" explicitamente.
+
+${candidatosScout.resumoNecessidades}
+
+CANDIDATOS DISPONÍVEIS (uso interno pra embasar sua resposta — a pista de nível é só sua, NUNCA repita "OVR" nem números pro treinador):
+${candidatosScout.texto || 'Nenhum candidato realista disponível no momento.'}
+
+INSTRUÇÕES:
+- Responda à última mensagem do treinador. Se ele ainda não pediu nada específico, pergunte objetivamente o que ele busca (posição, perfil de jogo, faixa de idade, "algo mais barato") antes de despejar nomes à toa.
+- Ao sugerir, traga no máximo 3 nomes por resposta, cada um com uma frase de perfil de jogo (estilo, ponto forte, ponto de atenção) — como um relatório de olheiro de verdade, nunca uma lista seca de nomes.
+- Preencha "sugestoes" do JSON com os mesmos jogadores citados na mensagem, usando o nome EXATAMENTE como aparece nos candidatos.
+- Se não houver nenhum candidato realista pro pedido do treinador, diga isso com honestidade em vez de forçar um nome incompatível.
+
+Retorne EXATAMENTE este formato JSON puro:
+{
+    "mensagem": "Sua resposta.",
+    "opcoes_resposta": ["Opção curta 1", "Opção curta 2"],
+    "sugestoes": [{"nome": "Nome Exato", "clube": "Clube Exato", "liga": "Liga Exata", "idade": 24, "posicaoEA": "ST"}]
+}
+Se não sugerir jogador nenhum nesta resposta, deixe "sugestoes" como um array vazio [].`;
                 } else {
                     let partidaAtual = db[currentSave].partidaAuxiliar;
                     // Pra cada reserva do banco, além da posição real, mostra em quais funções ESTE
@@ -254,11 +289,22 @@
                         && (formacoesPreferidasChat || []).includes(res.sugestaoFormacao.novaFormacao)) {
                         sugestaoFormacao = { novaFormacao: res.sugestaoFormacao.novaFormacao, motivo: res.sugestaoFormacao.motivo || '', status: 'pendente' };
                     }
+                    // Nunca confia no que a IA reescreveu (nome pode vir levemente diferente, ou
+                    // ela pode "inventar" um jogador fora do pool) — só aceita sugestões cujo nome
+                    // bate EXATAMENTE com alguém do pool de candidatos reais que embasou o prompt,
+                    // e usa os dados (clube/liga/idade) do NOSSO pool, não os que a IA copiou.
+                    let sugestoesScout = null;
+                    if (tipo === 'scout' && Array.isArray(res.sugestoes)) {
+                        sugestoesScout = res.sugestoes
+                            .map(s => s && s.nome ? poolScoutAtual.find(c => c.nome === s.nome) : null)
+                            .filter(Boolean)
+                            .slice(0, 5);
+                    }
                     // Sem texto, a mensagem entraria no histórico com text undefined — e aí
                     // renderizarChat quebrava em TODA renderização seguinte, deixando o chat
                     // inutilizável pro resto do save. Se a IA esqueceu o campo, usa o texto cru.
                     let textoMensagem = (typeof res.mensagem === 'string' && res.mensagem.trim()) ? res.mensagem : rawText;
-                    history.push({ role: 'ai', text: textoMensagem, sugestaoSub: sugestaoSub, sugestaoFormacao: sugestaoFormacao });
+                    history.push({ role: 'ai', text: textoMensagem, sugestaoSub: sugestaoSub, sugestaoFormacao: sugestaoFormacao, sugestoesJogadores: sugestoesScout });
 
                     if(quickContainer && Array.isArray(res.opcoes_resposta)) {
                         quickContainer.innerHTML = res.opcoes_resposta.map(op => String(op)).map(op => `<button class="btn-quick" onclick="usarQuickReply('${op.replace(/'/g, "\\'")}', 'input-${tipo}', 'enviarChat${tipo.charAt(0).toUpperCase() + tipo.slice(1)}')">${op}</button>`).join('');
@@ -328,7 +374,8 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let btnOuvir = (h.role === 'ai' && texto) ? `<button class="btn-audio" onclick="lerTexto('${texto.replace(/'/g, "\\'")}')">🔊</button>` : '';
                 let cardSub = (tipo === 'auxiliar' && h.sugestaoSub) ? renderizarCardSugestaoSub(h.sugestaoSub, idx) : '';
                 let cardFormacao = (tipo === 'auxiliar' && h.sugestaoFormacao) ? renderizarCardSugestaoFormacao(h.sugestaoFormacao, idx) : '';
-                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${texto || '<i style="color:var(--text-muted)">(mensagem vazia)</i>'}${btnOuvir}${cardSub}${cardFormacao}</div>`;
+                let cardScout = (tipo === 'scout' && h.sugestoesJogadores && typeof renderizarCardSugestoesScout === 'function') ? renderizarCardSugestoesScout(h.sugestoesJogadores) : '';
+                return `<div class="chat-msg ${h.role === 'user' ? 'msg-user' : 'msg-ai'}">${texto || '<i style="color:var(--text-muted)">(mensagem vazia)</i>'}${btnOuvir}${cardSub}${cardFormacao}${cardScout}</div>`;
             }).join('');
             log.scrollTop = log.scrollHeight;
         }

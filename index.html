@@ -1452,60 +1452,24 @@
                 </table>
         </div>
 
-        <!-- ABA: SCOUT (ANALISTA DE MERCADO) -->
+        <!-- ABA: SCOUT (OLHEIRO-CHEFE) -->
         <div id="tab-scout" class="tab-content">
             <div class="panel" style="border-top: 4px solid var(--primary);">
-                <h2 style="margin-top:0;">🔎 Scout — Analista de Mercado</h2>
-                <p class="wizard-subtitle" style="margin-bottom:0;">Busque jogadores reais de qualquer clube/liga (base FC26) pra planejar sua próxima contratação. Depois é só fechar a transferência no seu jogo de futebol de verdade e registrar aqui — o botão abaixo já leva os dados do jogador pro formulário de compra.</p>
-
-                <div class="grid-4" style="margin-top:20px; align-items:end;">
-                    <div class="linha-form">
-                        <label>Liga</label>
-                        <select id="scout-filtro-liga" onchange="scoutRenderClubesFiltro(); scoutBuscar();">
-                            <option value="">Todas as Ligas</option>
-                        </select>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <h2 style="margin:0;">🔎 Scout — Olheiro-Chefe</h2>
+                        <p class="wizard-subtitle" style="margin:6px 0 0;">Converse com o olheiro sobre o que o elenco está precisando — ele conhece o banco de jogadores reais (FC26) e sugere nomes realistas pro tamanho e o orçamento do seu clube, sem revelar o OVR: a nota real você só descobre procurando o jogador no seu jogo de futebol.</p>
                     </div>
-                    <div class="linha-form">
-                        <label>Clube</label>
-                        <select id="scout-filtro-clube" onchange="scoutBuscar()">
-                            <option value="">Todos os Clubes</option>
-                        </select>
-                    </div>
-                    <div class="linha-form">
-                        <label>Posição</label>
-                        <select id="scout-filtro-posicao" onchange="scoutBuscar()">
-                            <option value="">Qualquer Posição</option>
-                            <option value="Goleiro">Goleiro</option>
-                            <option value="Zagueiro">Zagueiro</option>
-                            <option value="Lateral">Lateral</option>
-                            <option value="Volante">Volante</option>
-                            <option value="Meio-Campo">Meio-Campo</option>
-                            <option value="Ponta">Ponta</option>
-                            <option value="Atacante">Atacante</option>
-                        </select>
-                    </div>
-                    <div class="linha-form">
-                        <label>OVR Mínimo</label>
-                        <input type="number" id="scout-filtro-ovr-min" value="70" onchange="scoutBuscar()">
-                    </div>
+                    <button onclick="apagarChat('scout')" style="background: var(--danger); color: white; padding: 6px 12px; font-size: 12px; white-space:nowrap;">🗑️ Apagar Conversa</button>
                 </div>
-                <div class="grid-4" style="margin-top:10px; align-items:end;">
-                    <div class="linha-form">
-                        <label>Idade Máxima</label>
-                        <input type="number" id="scout-filtro-idade-max" placeholder="Ex: 23 (jovens promessas)" onchange="scoutBuscar()">
+                <div class="chat-log" id="chat-log-scout" style="margin-top:15px;"></div>
+                <div class="chat-input-area">
+                    <div class="quick-replies" id="quick-scout"></div>
+                    <div class="chat-input-row">
+                        <button class="btn-mic" id="mic-btn-scout" onclick="iniciarGravacao('input-scout', 'mic-btn-scout')">🎤</button>
+                        <textarea id="input-scout" placeholder="Ex: preciso de um lateral direito jovem e barato..." oninput="autoAjustarAlturaChat(this)" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); enviarChat('scout'); }"></textarea>
+                        <button onclick="enviarChat('scout')" style="padding: 10px 20px; font-size:14px; background: var(--primary); color:#14150F;">Perguntar</button>
                     </div>
-                    <div class="linha-form" style="grid-column: span 2;">
-                        <label>Nome</label>
-                        <input type="text" id="scout-filtro-nome" placeholder="Buscar por nome..." oninput="scoutBuscar()">
-                    </div>
-                </div>
-
-                <p id="scout-contagem-resultados" style="font-size:12px; color:var(--text-muted); margin-top:15px; margin-bottom:5px;"></p>
-                <div class="wizard-elenco-table-wrap">
-                    <table id="tabela-scout" class="tabela-cards-mobile">
-                        <thead><tr><th>Jogador</th><th>Posição</th><th>OVR</th><th>Idade</th><th>Clube</th><th>Liga</th><th></th></tr></thead>
-                        <tbody></tbody>
-                    </table>
                 </div>
             </div>
         </div>

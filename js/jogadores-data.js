@@ -415,12 +415,24 @@ const jogadoresPorClubePorEdicao = {
     }
 };
 
+// A base de dados real (FC26) reflete a temporada 25/26 do mundo real e não é atualizada a cada
+// nova edição do jogo de futebol — então, pra qualquer temporada além dessa, cada ano que passa
+// soma 1 de idade real a todo jogador dessa base (a base continua a mesma, só a idade avança).
+function anosAlemDaBaseDadosReais(temporada) {
+    let anoInicio = parseInt(String(temporada || '').split('/')[0], 10);
+    if (isNaN(anoInicio) || anoInicio <= 25) return 0;
+    return anoInicio - 25;
+}
+
 function elencoRealDoClube(nomeClube, temporada) {
     let edicao = (typeof edicaoFcDaTemporada === "function") ? edicaoFcDaTemporada(temporada) : "fc26";
     let porEdicao = jogadoresPorClubePorEdicao[edicao] || jogadoresPorClubePorEdicao.fc26;
     if (!porEdicao) return null;
     for (let liga in porEdicao) {
-        if (porEdicao[liga][nomeClube]) return porEdicao[liga][nomeClube];
+        let elenco = porEdicao[liga][nomeClube];
+        if (!elenco) continue;
+        let anos = anosAlemDaBaseDadosReais(temporada);
+        return anos > 0 ? elenco.map(p => ({ ...p, idade: p.idade + anos })) : elenco;
     }
     return null;
 }
