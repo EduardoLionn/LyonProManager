@@ -913,6 +913,10 @@
             if (typeof processarCiclosPosPartida === 'function') processarCiclosPosPartida();
             if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Partida salva vs ${adv}`);
 
+            // Fecha o relatório de qualquer jogador que o Olheiro estava observando — basta UMA
+            // partida sua pra simular o tempo que ele levou pra ver o alvo jogar de verdade.
+            if (currentSave === 'clube' && typeof scoutAvancarObservacoes === 'function') await scoutAvancarObservacoes();
+
             if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida();
             atualizarFiltroTemporadas(); desenharGraficos(); preencherDatalistJogadores();
         }

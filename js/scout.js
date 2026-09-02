@@ -63,6 +63,7 @@ function scoutAbrirTab() {
     renderizarChat('scout');
     scoutRenderPerfilClube();
     scoutRenderListaInteresse();
+    scoutRenderObservacoes();
 }
 
 // ============================================================
@@ -293,12 +294,17 @@ function renderizarCardSugestoesScout(sugestoes) {
         ${sugestoes.map(s => {
             let salvo = scoutEstaNaListaInteresse(s.nome, s.clube);
             let argsJs = `'${s.nome.replace(/'/g, "\\'")}', '${s.clube.replace(/'/g, "\\'")}', '${s.liga.replace(/'/g, "\\'")}', ${s.idade}, '${s.posicaoEA}'`;
+            let jaObservado = typeof scoutStatusObservacao === 'function' ? scoutStatusObservacao(s.nome, s.clube) : null;
+            let btnObservar = jaObservado
+                ? `<button class="btn-upload" style="margin:0; padding:6px 10px; opacity:0.7;" disabled>${jaObservado === 'completo' ? '📋 Relatório pronto' : '👁️ Observando...'}</button>`
+                : `<button class="btn-upload" style="margin:0; padding:6px 10px; color:var(--accent); border-color:var(--accent);" onclick="scoutAdicionarObservacao(${argsJs}, ${s.ovr})">👁️ Observar</button>`;
             return `
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
                 <span><strong>${s.nome}</strong> — ${s.clube} (${s.liga}), ${s.idade} anos</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${s.nome.replace(/'/g, "\\'")}', '${s.posicaoEA}', ${s.idade})">📥 Usar no Formulário de Compra</button>
-                    <button class="${salvo ? 'btn-ssc-rejeitar' : 'btn-ssc-alterar'}" onclick="scoutToggleInteresse(${argsJs})">${salvo ? '🗑️ Remover da Lista' : '⭐ Salvar na Lista'}</button>
+                    <button class="${salvo ? 'btn-ssc-rejeitar' : 'btn-ssc-alterar'}" onclick="scoutToggleInteresse(${argsJs}, ${s.ovr})">${salvo ? '🗑️ Remover da Lista' : '⭐ Salvar na Lista'}</button>
+                    ${btnObservar}
                 </div>
             </div>`;
         }).join('')}
@@ -337,12 +343,14 @@ function scoutEstaNaListaInteresse(nome, clube) {
 
 // Alterna: salva se ainda não estiver na lista, remove se já estiver. Sempre re-renderiza tanto a
 // lista quanto o chat (o botão do card precisa trocar de "Salvar" pra "Remover" e vice-versa).
-function scoutToggleInteresse(nome, clube, liga, idade, posicaoEA) {
+// O ovr fica guardado (nunca exibido) só pra "👁️ Observar" poder usar o valor real do jogador
+// depois, em vez de chutar um genérico.
+function scoutToggleInteresse(nome, clube, liga, idade, posicaoEA, ovr) {
     if (!db.clube.scoutListaInteresse) db.clube.scoutListaInteresse = [];
     let lista = db.clube.scoutListaInteresse;
     let idx = lista.findIndex(j => j.nome === nome && j.clube === clube);
     if (idx >= 0) lista.splice(idx, 1);
-    else lista.push({ nome, clube, liga, idade, posicaoEA, salvoEm: Date.now() });
+    else lista.push({ nome, clube, liga, idade, posicaoEA, ovr, salvoEm: Date.now() });
     salvarDados();
     scoutRenderListaInteresse();
     renderizarChat('scout');
@@ -356,12 +364,174 @@ function scoutRenderListaInteresse() {
         container.innerHTML = `<p class="wizard-elenco-vazio">Nenhum jogador salvo ainda — use "⭐ Salvar na Lista" nas sugestões do olheiro.</p>`;
         return;
     }
-    container.innerHTML = lista.slice().reverse().map(j => `
+    container.innerHTML = lista.slice().reverse().map(j => {
+        let jaObservado = scoutStatusObservacao(j.nome, j.clube);
+        // "|| 70" é só um fallback pra itens salvos numa Lista de Interesse anterior a este campo
+        // existir (save antigo) — daqui em diante todo item novo já vem com o ovr real guardado.
+        let btnObservar = jaObservado
+            ? `<button class="btn-upload" style="margin:0; padding:6px 10px; opacity:0.7;" disabled>${jaObservado === 'completo' ? '📋 Relatório pronto' : '👁️ Observando...'}</button>`
+            : `<button class="btn-upload" style="margin:0; padding:6px 10px; color:var(--accent); border-color:var(--accent);" onclick="scoutAdicionarObservacao('${j.nome.replace(/'/g, "\\'")}', '${j.clube.replace(/'/g, "\\'")}', '${j.liga.replace(/'/g, "\\'")}', ${j.idade}, '${j.posicaoEA}', ${j.ovr || 70})">👁️ Observar</button>`;
+        return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 0; border-bottom:1px solid var(--border);">
             <span><strong>${j.nome}</strong> — ${j.clube} (${j.liga}), ${j.idade} anos</span>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
                 <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${j.nome.replace(/'/g, "\\'")}', '${j.posicaoEA}', ${j.idade})">📥 Usar no Formulário de Compra</button>
                 <button class="btn-ssc-rejeitar" onclick="scoutToggleInteresse('${j.nome.replace(/'/g, "\\'")}', '${j.clube.replace(/'/g, "\\'")}', '${j.liga.replace(/'/g, "\\'")}', ${j.idade}, '${j.posicaoEA}')">🗑️ Remover</button>
+                ${btnObservar}
             </div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
+}
+
+// ============================================================
+// EM OBSERVAÇÃO — pedido do treinador: além do texto do olheiro, poder mandar observar um
+// candidato de perto. O valor estimado (faixa, ex: €4M-11M) aparece na hora; depois da PRÓXIMA
+// partida do treinador (simulando o tempo que o olheiro levou pra assistir o jogador), o relatório
+// fecha com uma faixa de OVR estimada (ex: 72-78, NUNCA o número exato — o olheiro também não é
+// onisciente), as posições que ele pode ocupar (pelo mesmo motor de compatibilidade
+// especialidade->grupo tático já usado no resto do jogo) e as qualidades principais, escritas pela
+// IA numa chamada única e dedicada (não é o chat — não precisa disputar o limite de tamanho do
+// prompt da conversa).
+// ============================================================
+
+function scoutStatusObservacao(nome, clube) {
+    let obs = (db.clube.scoutObservacoes || []).find(o => o.nome === nome && o.clube === clube);
+    return obs ? obs.status : null;
+}
+
+// Faixa de valor de mercado — mesma estimativa (não é dado real) usada no teto do Perfil do
+// Clube, só que como intervalo (a estimativa pontual vira o centro de uma faixa mais larga).
+function scoutEstimarValorMercadoRange(ovr, idade) {
+    let base = scoutEstimarValorMercado(ovr, idade);
+    return {
+        min: Math.max(0.1, Math.round(base * 0.65 * 10) / 10),
+        max: Math.round(base * 1.55 * 10) / 10
+    };
+}
+
+// Faixa de OVR "estimada pelo olheiro" — sempre contém o valor real, mas nunca o revela: um
+// olheiro de verdade também erra pra mais ou pra menos depois de ver um jogo só.
+function scoutEstimarFaixaOvr(ovrReal) {
+    let baixo = ovrReal - (1 + Math.floor(Math.random() * 3)); // real -1 a -3
+    let alto = ovrReal + (3 + Math.floor(Math.random() * 4));  // real +3 a +6
+    return { min: Math.max(40, baixo), max: Math.min(99, alto) };
+}
+
+// Rótulo dos grupos táticos (ver GRUPOS_FUNCAO_EA em js/funcoes-ea.js) que a especialidade padrão
+// da sigla EA do jogador consegue ocupar — mesmo motor de compatibilidade usado na escalação e nas
+// trocas do jogo, não um chute solto. Limitação conhecida: como a base real só guarda UMA posição
+// por jogador, todo mundo daquela sigla reporta o mesmo leque de posições possíveis.
+const SCOUT_ROTULO_GRUPO_TATICO = {
+    goleiro: 'Goleiro', zagueiro: 'Zagueiro', lateral: 'Lateral', volante: 'Volante',
+    meio_campo_central: 'Meio-Campo', meia_atacante: 'Meia-Atacante', meia_lateral: 'Ponta',
+    ponta: 'Ponta', atacante: 'Atacante'
+};
+function scoutPosicoesPossiveis(siglaEA) {
+    let especialidade = SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA[siglaEA];
+    let def = especialidade && (typeof ESPECIALIDADES_JOGADOR === 'object') ? ESPECIALIDADES_JOGADOR[especialidade] : null;
+    if (!def || !def.gruposFuncao) return [];
+    let rotulos = Object.keys(def.gruposFuncao).map(g => SCOUT_ROTULO_GRUPO_TATICO[g] || g);
+    return [...new Set(rotulos)];
+}
+
+// Chamada de IA dedicada (não passa pelo histórico do chat) só pra escrever as qualidades
+// observadas — texto curto, qualitativo, sem número de OVR, igual o resto do olheiro.
+async function scoutGerarQualidadesObservado(obs) {
+    let nomeOlheiro = (typeof nomeOlheiroExibicao === 'function') ? nomeOlheiroExibicao() : 'o Olheiro-Chefe';
+    let prompt = `Você é ${nomeOlheiro}, olheiro de futebol, escrevendo um relatório curto depois de observar ${obs.nome} (${obs.posicaoEA}, ${obs.idade} anos, joga no ${obs.clube}, ${obs.liga}) numa partida de perto.
+
+Escreva 1 ou 2 frases curtas sobre as qualidades principais dele em campo — estilo de jogo, ponto forte, algo a desenvolver — como um relatório de olheiro de verdade. NUNCA mencione um número de OVR/nota/rating. Não repita nome, clube ou idade (já aparecem em outra parte do relatório) — vá direto às qualidades. Responda só com o texto corrido, sem JSON, sem aspas, sem markdown.`;
+
+    try {
+        const data = await chamarIA({ contents: [{ parts: [{ text: prompt }] }] }, 30000);
+        return textoDaRespostaIA(data).trim();
+    } catch (e) {
+        return 'Ainda não deu pra fechar uma leitura completa do estilo dele — talvez valha observar de novo.';
+    }
+}
+
+// Manda observar um candidato: registra a observação (status "observando") e já calcula a faixa
+// de valor, que aparece na hora — o resto do relatório só fecha depois da próxima partida.
+function scoutAdicionarObservacao(nome, clube, liga, idade, posicaoEA, ovr) {
+    if (!db.clube.scoutObservacoes) db.clube.scoutObservacoes = [];
+    if (db.clube.scoutObservacoes.some(o => o.nome === nome && o.clube === clube)) return; // já observando ou já observado
+    let valor = scoutEstimarValorMercadoRange(ovr, idade);
+    db.clube.scoutObservacoes.push({
+        nome, clube, liga, posicaoEA, idade, ovr,
+        status: 'observando',
+        valorMin: valor.min, valorMax: valor.max,
+        ovrMin: null, ovrMax: null, posicoesPossiveis: [], qualidadesTexto: '',
+        criadoEm: Date.now(), completoEm: null
+    });
+    salvarDados();
+    scoutRenderObservacoes();
+    renderizarChat('scout'); // os botões dos cards de sugestão precisam refletir "já em observação"
+}
+
+function scoutRemoverObservacao(nome, clube) {
+    if (!db.clube.scoutObservacoes) return;
+    db.clube.scoutObservacoes = db.clube.scoutObservacoes.filter(o => !(o.nome === nome && o.clube === clube));
+    salvarDados();
+    scoutRenderObservacoes();
+    renderizarChat('scout');
+}
+
+// Chamada pelo salvarPartida() (js/diretoria-partidas.js) depois de CADA partida salva — fecha o
+// relatório de toda observação ainda pendente. Só uma partida basta (não é preciso esperar várias),
+// simulando o tempo que o olheiro levou pra ver o jogador jogar de verdade.
+async function scoutAvancarObservacoes() {
+    if (currentSave !== 'clube') return;
+    let pendentes = (db.clube.scoutObservacoes || []).filter(o => o.status === 'observando');
+    if (pendentes.length === 0) return;
+
+    for (let obs of pendentes) {
+        let faixaOvr = scoutEstimarFaixaOvr(obs.ovr);
+        obs.ovrMin = faixaOvr.min; obs.ovrMax = faixaOvr.max;
+        obs.posicoesPossiveis = scoutPosicoesPossiveis(obs.posicaoEA);
+        obs.qualidadesTexto = await scoutGerarQualidadesObservado(obs);
+        obs.status = 'completo';
+        obs.completoEm = Date.now();
+
+        if (!db.clube.chatHistory) db.clube.chatHistory = {};
+        if (!db.clube.chatHistory.scout) db.clube.chatHistory.scout = [];
+        db.clube.chatHistory.scout.push({
+            role: 'ai',
+            text: `📋 Relatório de observação — ${obs.nome} (${obs.clube}): fica entre ${faixaOvr.min}-${faixaOvr.max} pelo que vi, pode atuar como ${obs.posicoesPossiveis.join(' / ') || obs.posicaoEA}. ${obs.qualidadesTexto}`
+        });
+    }
+
+    salvarDados();
+    scoutRenderObservacoes();
+    let tabScout = document.getElementById('tab-scout');
+    if (tabScout && tabScout.classList.contains('active')) renderizarChat('scout');
+}
+
+function scoutRenderObservacoes() {
+    let container = document.getElementById('scout-observacoes-corpo');
+    if (!container) return;
+    let lista = db.clube.scoutObservacoes || [];
+    if (lista.length === 0) {
+        container.innerHTML = `<p class="wizard-elenco-vazio">Nenhum jogador em observação — use "👁️ Observar" nas sugestões do olheiro.</p>`;
+        return;
+    }
+    container.innerHTML = lista.slice().reverse().map(o => {
+        let argsRemover = `'${o.nome.replace(/'/g, "\\'")}', '${o.clube.replace(/'/g, "\\'")}'`;
+        let corpoRelatorio = o.status === 'completo'
+            ? `<div style="font-size:12.5px; color:var(--text-muted); margin-top:6px; line-height:1.5;">
+                   <strong>OVR estimado:</strong> ${o.ovrMin}-${o.ovrMax} · <strong>Pode jogar como:</strong> ${o.posicoesPossiveis.join(' / ') || o.posicaoEA}<br>
+                   ${o.qualidadesTexto}
+               </div>`
+            : `<div style="font-size:12.5px; color:var(--warning); margin-top:6px;">🔭 Observando — o relatório completo fecha depois da sua próxima partida.</div>`;
+        return `
+        <div style="padding:10px 0; border-bottom:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span><strong>${o.nome}</strong> — ${o.clube} (${o.liga}), ${o.idade} anos · <span style="color:var(--gold);">Valor estimado: €${o.valorMin}M–${o.valorMax}M</span></span>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${o.nome.replace(/'/g, "\\'")}', '${o.posicaoEA}', ${o.idade})">📥 Usar no Formulário de Compra</button>
+                    <button class="btn-ssc-rejeitar" onclick="scoutRemoverObservacao(${argsRemover})">🗑️ Remover</button>
+                </div>
+            </div>
+            ${corpoRelatorio}
+        </div>`;
+    }).join('');
 }
