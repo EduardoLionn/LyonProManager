@@ -479,7 +479,7 @@ function toggleChatDiretoria() {
         function mudarAba(abaId) {
             // Sem save carregado, só o Menu Principal existe (evita cair numa aba "vazia")
             if (abaId !== 'tab-menu-principal' && !saveAtualId) abaId = 'tab-menu-principal';
-            if (currentSave === 'selecao' && (abaId === 'tab-plantel' || abaId === 'tab-mercado')) {
+            if (currentSave === 'selecao' && (abaId === 'tab-plantel' || abaId === 'tab-mercado' || abaId === 'tab-scout')) {
                 abaId = 'tab-dashboard';
             }
             if (currentSave === 'selecao' && (abaId === 'tab-diretoria' || abaId === 'tab-medico')) {
@@ -509,6 +509,7 @@ function toggleChatDiretoria() {
             if(abaId === 'tab-salvar-partida') { preencherDatalistJogadores(); if (typeof renderizarAbaSalvarPartida === 'function') renderizarAbaSalvarPartida(); }
             if(abaId === 'tab-plantel') atualizarPlantelUI();
             if(abaId === 'tab-mercado') { filtrarMercado(statusFiltroMercado); checarEmbargoMercado(); }
+            if(abaId === 'tab-scout') { scoutRenderFiltros(); scoutBuscar(); }
             if(abaId === 'tab-upgrades') atualizarUpgradesUI();
             if(abaId === 'tab-historico') renderizarHistorico();
             if(abaId === 'tab-diretoria') { atualizarDiretoriaUI(); }
@@ -553,17 +554,20 @@ function toggleChatDiretoria() {
             let btnMedico = document.getElementById('nav-btn-medico');
             let btnConvocacao = document.getElementById('nav-btn-convocacao');
             let btnMensagens = document.getElementById('nav-btn-mensagens');
+            let btnScout = document.getElementById('nav-btn-scout');
 
             if (currentSave === 'selecao') {
                 btnPlantel.style.display = 'none'; btnMercado.style.display = 'none'; optRaioxDash.style.display = 'inline-block';
                 btnDiretoria.style.display = 'none'; btnMedico.style.display = 'none'; btnConvocacao.style.display = 'block';
                 if (btnMensagens) btnMensagens.style.display = 'none';
+                if (btnScout) btnScout.style.display = 'none';
                 let activeTab = document.querySelector('.tab-content.active');
-                if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado' || activeTab.id === 'tab-diretoria' || activeTab.id === 'tab-medico' || activeTab.id === 'tab-mensagens')) mudarAba('tab-dashboard');
+                if (activeTab && (activeTab.id === 'tab-plantel' || activeTab.id === 'tab-mercado' || activeTab.id === 'tab-scout' || activeTab.id === 'tab-diretoria' || activeTab.id === 'tab-medico' || activeTab.id === 'tab-mensagens')) mudarAba('tab-dashboard');
             } else {
                 btnPlantel.style.display = 'block'; btnMercado.style.display = 'block'; optRaioxDash.style.display = 'none';
                 btnDiretoria.style.display = 'block'; btnMedico.style.display = 'block'; btnConvocacao.style.display = 'none';
                 if (btnMensagens) btnMensagens.style.display = 'block';
+                if (btnScout) btnScout.style.display = 'block';
                 let tabBarraAtiva = document.querySelector('#graf-tabs-barra .graf-tab.active');
                 if (tabBarraAtiva && tabBarraAtiva.dataset.view === 'view-raiox' && typeof mudarGrafico === 'function') mudarGrafico('view-notamedia', 'graf-tabs-barra', 'grupo-barra');
                 let activeTab = document.querySelector('.tab-content.active');
