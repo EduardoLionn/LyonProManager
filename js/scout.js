@@ -35,8 +35,12 @@ const SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA = {
 };
 
 // Quantos candidatos (no máximo) entram no pool de cada grupo de posição — controla o tamanho
-// do prompt enviado à IA.
-const SCOUT_CANDIDATOS_POR_GRUPO = 12;
+// do prompt enviado à IA. Setor prioritário (curto ou fraco) ganha mais opções; os outros ganham
+// só um punhado, caso o treinador pergunte por eles mesmo assim. Com os 7 grupos possíveis, isso
+// mantém o pool bem menor que mandar o máximo em todo setor (que deixava a IA lenta demais e
+// estourava o timeout da conversa).
+const SCOUT_CANDIDATOS_GRUPO_PRIORITARIO = 8;
+const SCOUT_CANDIDATOS_GRUPO_PADRAO = 4;
 
 function scoutObterBaseDaEdicao() {
     if (currentSave !== 'clube' || typeof jogadoresPorClubePorEdicao !== 'object') return null;
@@ -76,26 +80,38 @@ function scoutNivelClubeAtual() {
 }
 
 // Radiografia do elenco atual por setor — uso interno do prompt (a IA usa isso pra embasar a
-// necessidade real, mas não repete os números pro treinador).
-function scoutResumoNecessidadesElenco() {
+// necessidade real, mas não repete os números pro treinador) e também pra decidir quantos
+// candidatos de cada setor entram no pool (setor carente ganha mais opções, setor bem servido
+// ganha menos — mantém o prompt enxuto sem perder profundidade onde ela realmente importa).
+function scoutAnalisarElencoPorGrupo() {
     let ativos = (db.clube.plantel || []).filter(p => p.status === 'Ativo');
+    let nivelClube = scoutNivelClubeAtual();
     let porGrupo = {};
-    Object.keys(SCOUT_GRUPOS_POSICAO).forEach(g => porGrupo[g] = []);
+    Object.keys(SCOUT_GRUPOS_POSICAO).forEach(g => porGrupo[g] = { jogadores: [] });
 
     ativos.forEach(p => {
         let prefixo = String(p.posicao || '').split('/')[0];
         let grupo = prefixo === 'MeioCampo' ? 'Meio-Campo' : prefixo;
-        if (porGrupo[grupo]) porGrupo[grupo].push(p);
+        if (porGrupo[grupo]) porGrupo[grupo].jogadores.push(p);
     });
 
-    let nivelClube = scoutNivelClubeAtual();
-    let linhas = Object.entries(porGrupo).map(([grupo, jogadores]) => {
-        if (jogadores.length === 0) return `- ${grupo}: NENHUM jogador ativo nesse setor — necessidade urgente.`;
-        let idadeMedia = Math.round(jogadores.reduce((s, p) => s + (p.idade || 25), 0) / jogadores.length);
-        let ovrMedio = Math.round(jogadores.reduce((s, p) => s + (p.ovr || 0), 0) / jogadores.length);
-        let alerta = jogadores.length === 1 ? ' (elenco curto — só 1 opção nesse setor)'
-            : (ovrMedio < nivelClube - 5 ? ' (nível visivelmente abaixo da média do time)' : '');
-        return `- ${grupo}: ${jogadores.length} jogador${jogadores.length === 1 ? '' : 'es'}, idade média ${idadeMedia}${alerta}`;
+    Object.values(porGrupo).forEach(info => {
+        let jogadores = info.jogadores;
+        info.idadeMedia = jogadores.length ? Math.round(jogadores.reduce((s, p) => s + (p.idade || 25), 0) / jogadores.length) : null;
+        info.ovrMedio = jogadores.length ? Math.round(jogadores.reduce((s, p) => s + (p.ovr || 0), 0) / jogadores.length) : null;
+        info.prioridade = jogadores.length <= 1 || (info.ovrMedio !== null && info.ovrMedio < nivelClube - 5);
+    });
+
+    return porGrupo;
+}
+
+function scoutResumoNecessidadesElenco() {
+    let porGrupo = scoutAnalisarElencoPorGrupo();
+    let linhas = Object.entries(porGrupo).map(([grupo, info]) => {
+        if (info.jogadores.length === 0) return `- ${grupo}: NENHUM jogador ativo nesse setor — necessidade urgente.`;
+        let alerta = info.jogadores.length === 1 ? ' (elenco curto — só 1 opção nesse setor)'
+            : (info.prioridade ? ' (nível visivelmente abaixo da média do time)' : '');
+        return `- ${grupo}: ${info.jogadores.length} jogador${info.jogadores.length === 1 ? '' : 'es'}, idade média ${info.idadeMedia}${alerta}`;
     });
 
     return `Elenco atual por setor (uso interno pra embasar a necessidade real — não repita esses números pro treinador):\n${linhas.join('\n')}`;
@@ -120,6 +136,7 @@ function scoutMontarCandidatos() {
     let nivelClube = scoutNivelClubeAtual();
     let anos = (typeof anosAlemDaBaseDadosReais === 'function') ? anosAlemDaBaseDadosReais(db.clube.temporadaAtual) : 0;
     let nomeClubeProprio = db.clube.nome;
+    let analiseElenco = scoutAnalisarElencoPorGrupo();
 
     let porGrupo = {};
     Object.keys(SCOUT_GRUPOS_POSICAO).forEach(g => porGrupo[g] = []);
@@ -139,7 +156,8 @@ function scoutMontarCandidatos() {
     let pool = [];
     let blocos = Object.entries(porGrupo).map(([grupo, lista]) => {
         lista.sort((a, b) => Math.abs(a.ovr - nivelClube) - Math.abs(b.ovr - nivelClube));
-        let selecionados = lista.slice(0, SCOUT_CANDIDATOS_POR_GRUPO);
+        let limite = (analiseElenco[grupo] && analiseElenco[grupo].prioridade) ? SCOUT_CANDIDATOS_GRUPO_PRIORITARIO : SCOUT_CANDIDATOS_GRUPO_PADRAO;
+        let selecionados = lista.slice(0, limite);
         if (selecionados.length === 0) return '';
         pool.push(...selecionados);
         let linhas = selecionados.map(j => `${j.nome} (${j.clube}, ${j.liga}, ${j.idade} anos, ${j.posicaoEA}) — nível: ${scoutRotuloNivel(j.ovr, nivelClube)}`);

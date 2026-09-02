@@ -269,7 +269,11 @@ Se não sugerir jogador nenhum nesta resposta, deixe "sugestoes" como um array v
                 // confundida com um erro nosso ao montar ou processar a resposta (e vice-versa).
                 let rawText;
                 try {
-                    const data = await chamarIA({ contents: [{ parts: parts }] });
+                    // O prompt do Scout carrega um pool grande de candidatos reais — a IA demora
+                    // mais pra processar isso do que os outros chats, então ganha uma folga extra
+                    // de timeout (o timeout padrão de 45s foi curto demais e derrubava a conversa
+                    // à toa, mesmo quando a IA ia responder certinho só um pouco depois).
+                    const data = await chamarIA({ contents: [{ parts: parts }] }, tipo === 'scout' ? 75000 : undefined);
                     rawText = textoDaRespostaIA(data);
                 } catch (e) {
                     history.push({ role: 'ai', text: '⚠️ ' + mensagemErroIA(e) });
