@@ -210,6 +210,10 @@ ${blocoAvaliacao}
                 db.clube.plantel.forEach(p => {
                     if (typeof p.idade === 'number') p.idade++; // +1 ano de idade a cada temporada que passa
 
+                    // Preparo Físico não atravessa a virada de temporada — todo jogador volta
+                    // "despreparado" (30%) na pré-temporada, mesmo quem terminou "incansável".
+                    p.preparoFisico = (typeof PREPARO_FISICO_CFG !== 'undefined') ? PREPARO_FISICO_CFG.INICIAL_TEMPORADA : 30;
+
                     // Estado de temporada não atravessa a virada: descanso concedido, risco extra
                     // de lesão, promessa de minutos e pedido de saída valiam para a temporada que acabou.
                     p.poupadoRestante = 0;

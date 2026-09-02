@@ -425,7 +425,7 @@
         <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
         <button class="nav-btn" onclick="mudarAba('tab-historico')">🏆 Sala de Troféus</button>
         <button class="nav-btn" id="nav-btn-diretoria" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
-        <button class="nav-btn" id="nav-btn-medico" onclick="mudarAba('tab-medico')">🏥 Departamento Médico</button>
+        <button class="nav-btn" id="nav-btn-medico" onclick="mudarAba('tab-medico')">🏥 Departamento Físico e Médico</button>
         <button class="nav-btn" id="nav-btn-convocacao" style="display:none;" onclick="mudarAba('tab-convocacao')">📋 Convocação</button>
         <button class="nav-btn" onclick="mudarAba('tab-perfil-treinador')">🧑‍💼 Perfil do Treinador</button>
         <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
@@ -1619,8 +1619,8 @@
         <!-- ABA: DEPARTAMENTO MÉDICO -->
         <div id="tab-medico" class="tab-content">
             <div class="panel" style="border-left: 4px solid var(--danger);">
-                <h2 style="margin:0;">🏥 Departamento Médico & Preparador Físico</h2>
-                <span style="font-size: 13px; color: var(--text-muted);">Saúde e carga de treino do elenco — tudo num só lugar</span>
+                <h2 style="margin:0;">🏥 Departamento Físico e Médico</h2>
+                <span style="font-size: 13px; color: var(--text-muted);">Saúde, preparo físico e carga de treino do elenco — tudo num só lugar. Clique num jogador pra ver o detalhe completo e o plano de uso.</span>
             </div>
 
             <div id="medico-resumo-cards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:15px; margin-bottom:20px;"></div>
@@ -1661,6 +1661,16 @@
             <div class="panel">
                 <h3 style="margin-top:0;">👥 Condição Física do Elenco</h3>
                 <div id="medico-lista"></div>
+            </div>
+        </div>
+
+        <!-- MODAL: DETALHE FÍSICO DO JOGADOR (clique num card do Departamento Físico e Médico) -->
+        <div id="modal-detalhe-fisico" class="modal-troca-overlay" style="display: none;">
+            <div class="setup-box modal-troca-box">
+                <h2 id="detalhe-fisico-nome" style="margin-top:0;"></h2>
+                <p id="detalhe-fisico-sub" style="font-size:13px; color:var(--text-muted); margin-top:-10px;"></p>
+                <div id="detalhe-fisico-corpo" style="display:flex; flex-direction:column; gap:14px; margin-top:10px;"></div>
+                <button style="width: 100%; margin-top: 18px; background:transparent; border:1px solid var(--border); color:white;" onclick="fecharModalDetalheFisico()">Fechar</button>
             </div>
         </div>
 

@@ -1,14 +1,20 @@
 // =====================================================================================
-// DEPARTAMENTO MÉDICO — Fadiga Acumulada, Recuperação e Rotação Inteligente
+// DEPARTAMENTO FÍSICO E MÉDICO — Fadiga Acumulada, Preparo Físico, Recuperação e Rotação
 // =====================================================================================
 // Este arquivo controla tudo que é "realismo físico" do elenco:
 // - Fadiga Acumulada (0% = descansado, 100%+ = risco crítico) de cada jogador, calculada a
 //   partir das estatísticas REAIS da partida (distância percorrida, distância corrida, dividas,
 //   dribles) e recuperada por uma curva de dias de descanso até o próximo jogo — ver
 //   calcularFadigaAtualizada().
+// - Preparo Físico (0-100%, distinto de fadiga): o quanto o jogador está "em ritmo de jogo" —
+//   reseta a 30% no início de cada temporada, sobe quando ele joga e cai quando fica de fora
+//   (ver PREPARO_FISICO_CFG/garantirCondicaoFisica/atualizarPreparoFisicoPosPartida abaixo).
+//   Influencia o quanto ele cansa em campo (multiplicadorFadigaPorPreparo) e pesa na escalação
+//   do Auxiliar Técnico (com peso reduzido nas diretrizes de rotação, onde dar minutos a quem
+//   não está afiado é intencional).
 // - Contagem de jogos seguidos sem descanso (rodízio)
 // - Risco de lesão por desgaste (pode virar lesão real se ignorado)
-// - O "Boletim do Preparador Físico", usado pela aba Departamento Médico e também
+// - O "Boletim do Preparador Físico", usado pela aba Departamento Físico e Médico e também
 //   enviado ao Auxiliar Técnico (IA) para forçar rotação inteligente na escalação.
 
 const CONDICAO_FISICA_CFG = {
@@ -50,9 +56,14 @@ function calcularFadigaAtualizada(entrada) {
     let dribles = Number(entrada.dribles) || 0;
     let fadigaResidual = Math.max(0, Number(entrada.fadigaResidual) || 0);
     let diasDescanso = Math.max(0, Math.floor(Number(entrada.diasDescanso) || 0));
+    // Um jogador despreparado cansa mais rápido em campo (a partida "pesa mais" nele); um
+    // incansável cansa menos — ver multiplicadorFadigaPorPreparo(), calculado com o Preparo
+    // Físico do jogador ANTES desta partida (o estado depois dela é outra conta, separada).
+    let multiplicadorPreparo = Number(entrada.multiplicadorPreparo);
+    if (isNaN(multiplicadorPreparo) || multiplicadorPreparo <= 0) multiplicadorPreparo = 1;
 
     let pontosPartida = distanciaPercorrida + (distanciaCorrida * 4) + (divididas / 3) + (dribles / 2);
-    let fadigaPartida = pontosPartida * 2;
+    let fadigaPartida = pontosPartida * 2 * multiplicadorPreparo;
     let fadigaTotalAcumulada = fadigaPartida + fadigaResidual;
 
     if (diasDescanso >= 12) return 0;
@@ -60,6 +71,69 @@ function calcularFadigaAtualizada(entrada) {
     // recuperação nenhuma — divisor 1 (fadiga passa direto, sem dissolver nada).
     let divisor = diasDescanso <= 0 ? 1 : (DIVISOR_DESCANSO_FADIGA[diasDescanso] || 1);
     return Math.max(0, Math.floor(fadigaTotalAcumulada / divisor));
+}
+
+// =====================================================================================
+// PREPARO FÍSICO — pedido do treinador: uma métrica de "ritmo de jogo" (0-100%), separada da
+// fadiga. Um jogador pode estar totalmente descansado (fadiga baixa) e mesmo assim fora de ritmo
+// (preparo baixo) se ficou muitas partidas sem jogar — e vice-versa. Reseta a 30% (despreparado)
+// no início de cada temporada (ver processarConclusaoTemporada em js/temporada-mercado.js), sobe
+// quando o jogador entra em campo e cai quando ele fica de fora — ver
+// atualizarPreparoFisicoPosPartida() logo abaixo.
+// =====================================================================================
+const PREPARO_FISICO_CFG = {
+    INICIAL_TEMPORADA: 30,
+    MINIMO: 5,
+    MAXIMO: 100,
+    // Ganho fixo por partida jogada — o app não rastreia minutos jogados por atleta (só se jogou
+    // ou não), então qualquer partida disputada soma o mesmo ganho, mesmo entrando nos últimos
+    // minutos. Uma simplificação conhecida, documentada aqui de propósito.
+    GANHO_POR_PARTIDA: 15,
+    // Decaimento MULTIPLICATIVO por partida SEM jogar (não é subtração fixa) — valida o exemplo
+    // do próprio pedido: um jogador com 80% de preparo, depois de 5 partidas seguidas sem entrar
+    // em campo, cai pra ~30% (80 * 0.82^5 ≈ 29.7).
+    FATOR_DECAIMENTO_SEM_JOGAR: 0.82
+};
+
+// Classifica o Preparo Físico nas 5 faixas do pedido do treinador — cada uma com um rótulo, uma
+// recomendação de minutos (usada no "Plano de Uso" da aba) e o multiplicador de fadiga aplicado
+// em campo (quanto mais despreparado, mais rápido cansa).
+function nivelPreparoFisico(preparoFisico) {
+    let p = Math.max(0, Math.min(100, Number(preparoFisico) || 0));
+    if (p <= 20) return { nivel: 'sem-condicao', rotulo: 'Sem Condição de Jogo', minutosRecomendados: 20, multiplicadorFadiga: 1.5 };
+    if (p <= 40) return { nivel: 'despreparado', rotulo: 'Despreparado', minutosRecomendados: 45, multiplicadorFadiga: 1.25 };
+    if (p <= 60) return { nivel: 'regular', rotulo: 'Regular', minutosRecomendados: 70, multiplicadorFadiga: 1.0 };
+    if (p <= 80) return { nivel: 'preparado', rotulo: 'Preparado', minutosRecomendados: 90, multiplicadorFadiga: 0.85 };
+    return { nivel: 'incansavel', rotulo: 'Incansável', minutosRecomendados: 90, multiplicadorFadiga: 0.7 };
+}
+
+function multiplicadorFadigaPorPreparo(preparoFisico) {
+    return nivelPreparoFisico(preparoFisico).multiplicadorFadiga;
+}
+
+// Penalidade de Preparo Físico na pontuação da escalação (js/chat-ia.js) — abaixo de 60%
+// (metade de "Regular") já desconta pontos, proporcional ao quanto falta pro ideal; acima disso,
+// nenhum desconto. O peso (o quanto isso realmente pesa) varia por diretriz — cai bastante nas
+// diretrizes de rotação/rodízio/jovens, onde dar minutos a quem não está 100% em ritmo é uma
+// escolha deliberada do treinador, não um problema a evitar.
+function penalidadePorPreparoFisico(preparoFisico, peso) {
+    let p = Number(preparoFisico);
+    if (isNaN(p)) p = PREPARO_FISICO_CFG.INICIAL_TEMPORADA; // nunca deixa a pontuação virar NaN num save antigo sem o campo ainda
+    p = Math.max(0, Math.min(100, p));
+    let deficit = Math.max(0, 60 - p);
+    return deficit * (Number(peso) || 0);
+}
+
+// Atualiza o Preparo Físico após uma partida: sobe pra quem jogou (ganho fixo, teto 100%), decai
+// multiplicativamente pra quem ficou de fora (piso 5% — nunca some de vez, mesmo num jogador
+// esquecido a temporada inteira).
+function atualizarPreparoFisicoPosPartida(p, jogou) {
+    let cfg = PREPARO_FISICO_CFG;
+    if (jogou) {
+        p.preparoFisico = Math.min(cfg.MAXIMO, Math.round(p.preparoFisico + cfg.GANHO_POR_PARTIDA));
+    } else {
+        p.preparoFisico = Math.max(cfg.MINIMO, Math.round(p.preparoFisico * cfg.FATOR_DECAIMENTO_SEM_JOGAR));
+    }
 }
 
 // Garante que jogadores antigos (criados antes desta atualização) ganhem os campos novos. Save
@@ -75,6 +149,7 @@ function garantirCondicaoFisica(p) {
     if (typeof p.diasLesao !== 'number' || isNaN(p.diasLesao)) p.diasLesao = 0;
     if (typeof p.suspensoVermelho !== 'boolean') p.suspensoVermelho = false;
     if (typeof p.ovrPendente !== 'number' || isNaN(p.ovrPendente)) p.ovrPendente = 0;
+    if (typeof p.preparoFisico !== 'number' || isNaN(p.preparoFisico)) p.preparoFisico = PREPARO_FISICO_CFG.INICIAL_TEMPORADA;
     return p;
 }
 
@@ -147,6 +222,8 @@ function processarCondicaoFisicaPosPartida(diasDescanso, jogadoresQueJogaram) {
         // quem jogou soma a fadiga gerada pelas estatísticas reais da partida à fadiga residual;
         // quem não jogou só recupera pelo descanso (fadiga da partida = 0). stamina continua
         // existindo como valor derivado (100 - fadiga) pros outros sistemas que já leem p.stamina.
+        // O multiplicador usa o Preparo Físico de ANTES desta partida — um jogador despreparado
+        // cansa mais rápido em campo; um incansável cansa menos (ver multiplicadorFadigaPorPreparo).
         let statsPartida = mapaQueJogou.get(p.nome) || null;
         p.fadiga = calcularFadigaAtualizada({
             distanciaPercorrida: statsPartida ? statsPartida.distanciaPercorrida : 0,
@@ -154,9 +231,15 @@ function processarCondicaoFisicaPosPartida(diasDescanso, jogadoresQueJogaram) {
             divididas: statsPartida ? statsPartida.dividasTotais : 0,
             dribles: statsPartida ? statsPartida.dribles : 0,
             fadigaResidual: p.fadiga,
-            diasDescanso: diasDescanso
+            diasDescanso: diasDescanso,
+            multiplicadorPreparo: multiplicadorFadigaPorPreparo(p.preparoFisico)
         });
         p.stamina = Math.max(0, Math.min(cfg.STAMINA_MAX, cfg.STAMINA_MAX - p.fadiga));
+
+        // 3b. Preparo Físico: sobe pra quem jogou esta partida, decai pra quem ficou de fora —
+        // ver atualizarPreparoFisicoPosPartida (usa o mesmo mapaQueJogou.has, não statsPartida,
+        // porque "jogou" continua valendo mesmo sem estatísticas físicas detalhadas registradas).
+        atualizarPreparoFisicoPosPartida(p, mapaQueJogou.has(p.nome));
 
         // 4. Quem jogou acumula jogos seguidos / quem descansou zera a sequência
         if (mapaQueJogou.has(p.nome)) {
@@ -355,6 +438,107 @@ function rotuloPorNivel(nivel) {
     return '🟢 CONDIÇÃO IDEAL';
 }
 
+function corPorNivelPreparo(nivel) {
+    if (nivel === 'sem-condicao') return 'var(--danger)';
+    if (nivel === 'despreparado') return 'var(--warning)';
+    if (nivel === 'regular') return 'var(--text-muted)';
+    return 'var(--primary)'; // preparado / incansável
+}
+
+// Rótulo dos grupos táticos (GRUPOS_FUNCAO_EA, js/funcoes-ea.js) que a posição cadastrada do
+// jogador consegue ocupar — mesmo motor de compatibilidade usado na escalação/substituições
+// (ESPECIALIDADES_JOGADOR[...].gruposFuncao), só que virado texto pro card de detalhe.
+const ROTULO_GRUPO_TATICO_FISICO = {
+    goleiro: 'Goleiro', zagueiro: 'Zagueiro', lateral: 'Lateral', volante: 'Volante',
+    meio_campo_central: 'Meio-Campo', meia_atacante: 'Meia-Atacante', meia_lateral: 'Ponta',
+    ponta: 'Ponta', atacante: 'Atacante'
+};
+function posicoesPossiveisJogador(p) {
+    let def = (p && p.posicao && typeof ESPECIALIDADES_JOGADOR !== 'undefined') ? ESPECIALIDADES_JOGADOR[p.posicao] : null;
+    if (!def || !def.gruposFuncao) return [];
+    return [...new Set(Object.keys(def.gruposFuncao).map(g => ROTULO_GRUPO_TATICO_FISICO[g] || g))];
+}
+
+// "Plano de Uso" — recomendação de minutos pro PRÓXIMO jogo, na linguagem de um preparador
+// físico de verdade, cruzando o Preparo Físico com a fadiga acumulada atual. Puramente
+// determinístico (sem IA, sem espera): os patamares já vêm do próprio pedido do treinador.
+function planoDeUsoTexto(p) {
+    let c = condicaoJogador(p);
+    if (c.indisponivel) return `Fora de combate: ${c.motivoIndisponivel}. Sem plano de uso até a liberação médica.`;
+
+    let nivelPreparo = nivelPreparoFisico(p.preparoFisico);
+    let base;
+    if (nivelPreparo.nivel === 'sem-condicao') base = `Sem condição de jogo. Se for realmente necessário escalar, use por no máximo ${nivelPreparo.minutosRecomendados} minutos e fique de olho em qualquer sinal de desconforto.`;
+    else if (nivelPreparo.nivel === 'despreparado') base = `Despreparado. Recomendado usar por até ${nivelPreparo.minutosRecomendados} minutos, até ganhar ritmo de jogo.`;
+    else if (nivelPreparo.nivel === 'regular') base = `Condição regular. Pode fazer a partida completa, mas com ressalvas — fique de olho na queda de rendimento no segundo tempo.`;
+    else if (nivelPreparo.nivel === 'preparado') base = `Preparado. Apto pros 90 minutos sem restrições físicas.`;
+    else base = `Incansável. Aguenta os 90 minutos tranquilamente, inclusive uma eventual prorrogação.`;
+
+    if (c.nivel === 'critico') base += ' ⚠️ Além disso, está em RISCO CRÍTICO de lesão por fadiga acumulada — evite escalar mesmo assim, a não ser que não haja alternativa nenhuma.';
+    else if (c.nivel === 'risco') base += ' ⚠️ Também está em risco de lesão por fadiga acumulada — considere poupar se houver alternativa.';
+    else if (c.nivel === 'alerta') base += ' A fadiga acumulada está moderada — pode jogar, mas monitore.';
+
+    return base;
+}
+
+// Abre o modal de detalhe físico de um jogador — cansaço, preparo físico, posição real com
+// função sugerida, posições que pode ocupar e o plano de uso pro próximo jogo. Pedido do
+// treinador: "os jogadores são estáticos, poderia ser interativo, ao clicar mostraria..."
+function abrirModalDetalheFisico(nome) {
+    if (!db[currentSave]) return;
+    let p = db[currentSave].plantel.find(x => x.nome === nome);
+    if (!p) return;
+    garantirCondicaoFisica(p);
+    if (typeof garantirCamposElenco === 'function') garantirCamposElenco(p);
+
+    let modal = document.getElementById('modal-detalhe-fisico');
+    let elNome = document.getElementById('detalhe-fisico-nome');
+    let elSub = document.getElementById('detalhe-fisico-sub');
+    let corpo = document.getElementById('detalhe-fisico-corpo');
+    if (!modal || !elNome || !elSub || !corpo) return;
+
+    let c = condicaoJogador(p);
+    let nivelPreparo = nivelPreparoFisico(p.preparoFisico);
+    let posicoes = posicoesPossiveisJogador(p);
+    let sugestao = funcaoDesenvolvimentoSugerida(p);
+    let fadigaPct = Math.max(0, Math.min(100, Math.round(p.fadiga)));
+    let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
+
+    elNome.innerText = `🩺 ${p.nome}`;
+    elSub.innerText = `${p.posicao} • OVR ${p.ovr}${p.idade ? ` • ${p.idade} anos` : ''}`;
+
+    corpo.innerHTML = `
+        <div class="linha-form">
+            <label>😮‍💨 Cansaço (Fadiga Acumulada)</label>
+            <div class="stamina-bar"><div class="stamina-fill" style="width:${fadigaPct}%; background:${corPorNivel(c.nivel)};"></div></div>
+            <span style="font-size:12px; color:var(--text-muted);">${fadigaPct}% — ${rotuloPorNivel(c.nivel)}</span>
+        </div>
+        <div class="linha-form">
+            <label>🏃 Preparo Físico</label>
+            <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corPorNivelPreparo(nivelPreparo.nivel)};"></div></div>
+            <span style="font-size:12px; color:var(--text-muted);">${preparoPct}% — ${nivelPreparo.rotulo}</span>
+        </div>
+        <div class="linha-form">
+            <label>📍 Posição Real / Função em Campo</label>
+            <span>${sugestao ? `${sugestao.grupoNome}: ${sugestao.funcao.nome}` : p.posicao}</span>
+        </div>
+        <div class="linha-form">
+            <label>🔀 Posições que Pode Fazer</label>
+            <span>${posicoes.length ? posicoes.join(' / ') : p.posicao}</span>
+        </div>
+        <div class="linha-form" style="background: var(--input-bg); padding:12px; border-radius:8px; border:1px solid var(--border);">
+            <label>📋 Plano de Uso</label>
+            <p style="font-size:13px; line-height:1.5; margin:6px 0 0;">${planoDeUsoTexto(p)}</p>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+function fecharModalDetalheFisico() {
+    let modal = document.getElementById('modal-detalhe-fisico');
+    if (modal) modal.style.display = 'none';
+}
+
 function toggleDesenvolvimentoIndividualPanel() {
     let panel = document.getElementById('medico-desenvolvimento');
     let btn = document.getElementById('btn-toggle-medico-dev');
@@ -449,19 +633,30 @@ function atualizarDepartamentoMedicoUI() {
             if (p.riscoExtraLesao > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(226, 75, 75, 0.18); color: var(--danger);">⚠️ ${p.riscoExtraLesao}j</span>`;
 
             let botaoDescanso = (!c.indisponivel && c.nivel !== 'ok')
-                ? `<button class="medico-card-btn" title="Dar descanso preventivo" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
+                ? `<button class="medico-card-btn" title="Dar descanso preventivo" onclick="event.stopPropagation(); forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
                 : '';
 
-            let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''}`;
+            let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''} • clique pra ver detalhes e plano de uso`;
+
+            // Preparo Físico ganha sua própria barrinha, curta, embaixo da fadiga — cor por
+            // patamar (ver nivelPreparoFisico/corPorNivelPreparo), pra bater o olho já no card
+            // sem precisar abrir o detalhe.
+            let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
+            let nivelPreparoCard = nivelPreparoFisico(p.preparoFisico);
+            let corPreparo = corPorNivelPreparo(nivelPreparoCard.nivel);
 
             return `
-            <div class="medico-card" style="border-left-color:${corBorda};" title="${dicaExtra.replace(/"/g, '&quot;')}">
+            <div class="medico-card" style="border-left-color:${corBorda}; cursor:pointer;" title="${dicaExtra.replace(/"/g, '&quot;')}" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')">
                 ${botaoDescanso}
                 <strong class="medico-card-nome">${p.nome}</strong>
                 <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
                 <div class="medico-card-barra-linha">
                     <div class="stamina-bar"><div class="stamina-fill" style="width:${fadigaPct}%; background:${corBarra};"></div></div>
                     <span class="medico-card-pct" style="color:${corBarra};">${fadigaPct}%</span>
+                </div>
+                <div class="medico-card-barra-linha" title="Preparo Físico: ${nivelPreparoCard.rotulo}">
+                    <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corPreparo};"></div></div>
+                    <span class="medico-card-pct" style="color:${corPreparo};">🏃${preparoPct}%</span>
                 </div>
                 <div class="medico-card-rodape">${badge}</div>
             </div>`;
