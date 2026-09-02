@@ -61,9 +61,12 @@ function calcularFadigaAtualizada(entrada) {
     // Físico do jogador ANTES desta partida (o estado depois dela é outra conta, separada).
     let multiplicadorPreparo = Number(entrada.multiplicadorPreparo);
     if (isNaN(multiplicadorPreparo) || multiplicadorPreparo <= 0) multiplicadorPreparo = 1;
+    // Idade também pesa no cansaço em campo — ver multiplicadorFadigaPorIdade().
+    let multiplicadorIdade = Number(entrada.multiplicadorIdade);
+    if (isNaN(multiplicadorIdade) || multiplicadorIdade <= 0) multiplicadorIdade = 1;
 
     let pontosPartida = distanciaPercorrida + (distanciaCorrida * 4) + (divididas / 3) + (dribles / 2);
-    let fadigaPartida = pontosPartida * 2 * multiplicadorPreparo;
+    let fadigaPartida = pontosPartida * 2 * multiplicadorPreparo * multiplicadorIdade;
     let fadigaTotalAcumulada = fadigaPartida + fadigaResidual;
 
     if (diasDescanso >= 12) return 0;
@@ -76,10 +79,11 @@ function calcularFadigaAtualizada(entrada) {
 // =====================================================================================
 // PREPARO FÍSICO — pedido do treinador: uma métrica de "ritmo de jogo" (0-100%), separada da
 // fadiga. Um jogador pode estar totalmente descansado (fadiga baixa) e mesmo assim fora de ritmo
-// (preparo baixo) se ficou muitas partidas sem jogar — e vice-versa. Reseta a 30% (despreparado)
-// no início de cada temporada (ver processarConclusaoTemporada em js/temporada-mercado.js), sobe
-// quando o jogador entra em campo e cai quando ele fica de fora — ver
-// atualizarPreparoFisicoPosPartida() logo abaixo.
+// (preparo baixo) se ficou muitos DIAS sem jogar — e vice-versa. Reseta a 30% (despreparado) no
+// início de cada temporada (ver processarConclusaoTemporada em js/temporada-mercado.js). Cai
+// LINEARMENTE por dia até a próxima partida (o dobro do ritmo se o motivo for lesão) — isso vale
+// pra TODO MUNDO, jogando ou não; quem joga esta partida ganha, por cima disso, um bônus fixo —
+// ver atualizarPreparoFisicoPosPartida() logo abaixo.
 // =====================================================================================
 const PREPARO_FISICO_CFG = {
     INICIAL_TEMPORADA: 30,
@@ -88,11 +92,14 @@ const PREPARO_FISICO_CFG = {
     // Ganho fixo por partida jogada — o app não rastreia minutos jogados por atleta (só se jogou
     // ou não), então qualquer partida disputada soma o mesmo ganho, mesmo entrando nos últimos
     // minutos. Uma simplificação conhecida, documentada aqui de propósito.
-    GANHO_POR_PARTIDA: 15,
-    // Decaimento MULTIPLICATIVO por partida SEM jogar (não é subtração fixa) — valida o exemplo
-    // do próprio pedido: um jogador com 80% de preparo, depois de 5 partidas seguidas sem entrar
-    // em campo, cai pra ~30% (80 * 0.82^5 ≈ 29.7).
-    FATOR_DECAIMENTO_SEM_JOGAR: 0.82
+    GANHO_POR_PARTIDA: 25,
+    // Perda por DIA sem jogar (não por partida) — pedido do treinador: um jogador saudável que
+    // fica de fora perde 1%/dia; exemplo do pedido: não joga hoje, a próxima partida é 14 dias
+    // depois, perde 14%.
+    PERDA_POR_DIA_SEM_JOGAR: 1,
+    // Enquanto lesionado, o ritmo de perda dobra — pedido do treinador: 30 dias de lesão = -60%
+    // de preparo físico (30 * 2%).
+    PERDA_POR_DIA_LESIONADO: 2
 };
 
 // Classifica o Preparo Físico nas 5 faixas do pedido do treinador — cada uma com um rótulo, uma
@@ -111,6 +118,21 @@ function multiplicadorFadigaPorPreparo(preparoFisico) {
     return nivelPreparoFisico(preparoFisico).multiplicadorFadiga;
 }
 
+// Idade também pesa no cansaço em campo (mesma ideia do multiplicador de Preparo Físico, só que
+// pela idade do jogador) — multiplica junto na fórmula de fadiga da partida (ver
+// calcularFadigaAtualizada). Até 23 anos o corpo ainda está em desenvolvimento (leve penalidade);
+// 24-29 é o pico físico (baseline, sem efeito); 30-33 já sente um pouco mais; a partir de 34 o
+// efeito cresce ano a ano — 34 anos = 1.15x, e sobe +0.015 a cada ano acima disso (39 anos =
+// 1.15 + 5*0.015 = 1.225x).
+function multiplicadorFadigaPorIdade(idade) {
+    let i = Number(idade);
+    if (isNaN(i)) return 1;
+    if (i <= 23) return 1.05;
+    if (i <= 29) return 1.0;
+    if (i <= 33) return 1.1;
+    return Math.round((1.15 + Math.max(0, i - 34) * 0.015) * 1000) / 1000;
+}
+
 // Penalidade de Preparo Físico na pontuação da escalação (js/chat-ia.js) — abaixo de 60%
 // (metade de "Regular") já desconta pontos, proporcional ao quanto falta pro ideal; acima disso,
 // nenhum desconto. O peso (o quanto isso realmente pesa) varia por diretriz — cai bastante nas
@@ -124,16 +146,23 @@ function penalidadePorPreparoFisico(preparoFisico, peso) {
     return deficit * (Number(peso) || 0);
 }
 
-// Atualiza o Preparo Físico após uma partida: sobe pra quem jogou (ganho fixo, teto 100%), decai
-// multiplicativamente pra quem ficou de fora (piso 5% — nunca some de vez, mesmo num jogador
-// esquecido a temporada inteira).
-function atualizarPreparoFisicoPosPartida(p, jogou) {
+// Atualiza o Preparo Físico após uma partida: a perda por dia até a próxima partida (1%/dia
+// normal, 2%/dia se lesionado, o dobro do ritmo) SEMPRE se aplica, jogando ou não — pedido do
+// treinador: mesmo quem jogou esta partida perde pelos dias que passam até a próxima (o ritmo de
+// jogo não se sustenta sozinho no tempo parado). Quem jogou ESTA partida ganha, por cima disso, o
+// ganho fixo (teto 100%). Ou seja: jogar com 10 dias até o próximo jogo ainda rende +15 líquido
+// (25 de ganho − 10 de dias parado); não jogar com 10 dias até o próximo custa −10 (sem ganho
+// nenhum). Piso de 5% sempre garantido (nunca some de vez, mesmo num jogador esquecido a
+// temporada inteira). "diasSemJogar" é o mesmo "diasDescanso" já usado pra fadiga (dias até a
+// próxima partida); "lesionado" reflete se ele JÁ estava lesionado no início desse período (ver o
+// "estavaLesionadoAntes" capturado em processarCondicaoFisicaPosPartida, antes do desconto dos
+// dias de lesão restantes).
+function atualizarPreparoFisicoPosPartida(p, jogou, diasSemJogar, lesionado) {
     let cfg = PREPARO_FISICO_CFG;
-    if (jogou) {
-        p.preparoFisico = Math.min(cfg.MAXIMO, Math.round(p.preparoFisico + cfg.GANHO_POR_PARTIDA));
-    } else {
-        p.preparoFisico = Math.max(cfg.MINIMO, Math.round(p.preparoFisico * cfg.FATOR_DECAIMENTO_SEM_JOGAR));
-    }
+    let dias = Math.max(0, Number(diasSemJogar) || 0);
+    let taxaPorDia = lesionado ? cfg.PERDA_POR_DIA_LESIONADO : cfg.PERDA_POR_DIA_SEM_JOGAR;
+    let novoValor = p.preparoFisico - (dias * taxaPorDia) + (jogou ? cfg.GANHO_POR_PARTIDA : 0);
+    p.preparoFisico = Math.max(cfg.MINIMO, Math.min(cfg.MAXIMO, Math.round(novoValor)));
 }
 
 // Garante que jogadores antigos (criados antes desta atualização) ganhem os campos novos. Save
@@ -200,6 +229,12 @@ function processarCondicaoFisicaPosPartida(diasDescanso, jogadoresQueJogaram) {
     db[currentSave].plantel.filter(p => p.status === 'Ativo').forEach(p => {
         garantirCondicaoFisica(p);
 
+        // Capturado ANTES do desconto de dias de lesão abaixo — é o que decide a taxa de perda
+        // de Preparo Físico deste período (2%/dia lesionado vs. 1%/dia normal, ver passo 3b):
+        // um jogador que estava lesionado durante ESTE intervalo perde no ritmo dobrado, mesmo
+        // que ele se recupere exatamente durante este mesmo cálculo.
+        let estavaLesionadoAntes = p.diasLesao > 0;
+
         // 1. Recuperação de lesão
         if (p.diasLesao > 0) {
             p.diasLesao -= diasDescanso;
@@ -222,8 +257,9 @@ function processarCondicaoFisicaPosPartida(diasDescanso, jogadoresQueJogaram) {
         // quem jogou soma a fadiga gerada pelas estatísticas reais da partida à fadiga residual;
         // quem não jogou só recupera pelo descanso (fadiga da partida = 0). stamina continua
         // existindo como valor derivado (100 - fadiga) pros outros sistemas que já leem p.stamina.
-        // O multiplicador usa o Preparo Físico de ANTES desta partida — um jogador despreparado
-        // cansa mais rápido em campo; um incansável cansa menos (ver multiplicadorFadigaPorPreparo).
+        // O multiplicador de preparo usa o Preparo Físico de ANTES desta partida — um jogador
+        // despreparado cansa mais rápido em campo; um incansável cansa menos (ver
+        // multiplicadorFadigaPorPreparo). A idade multiplica junto (ver multiplicadorFadigaPorIdade).
         let statsPartida = mapaQueJogou.get(p.nome) || null;
         p.fadiga = calcularFadigaAtualizada({
             distanciaPercorrida: statsPartida ? statsPartida.distanciaPercorrida : 0,
@@ -232,14 +268,17 @@ function processarCondicaoFisicaPosPartida(diasDescanso, jogadoresQueJogaram) {
             dribles: statsPartida ? statsPartida.dribles : 0,
             fadigaResidual: p.fadiga,
             diasDescanso: diasDescanso,
-            multiplicadorPreparo: multiplicadorFadigaPorPreparo(p.preparoFisico)
+            multiplicadorPreparo: multiplicadorFadigaPorPreparo(p.preparoFisico),
+            multiplicadorIdade: multiplicadorFadigaPorIdade(p.idade)
         });
         p.stamina = Math.max(0, Math.min(cfg.STAMINA_MAX, cfg.STAMINA_MAX - p.fadiga));
 
-        // 3b. Preparo Físico: sobe pra quem jogou esta partida, decai pra quem ficou de fora —
-        // ver atualizarPreparoFisicoPosPartida (usa o mesmo mapaQueJogou.has, não statsPartida,
+        // 3b. Preparo Físico: cai pelos "diasDescanso" corridos até a próxima partida pra TODO
+        // MUNDO (jogando ou não), no dobro do ritmo se estava lesionado nesse intervalo; quem
+        // jogou esta partida ainda ganha um bônus fixo por cima — ver
+        // atualizarPreparoFisicoPosPartida (usa o mesmo mapaQueJogou.has, não statsPartida,
         // porque "jogou" continua valendo mesmo sem estatísticas físicas detalhadas registradas).
-        atualizarPreparoFisicoPosPartida(p, mapaQueJogou.has(p.nome));
+        atualizarPreparoFisicoPosPartida(p, mapaQueJogou.has(p.nome), diasDescanso, estavaLesionadoAntes);
 
         // 4. Quem jogou acumula jogos seguidos / quem descansou zera a sequência
         if (mapaQueJogou.has(p.nome)) {
