@@ -591,7 +591,19 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
                 let tagPerfil = perfilStr ? ` [Perfil: ${perfilStr}]` : "";
                 let numerosStr = (typeof estatisticasDetalhadasJogador === 'function') ? estatisticasDetalhadasJogador(p.nome) : '';
                 let tagNumeros = numerosStr ? ` [Números: ${numerosStr}]` : "";
-                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${p.fadigaStr}${tagReserva}${tagHabitual}${tagPerfil}${tagNumeros}]`;
+                // Preparo Físico (rodada 80) é diferente de fadiga: fadiga é o cansaço acumulado
+                // recente, preparo físico é o "ritmo de jogo" da temporada — um jogador pode estar
+                // descansado (fadiga baixa) e ainda assim despreparado (ficou meses sem jogar).
+                let jogadorOriginal = plantelAtivo.find(x => x.nome === p.nome);
+                let nivelPreparo = (typeof nivelPreparoFisico === 'function' && jogadorOriginal) ? nivelPreparoFisico(jogadorOriginal.preparoFisico) : null;
+                let tagPreparo = "";
+                if (nivelPreparo && !p.indisponivelStr) {
+                    if (nivelPreparo.nivel === 'sem-condicao') tagPreparo = ` [PREPARO FÍSICO: SEM CONDIÇÃO DE JOGO - só uns ${nivelPreparo.minutosRecomendados}min, se for escalado]`;
+                    else if (nivelPreparo.nivel === 'despreparado') tagPreparo = ` [PREPARO FÍSICO: DESPREPARADO - evite o jogo completo, uns ${nivelPreparo.minutosRecomendados}min é o razoável]`;
+                    else if (nivelPreparo.nivel === 'regular') tagPreparo = ` [preparo físico regular - pode fazer o jogo completo com ressalvas]`;
+                    else if (nivelPreparo.nivel === 'incansavel') tagPreparo = ` [preparo físico excelente - incansável]`;
+                }
+                return `[Nome: ${p.nome} | Pos: ${p.posicao} | OVR: ${p.ovr} | Nota Média: ${p.mediaNota}${p.indisponivelStr}${p.fadigaStr}${tagPreparo}${tagReserva}${tagHabitual}${tagPerfil}${tagNumeros}]`;
             }).join(', ');
 
             return { texto: texto, formacoesPossiveisStr: JSON.stringify(FORMACOES_SIGLAS) };
@@ -605,6 +617,7 @@ if (res.novoOrcamentoExtra && Number(res.novoOrcamentoExtra) > 0) {
             2. INSTRUÇÕES CIRÚRGICAS: Para CADA jogador, crie uma instrução tática baseada no adversário (${adv}) e no ${estiloJogo}. Exemplo: Se for um time menor, exija pressão na saída deles. Se for um time forte tecnicamente, instrua o volante a fechar a linha de passe e dobrar marcação. NADA DE INSTRUÇÕES GENÉRICAS.
             3. DESCANSO GERAL DO ELENCO (${diasDescanso} dia(s) até este jogo): Se forem 2 dias ou menos, reduza o esforço físico do time como um todo e priorize poupar pontas e laterais (exceto se a Diretriz for Força Total Absoluta).
             4. ROTAÇÃO INTELIGENTE OBRIGATÓRIA (REGRA DE OURO — SIGA À RISCA): jogadores marcados no elenco com [FADIGA CRÍTICA] ou "ROTAÇÃO OBRIGATÓRIA" NÃO PODEM ser escalados, a menos que literalmente não exista NENHUM outro jogador apto para aquela posição — nesse caso, escale mesmo assim, mas deixe isso claro na instrução dele (ex: "Jogando no limite físico por falta de opções no elenco"). Jogadores marcados como [RISCO DE LESÃO] só devem ser escalados se não houver alternativa minimamente aceitável na posição; prefira sempre o jogador saudável, mesmo com OVR menor. A ÚNICA exceção a esta regra é se a Diretriz Estratégica for "Força Total Absoluta" — nesse caso o treinador assume o risco conscientemente e você pode escalar o time ideal mesmo cansado.
+            4b. PREPARO FÍSICO (diferente de fadiga — é o "ritmo de jogo" da temporada, não o cansaço recente): jogadores marcados [PREPARO FÍSICO: SEM CONDIÇÃO DE JOGO] ou [PREPARO FÍSICO: DESPREPARADO] PODEM ser escalados normalmente (isso NÃO é bloqueio como a regra 4) — mas, se escalar um deles, a "instrucao" dele TEM que avisar isso claramente pro treinador, com os minutos recomendados indicados na tag (ex: "Ainda sem ritmo de jogo — usar por poucos minutos, no máximo uns 20-25min" ou "Despreparado — evite o jogo completo, ideal é uns 45min pra ganhar ritmo aos poucos"). É um aviso informativo do preparador físico, não uma proibição.
             5. CUMPRIMENTO OBRIGATÓRIO DE DIRETRIZ E ESTILO (NÃO É SUGESTÃO, É REGRA): Traduza literalmente o texto da Diretriz e do Estilo de Jogo em ações concretas na escalação:
                - Se mencionar "jovens", "reservas", "dar oportunidade" ou "rodar o elenco": você DEVE escalar preferencialmente jogadores marcados como [RESERVA/JOVEM] acima, nas posições onde eles existirem, mesmo que o OVR seja menor.
                - Se mencionar "explorar laterais", "explorar as pontas" ou "jogar pelos lados": as instruções dos jogadores em LAD/LAE/PD/PE/ALD/ALE DEVEM pedir explicitamente para avançar constantemente, cruzar com frequência e buscar a linha de fundo.
@@ -1115,26 +1128,36 @@ ${textoRegrasCompatibilidadePosicional()}
         // As funções de pontuação (calcularPontuacaoEfetivaEscalacaoPadrao / ...RotacaoEquilibrada)
         // são "function" tradicionais, içadas pro topo do escopo — podem ser referenciadas aqui
         // mesmo estando declaradas mais abaixo no arquivo.
+        // "pesoPreparoFisico" (pedido do treinador, ver js/departamento-medico.js —
+        // penalidadePorPreparoFisico): o quanto o Preparo Físico (distinto de fadiga — mede se o
+        // jogador está "em ritmo de jogo", não se está cansado) pesa na pontuação de CADA
+        // diretriz. Nas diretrizes de rotação/rodízio/jovens o peso cai de propósito — ali o
+        // treinador já está escolhendo dar minutos a quem não está afiado, então penalizar isso
+        // pesado seria contraditório com a própria diretriz.
         const DIRETRIZES_ESTRATEGICAS = {
             'titular-padrao': {
                 nome: 'Escalação Titular Padrão (Recomendada)',
                 descricaoIA: 'Escalar sempre os titulares com a maior pontuação efetiva no momento — calculada por um algoritmo do clube a partir do OVR, do desempenho recente em campo e de uma penalidade que cresce de forma EXPONENCIAL com a fadiga acumulada (branda até uns 60% de fadiga, agressiva a partir de 70%). Não há rodízio artificial nem preservação além do que a própria fadiga já penaliza — a escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
-                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaEscalacaoPadrao
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaEscalacaoPadrao,
+                pesoPreparoFisico: 0.35
             },
             'rotacao-equilibrada': {
                 nome: 'Rotação Equilibrada',
                 descricaoIA: 'Escalar sempre os titulares com a maior pontuação efetiva no momento — mesmo cálculo da Escalação Titular Padrão (OVR + desempenho recente, descontada a fadiga acumulada), mas com uma penalidade por fadiga mais sensível (curva CÚBICA em vez de exponencial), que já começa a pesar por volta dos 50% de fadiga. Isso força uma rotação natural do elenco na faixa de 50%-70% de cansaço, sem descaracterizar a força do time — um titular levemente cansado pode legitimamente perder a vaga pra um reserva descansado. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
-                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRotacaoEquilibrada
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRotacaoEquilibrada,
+                pesoPreparoFisico: 0.15
             },
             'rodizio-extremo': {
                 nome: 'Rodízio Extremo (Poupar Titulares)',
                 descricaoIA: 'Poupar os titulares de verdade: mesmo cálculo base (OVR + desempenho recente), mas com uma penalidade por fadiga QUADRÁTICA e muito agressiva — já com uns 40% de fadiga o titular perde a vaga pra um reserva/jovem totalmente descansado, mesmo que o reserva tenha um OVR bem menor. É pra ser um rodízio de verdade, não uma escalação otimizada — a força do time cede espaço pro descanso do elenco. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
-                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRodizioExtremo
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRodizioExtremo,
+                pesoPreparoFisico: 0.10
             },
             'forca-maxima': {
                 nome: 'Força Máxima Possível',
                 descricaoIA: 'Priorizar sempre os melhores jogadores tecnicamente do elenco (maior OVR + desempenho recente), deixando a fadiga interferir muito pouco na escalação — mesmo cálculo base, mas com uma penalidade por fadiga de 5º GRAU e teto reduzido (40 em vez de 60/70), que só pesa de verdade lá na reta final do cansaço (acima de 80%). Um titular tecnicamente superior segue titular mesmo bem cansado, a menos que já esteja em estado físico crítico. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
-                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaForcaMaxima
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaForcaMaxima,
+                pesoPreparoFisico: 0.35
             },
             'oportunidade-jovens': {
                 nome: 'Dar Oportunidade à Base/Jovens',
@@ -1144,13 +1167,15 @@ ${textoRegrasCompatibilidadePosicional()}
             'titulares-todo-custo': {
                 nome: 'Titulares a Todo Custo (Risco de Lesão)',
                 descricaoIA: 'Escalar sempre os melhores jogadores puramente pela qualidade técnica (OVR + desempenho recente), IGNORANDO COMPLETAMENTE a fadiga acumulada — não existe penalidade nenhuma por cansaço nesta diretriz, o treinador decidiu arriscar tudo pela força máxima em campo. Qualquer titular com 80% de fadiga ou mais entra escalado do mesmo jeito, mas o clube registra um alerta de risco de lesão pra ele (vai pro boletim médico depois da partida). A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
-                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaTitularesTodoCusto
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaTitularesTodoCusto,
+                pesoPreparoFisico: 0
             },
             'em-melhor-momento': {
                 nome: 'Em Melhor Momento',
                 descricaoIA: 'Meritocracia pura de curto prazo: o OVR do jogador é COMPLETAMENTE IGNORADO — a escalação se baseia exclusivamente na nota média das últimas 5 partidas de cada um (o momento atual em campo), com a mesma penalidade por fadiga EXPONENCIAL de 4º grau da Escalação Titular Padrão (branda até uns 60% de fadiga, agressiva a partir de 70%). Um jogador em ótima fase pode e deve tomar a vaga de um nome de peso que está mal fisicamente ou tecnicamente na temporada, mesmo tendo um OVR bem menor. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
                 calcularPontuacaoEfetiva: calcularPontuacaoEfetivaEmMelhorMomento,
-                notaMediaFn: notaMediaUltimos5JogosJogador
+                notaMediaFn: notaMediaUltimos5JogosJogador,
+                pesoPreparoFisico: 0.35
             }
         };
 
@@ -1554,7 +1579,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
         // escalação, sem passar pelo catálogo.
         function selecionarEscalacaoTitularesTodoCusto(esquema) {
-            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaTitularesTodoCusto);
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaTitularesTodoCusto, null, 0);
         }
 
         // Nota média do jogador só nas ÚLTIMAS 5 partidas que disputou, na escala 0-100 (ex: 7.5
@@ -1599,7 +1624,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
         // escalação, sem passar pelo catálogo.
         function selecionarEscalacaoEmMelhorMomento(esquema) {
-            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaEmMelhorMomento, notaMediaUltimos5JogosJogador);
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaEmMelhorMomento, notaMediaUltimos5JogosJogador, 0.35);
         }
 
         // Monta os 11 titulares de uma diretriz de pontuação (Escalação Titular Padrão, Rotação
@@ -1719,11 +1744,12 @@ ${textoRegrasCompatibilidadePosicional()}
         // sempre que a especialidade do jogador não cobrir a função exigida ali (funcoesPorRole,
         // vinda da Matriz Dinâmica do Foco ativo — ver gerarRelatorioTaticoRefinadoPorFoco). Cada
         // par (função-do-campinho, jogador) tem seu PRÓPRIO peso — daí o Húngaro em vez do Kuhn.
-        function selecionarEscalacaoPorAfinidadeTatica(esquema, funcoesPorRole, calcularPontuacaoEfetivaFn, notaMediaFn) {
+        function selecionarEscalacaoPorAfinidadeTatica(esquema, funcoesPorRole, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico) {
             let coords = coordsFormacoes[esquema];
             if (!coords || !db[currentSave]) return null;
             let roles = coords.map(c => c.role);
             let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
+            let pesoPreparo = typeof pesoPreparoFisico === 'number' ? pesoPreparoFisico : 0.35;
 
             let candidatos = db[currentSave].plantel.filter(p => {
                 if (p.status !== 'Ativo') return false;
@@ -1736,7 +1762,7 @@ ${textoRegrasCompatibilidadePosicional()}
             // Peso de cada par (função-do-campinho, jogador): pontuação efetiva da diretriz,
             // menos 8 se a especialidade do jogador não tiver a função exigida ali cadastrada.
             function peso(role, jogador) {
-                let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0);
+                let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0) - penalidadePorPreparoFisico(jogador.preparoFisico, pesoPreparo);
                 let grupo = grupoFuncaoDoRole(role);
                 let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
                 if (!funcaoExigida) return base; // Foco sem função definida pra esse grupo — sem penalidade
@@ -1793,11 +1819,15 @@ ${textoRegrasCompatibilidadePosicional()}
         // histórico, cai pro OVR sem partidas). A diretriz "Em Melhor Momento" passa uma função
         // diferente (nota média só das últimas 5 partidas, sem fallback pro OVR) — o resto do
         // motor (posição, Kuhn) não muda nada.
-        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn, notaMediaFn) {
+        // "pesoPreparoFisico" (rodada 80): peso da diretriz ativa (DIRETRIZES_ESTRATEGICAS.pesoPreparoFisico)
+        // pra penalidadePorPreparoFisico — default 0.35 (peso "padrão") quando quem chama não passa
+        // nada, pra atalhos antigos/testes que ainda não sabem desse parâmetro continuarem funcionando.
+        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico) {
             let coords = coordsFormacoes[esquema];
             if (!coords || !db[currentSave]) return null;
             let roles = coords.map(c => c.role);
             let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
+            let pesoPreparo = typeof pesoPreparoFisico === 'number' ? pesoPreparoFisico : 0.35;
 
             let candidatos = db[currentSave].plantel.filter(p => {
                 if (p.status !== 'Ativo') return false;
@@ -1806,25 +1836,26 @@ ${textoRegrasCompatibilidadePosicional()}
                 return true;
             }).map(p => ({
                 jogador: p,
-                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0)
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
             return alocarPorPosicaoKuhn(candidatos, roles);
         }
 
         // Atalhos diretos pra cada diretriz — usados pelos testes e por quem quiser calcular uma
-        // escalação específica sem passar pelo catálogo DIRETRIZES_ESTRATEGICAS.
+        // escalação específica sem passar pelo catálogo DIRETRIZES_ESTRATEGICAS. Cada um passa o
+        // peso de Preparo Físico já cadastrado na diretriz correspondente (DIRETRIZES_ESTRATEGICAS).
         function selecionarEscalacaoTitularPadrao(esquema) {
-            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaEscalacaoPadrao);
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaEscalacaoPadrao, null, 0.35);
         }
         function selecionarEscalacaoRotacaoEquilibrada(esquema) {
-            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRotacaoEquilibrada);
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRotacaoEquilibrada, null, 0.15);
         }
         function selecionarEscalacaoRodizioExtremo(esquema) {
-            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRodizioExtremo);
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRodizioExtremo, null, 0.10);
         }
         function selecionarEscalacaoForcaMaxima(esquema) {
-            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaForcaMaxima);
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaForcaMaxima, null, 0.35);
         }
 
         // Estrutura FIXA do banco de reservas — vale pra QUALQUER diretriz (pedido do treinador:
@@ -1849,10 +1880,11 @@ ${textoRegrasCompatibilidadePosicional()}
         // "notaMediaFn" opcional — mesma lógica de selecionarEscalacaoPorPontuacao acima: por
         // padrão notaMediaEscaladaJogador, mas a diretriz "Em Melhor Momento" passa a versão só
         // dos últimos 5 jogos, sem fallback pro OVR.
-        function montarBancoReserva(nomesJaEscalados, calcularPontuacaoEfetivaFn, notaMediaFn) {
+        function montarBancoReserva(nomesJaEscalados, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico) {
             if (!db[currentSave]) return [];
             let usados = new Set(nomesJaEscalados || []);
             let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
+            let pesoPreparo = typeof pesoPreparoFisico === 'number' ? pesoPreparoFisico : 0.35;
             let candidatosBase = db[currentSave].plantel.filter(p => {
                 if (usados.has(p.nome)) return false;
                 if (p.status !== 'Ativo') return false;
@@ -1862,7 +1894,7 @@ ${textoRegrasCompatibilidadePosicional()}
             }).map(p => ({
                 jogador: p,
                 categoria: String(p.posicao).split('/')[0],
-                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0)
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
             let banco = [];
@@ -1953,7 +1985,10 @@ ${textoRegrasCompatibilidadePosicional()}
                 return {
                     jogador: p,
                     jovemPromessa,
-                    pontuacaoEfetiva: calcularPontuacaoEfetivaOportunidadeJovens(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0, jovemPromessa)
+                    // Peso reduzido (0.15, igual à Rotação Equilibrada) — essa diretriz já é
+                    // "rotation-adjacent" por natureza (dar minutos a quem joga pouco), então o
+                    // preparo físico não pode pesar tanto quanto na Escalação Titular Padrão.
+                    pontuacaoEfetiva: calcularPontuacaoEfetivaOportunidadeJovens(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0, jovemPromessa) - penalidadePorPreparoFisico(p.preparoFisico, 0.15)
                 };
             });
 
@@ -2134,10 +2169,10 @@ ${textoRegrasCompatibilidadePosicional()}
             if (pacoteRefinado && diretrizInfo.calcularPontuacaoEfetiva) {
                 // Gegenpressing Dinâmico decidiu a formação sozinho — só ELA entra como fixa (a IA
                 // não escolhe entre as outras preferidas nesse caso, a formação já não é dela).
-                let fixaAfinidade = selecionarEscalacaoPorAfinidadeTatica(pacoteRefinado.esquemaEscolhido, pacoteRefinado.funcoesPorRole, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
+                let fixaAfinidade = selecionarEscalacaoPorAfinidadeTatica(pacoteRefinado.esquemaEscolhido, pacoteRefinado.funcoesPorRole, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
                 if (fixaAfinidade && Object.keys(fixaAfinidade).length) {
                     escalacoesFixasPorFormacao[pacoteRefinado.esquemaEscolhido] = fixaAfinidade;
-                    bancosFixosPorFormacao[pacoteRefinado.esquemaEscolhido] = montarBancoReserva(Object.values(fixaAfinidade), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
+                    bancosFixosPorFormacao[pacoteRefinado.esquemaEscolhido] = montarBancoReserva(Object.values(fixaAfinidade), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
                     alertasAfinidadeAtivos = alertasAfinidadeTatica(fixaAfinidade, pacoteRefinado.funcoesPorRole);
                 }
             } else if (diretrizInfo.selecionarEscalacaoEBanco) {
@@ -2150,7 +2185,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 });
             } else if (diretrizInfo.calcularPontuacaoEfetiva) {
                 formacoesPreferidasIA.forEach(esq => {
-                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
+                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
                     if (fixa) escalacoesFixasPorFormacao[esq] = fixa;
                 });
             }
@@ -2271,7 +2306,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         } else if (diretrizInfo.selecionarEscalacaoEBanco) {
                             res.reservas = bancosFixosPorFormacao[res.formacaoEscolhida] || [];
                         } else if (diretrizInfo.calcularPontuacaoEfetiva) {
-                            res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn);
+                            res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
                         }
                     }
 
