@@ -554,7 +554,7 @@ function abrirModalDetalheFisico(nome) {
 
     corpo.innerHTML = `
         <div class="linha-form">
-            <label>😮‍💨 Fôlego</label>
+            <label>💨 Fôlego</label>
             <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corPorNivel(c.nivel)};"></div></div>
             <span style="font-size:12px; color:var(--text-muted);">${folegoPct}% — ${rotuloPorNivel(c.nivel)}</span>
         </div>
@@ -702,7 +702,7 @@ function atualizarDepartamentoMedicoUI() {
                 <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
                 <div class="medico-card-barra-linha" title="Fôlego: ${folegoPct}%">
                     <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corBarra};"></div></div>
-                    <span class="medico-card-pct" style="color:${corBarra};">😮‍💨${folegoPct}%</span>
+                    <span class="medico-card-pct" style="color:${corBarra};">💨${folegoPct}%</span>
                 </div>
                 <div class="medico-card-barra-linha" title="Preparo Físico: ${nivelPreparoCard.rotulo}">
                     <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corPreparo};"></div></div>
