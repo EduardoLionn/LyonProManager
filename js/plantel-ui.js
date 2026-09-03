@@ -50,7 +50,9 @@
                     } else if (condFisica.nivel === 'risco') {
                         badgeCondicao += ` <span class="badge" style="background: rgba(226, 75, 75, 0.15); color: var(--danger);">⚠️ Risco de Lesão (${p.jogosSeguidos || 0}j)</span>`;
                     } else if (condFisica.nivel === 'alerta') {
-                        badgeCondicao += ` <span class="badge" style="background: rgba(217, 130, 43, 0.15); color: var(--warning);">🟡 Fôlego Baixo (${Math.round(p.stamina)}%)</span>`;
+                        // Fôlego = 100 - fadiga, calculado direto de p.fadiga (não de p.stamina,
+                        // que só é resincronizado dentro de processarCondicaoFisicaPosPartida).
+                        badgeCondicao += ` <span class="badge" style="background: rgba(217, 130, 43, 0.15); color: var(--warning);">🟡 Fôlego Baixo (${Math.round(100 - (Number(p.fadiga) || 0))}%)</span>`;
                     }
                 }
 

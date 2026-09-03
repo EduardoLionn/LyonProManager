@@ -540,10 +540,13 @@ function abrirModalDetalheFisico(nome) {
     let nivelPreparo = nivelPreparoFisico(p.preparoFisico);
     let posicoes = posicoesPossiveisJogador(p);
     let sugestao = funcaoDesenvolvimentoSugerida(p);
-    // Fôlego exibido é o inverso da fadiga acumulada (fôlego = 100 - fadiga) — mesmo valor já
-    // calculado em p.stamina (ver garantirCondicaoFisica). Mostrar assim, subindo junto com o
-    // Preparo Físico, é mais agradável de ler do que a fadiga (que sobe quando o jogador piora).
-    let folegoPct = Math.max(0, Math.min(100, Math.round(p.stamina)));
+    // Fôlego exibido é o inverso da fadiga acumulada (fôlego = 100 - fadiga) — calculado direto
+    // de p.fadiga (a fonte de verdade), não de p.stamina: esse último só é resincronizado dentro
+    // de processarCondicaoFisicaPosPartida, então pode ficar desatualizado se a fadiga mudar por
+    // outro caminho (descanso preventivo, ajuste manual, fixture de teste). Mostrar assim,
+    // subindo junto com o Preparo Físico, é mais agradável de ler do que a fadiga (que sobe
+    // quando o jogador piora).
+    let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
     let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
 
     elNome.innerText = `🩺 ${p.nome}`;
@@ -659,11 +662,14 @@ function atualizarDepartamentoMedicoUI() {
             if (c.indisponivel && !(p.diasLesao > 0) && p.suspensoVermelho) {
                 c = Object.assign({}, c, { indisponivel: false, motivoIndisponivel: '' });
             }
-            // A barra reflete FÔLEGO (inverso da fadiga: fôlego = 100 - fadiga, já calculado em
-            // p.stamina), pra subir junto com a barra de Preparo Físico logo abaixo — quanto mais
-            // vazia/vermelha, menos fôlego sobrou. A cor continua decidida pelos patamares de
-            // fadiga (p.fadiga), só o número exibido e o preenchimento da barra são o fôlego.
-            let folegoPct = Math.max(0, Math.min(100, Math.round(p.stamina)));
+            // A barra reflete FÔLEGO (inverso da fadiga: fôlego = 100 - fadiga), calculado direto
+            // de p.fadiga — não de p.stamina, que só é resincronizado dentro de
+            // processarCondicaoFisicaPosPartida e pode ficar desatualizado por outros caminhos
+            // (ver o mesmo cuidado em abrirModalDetalheFisico). Sobe junto com a barra de Preparo
+            // Físico logo abaixo — quanto mais vazia/vermelha, menos fôlego sobrou. A cor continua
+            // decidida pelos patamares de fadiga (p.fadiga), só o número exibido e o preenchimento
+            // da barra são o fôlego.
+            let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
             let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
             let corBorda = c.indisponivel ? 'var(--danger)' : corBarra;
 
