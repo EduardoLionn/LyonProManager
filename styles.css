@@ -591,12 +591,12 @@
 .btn-load-more { width: 100%; padding: 12px; background: transparent; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; transition: 0.2s; }
 .btn-load-more:hover { color: white; border-color: white; background: rgba(255,255,255,0.05); }
 
-/* --- DEPARTAMENTO MÉDICO: BARRA DE FADIGA --- */
+/* --- DEPARTAMENTO MÉDICO: BARRA DE FÔLEGO / PREPARO FÍSICO --- */
 .stamina-bar { background: var(--bg-dark); height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
 .stamina-fill { height: 100%; transition: width 0.4s, background 0.4s; }
 
 /* Grade de condição física: "quadrados" lado a lado (no máximo 3 por linha) em vez de
-   cards/linhas gigantes — nome, posição/OVR e a barrinha de fadiga embaixo, bem compacto. */
+   cards/linhas gigantes — nome, posição/OVR e a barrinha de fôlego embaixo, bem compacto. */
 .medico-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
