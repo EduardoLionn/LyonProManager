@@ -473,7 +473,7 @@ function corPorNivel(nivel) {
 function rotuloPorNivel(nivel) {
     if (nivel === 'critico') return '🚨 RISCO CRÍTICO — ROTAÇÃO OBRIGATÓRIA';
     if (nivel === 'risco') return '⚠️ RISCO DE LESÃO';
-    if (nivel === 'alerta') return '🟡 FADIGA MODERADA';
+    if (nivel === 'alerta') return '🟡 FÔLEGO REDUZIDO';
     return '🟢 CONDIÇÃO IDEAL';
 }
 
@@ -540,7 +540,10 @@ function abrirModalDetalheFisico(nome) {
     let nivelPreparo = nivelPreparoFisico(p.preparoFisico);
     let posicoes = posicoesPossiveisJogador(p);
     let sugestao = funcaoDesenvolvimentoSugerida(p);
-    let fadigaPct = Math.max(0, Math.min(100, Math.round(p.fadiga)));
+    // Fôlego exibido é o inverso da fadiga acumulada (fôlego = 100 - fadiga) — mesmo valor já
+    // calculado em p.stamina (ver garantirCondicaoFisica). Mostrar assim, subindo junto com o
+    // Preparo Físico, é mais agradável de ler do que a fadiga (que sobe quando o jogador piora).
+    let folegoPct = Math.max(0, Math.min(100, Math.round(p.stamina)));
     let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
 
     elNome.innerText = `🩺 ${p.nome}`;
@@ -548,9 +551,9 @@ function abrirModalDetalheFisico(nome) {
 
     corpo.innerHTML = `
         <div class="linha-form">
-            <label>😮‍💨 Cansaço (Fadiga Acumulada)</label>
-            <div class="stamina-bar"><div class="stamina-fill" style="width:${fadigaPct}%; background:${corPorNivel(c.nivel)};"></div></div>
-            <span style="font-size:12px; color:var(--text-muted);">${fadigaPct}% — ${rotuloPorNivel(c.nivel)}</span>
+            <label>😮‍💨 Fôlego</label>
+            <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corPorNivel(c.nivel)};"></div></div>
+            <span style="font-size:12px; color:var(--text-muted);">${folegoPct}% — ${rotuloPorNivel(c.nivel)}</span>
         </div>
         <div class="linha-form">
             <label>🏃 Preparo Físico</label>
@@ -656,9 +659,11 @@ function atualizarDepartamentoMedicoUI() {
             if (c.indisponivel && !(p.diasLesao > 0) && p.suspensoVermelho) {
                 c = Object.assign({}, c, { indisponivel: false, motivoIndisponivel: '' });
             }
-            // A barra reflete FADIGA (cansaço), não fôlego: quanto mais cheia/vermelha, mais
-            // cansado o atleta está — por isso usa p.fadiga direto, nunca p.stamina.
-            let fadigaPct = Math.max(0, Math.min(100, Math.round(p.fadiga)));
+            // A barra reflete FÔLEGO (inverso da fadiga: fôlego = 100 - fadiga, já calculado em
+            // p.stamina), pra subir junto com a barra de Preparo Físico logo abaixo — quanto mais
+            // vazia/vermelha, menos fôlego sobrou. A cor continua decidida pelos patamares de
+            // fadiga (p.fadiga), só o número exibido e o preenchimento da barra são o fôlego.
+            let folegoPct = Math.max(0, Math.min(100, Math.round(p.stamina)));
             let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
             let corBorda = c.indisponivel ? 'var(--danger)' : corBarra;
 
@@ -677,7 +682,7 @@ function atualizarDepartamentoMedicoUI() {
 
             let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''} • clique pra ver detalhes e plano de uso`;
 
-            // Preparo Físico ganha sua própria barrinha, curta, embaixo da fadiga — cor por
+            // Preparo Físico ganha sua própria barrinha, curta, embaixo do fôlego — cor por
             // patamar (ver nivelPreparoFisico/corPorNivelPreparo), pra bater o olho já no card
             // sem precisar abrir o detalhe.
             let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
@@ -689,9 +694,9 @@ function atualizarDepartamentoMedicoUI() {
                 ${botaoDescanso}
                 <strong class="medico-card-nome">${p.nome}</strong>
                 <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
-                <div class="medico-card-barra-linha">
-                    <div class="stamina-bar"><div class="stamina-fill" style="width:${fadigaPct}%; background:${corBarra};"></div></div>
-                    <span class="medico-card-pct" style="color:${corBarra};">${fadigaPct}%</span>
+                <div class="medico-card-barra-linha" title="Fôlego: ${folegoPct}%">
+                    <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corBarra};"></div></div>
+                    <span class="medico-card-pct" style="color:${corBarra};">😮‍💨${folegoPct}%</span>
                 </div>
                 <div class="medico-card-barra-linha" title="Preparo Físico: ${nivelPreparoCard.rotulo}">
                     <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corPreparo};"></div></div>
