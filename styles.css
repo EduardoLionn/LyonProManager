@@ -645,6 +645,9 @@
     flex-wrap: wrap;
 }
 .medico-dev-funcao { font-size: 12px; font-weight: bold; color: var(--warning); text-align: right; }
+/* Dica de troca de posição (sugestaoMudancaPosicaoTexto): quando o jogador tem jogado bastante
+   fora da posição cadastrada, avisa sem confirmar nada — o treinador decide se muda ou não. */
+.medico-dev-dica { font-size: 11px; color: var(--accent); margin-top: 4px; max-width: 420px; line-height: 1.4; }
 
 /* Lesionados & Prevenção / Rodízio Sugerido: um bloco por jogador (cabeçalho + texto do plano
    embaixo), em vez de "quadrados" — aqui cabe texto mais longo (plano de retorno/rodízio). */

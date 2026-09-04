@@ -6,7 +6,6 @@
             if(currentSave !== 'clube') return;
             if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
             atualizarOrcamentoMercado();
-            if (typeof atualizarSugestoesDesenvolvimentoUI === 'function') atualizarSugestoesDesenvolvimentoUI();
             let tbody = document.querySelector('#tabela-plantel tbody'); tbody.innerHTML = '';
             
             let plantelSort = [...db.clube.plantel];
