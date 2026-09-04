@@ -356,6 +356,37 @@ ${blocoAvaliacao}
     return { titulo: titulos[tIdx], detalhe: detalhes[dIdx] };
 }
 
+        // Busca no banco de dados real (js/jogadores-data.js) pelo nome digitado no formulário
+        // manual de "Comprar Reforço" — preenche posição e idade reais na hora, mas NUNCA o OVR
+        // direto (mesma cautela do Olheiro): só mostra um botão "Revelar OVR real" que o treinador
+        // clica quando quiser, preservando a graça de descobrir a força do jogador jogando.
+        function buscarJogadorRealFormularioCompra() {
+            let nome = document.getElementById('add-nome').value.trim();
+            let status = document.getElementById('add-busca-status');
+            let btnRevelar = document.getElementById('btn-revelar-ovr');
+            if (btnRevelar) { btnRevelar.style.display = 'none'; delete btnRevelar.dataset.ovrReal; }
+            if (!nome) { if (status) { status.style.color = 'var(--warning)'; status.innerText = 'Digite o nome antes de buscar.'; } return; }
+            if (typeof buscarJogadorRealPorNome !== 'function') return;
+
+            let achado = buscarJogadorRealPorNome(nome, db.clube.temporadaAtual);
+            if (!achado) {
+                if (status) { status.style.color = 'var(--text-muted)'; status.innerText = '❌ Não encontrado no banco de dados — preencha manualmente.'; }
+                return;
+            }
+
+            document.getElementById('add-pos').value = (typeof SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA !== 'undefined' && SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA[achado.posicao]) || 'MeioCampo/Dinâmico';
+            document.getElementById('add-idade').value = achado.idade;
+            if (status) { status.style.color = 'var(--primary)'; status.innerText = `✅ Encontrado no ${achado.clube} (${achado.liga}) — posição e idade preenchidas.`; }
+            if (btnRevelar) { btnRevelar.style.display = 'inline-block'; btnRevelar.dataset.ovrReal = achado.ovr; }
+        }
+
+        function revelarOvrFormularioCompra() {
+            let btnRevelar = document.getElementById('btn-revelar-ovr');
+            if (!btnRevelar || !btnRevelar.dataset.ovrReal) return;
+            document.getElementById('add-ovr').value = btnRevelar.dataset.ovrReal;
+            btnRevelar.style.display = 'none';
+        }
+
         function toggleFormCompra() {
             let tipo = document.getElementById('add-tipo').value;
             document.getElementById('box-add-custo').style.display = tipo === 'Comprado' ? 'flex' : 'none';
@@ -418,6 +449,8 @@ ${blocoAvaliacao}
             
             document.getElementById('add-nome').value = '';
             document.getElementById('add-idade').value = '';
+            let statusBusca = document.getElementById('add-busca-status'); if (statusBusca) statusBusca.innerText = '';
+            let btnRevelarOvr = document.getElementById('btn-revelar-ovr'); if (btnRevelarOvr) { btnRevelarOvr.style.display = 'none'; delete btnRevelarOvr.dataset.ovrReal; }
         }
 
         async function editarValorTransferencia(nome) {
@@ -752,16 +785,25 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                         ? (tipoContrato === 'emprestimo' ? 'EmprestadoIn' : 'Comprado')
                         : (tipoContrato === 'emprestimo' ? 'Emprestimo' : 'Venda');
                     // Já está no elenco (o caso normal de uma SAÍDA) -> usa o jogador de verdade.
-                    // Reforço novo (ENTRADA) sem match -> só normaliza o nome pro padrão do jogo.
+                    // Reforço novo (ENTRADA) sem match no elenco -> tenta achar no banco de dados
+                    // real (posição/OVR verdadeiros) antes de cair pro genérico. O negócio já foi
+                    // fechado (é isso que o print prova), então não tem porquê esconder o OVR aqui
+                    // como faz o Olheiro antes da contratação (ver buscarJogadorRealPorNome).
                     let existente = encontrarJogadorElencoPorNomePrint(nomeCru);
                     let nome = existente ? existente.nome : normalizarNomeJogadorPrint(nomeCru);
+                    let realDb = (!existente && direcao === 'entrada' && typeof buscarJogadorRealPorNome === 'function')
+                        ? buscarJogadorRealPorNome(nome, db.clube.temporadaAtual)
+                        : null;
+                    let posicaoReal = (realDb && typeof SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA !== 'undefined')
+                        ? SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA[realDb.posicao]
+                        : null;
                     return {
                         incluir: true,
                         nome: nome,
                         tipo: tipo,
-                        posicao: existente ? existente.posicao : 'MeioCampo/Dinâmico',
-                        ovr: existente ? existente.ovr : 70,
-                        idade: (existente && existente.idade) ? existente.idade : '',
+                        posicao: existente ? existente.posicao : (posicaoReal || 'MeioCampo/Dinâmico'),
+                        ovr: existente ? existente.ovr : (realDb ? realDb.ovr : 70),
+                        idade: (existente && existente.idade) ? existente.idade : (realDb ? realDb.idade : ''),
                         valor: numeroSeguro(t.valorM, 0),
                         duracaoEmprestimo: 1,
                         clubeContrario: limparTextoUsuario(String(t.clubeContrario || ''), 60)

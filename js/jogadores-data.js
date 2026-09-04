@@ -424,6 +424,33 @@ function anosAlemDaBaseDadosReais(temporada) {
     return anoInicio - 25;
 }
 
+// Remove acento e normaliza caixa — o nome digitado pelo treinador raramente bate 100% com a
+// grafia exata do banco (ex: "Ø" vs "O", "É" vs "E").
+function _normalizarNomeBuscaJogadorReal(nome) {
+    return String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+// Busca um jogador pelo nome em TODA a base (qualquer clube/liga), não só no elenco de um clube
+// específico — usada no cadastro de transferência (js/temporada-mercado.js) pra puxar posição e
+// OVR reais de quem já foi contratado/emprestado, em vez de cair pro genérico "MeioCampo/Dinâmico"
+// OVR 70. Primeiro match encontrado (nomes duplicados entre clubes são raros o bastante pra não
+// valer a complexidade de desambiguar). Retorna também o clube/liga onde achou, pra feedback.
+function buscarJogadorRealPorNome(nome, temporada) {
+    let alvo = _normalizarNomeBuscaJogadorReal(nome);
+    if (!alvo) return null;
+    let edicao = (typeof edicaoFcDaTemporada === "function") ? edicaoFcDaTemporada(temporada) : "fc26";
+    let porEdicao = jogadoresPorClubePorEdicao[edicao] || jogadoresPorClubePorEdicao.fc26;
+    if (!porEdicao) return null;
+    let anos = anosAlemDaBaseDadosReais(temporada);
+    for (let liga in porEdicao) {
+        for (let clube in porEdicao[liga]) {
+            let achado = porEdicao[liga][clube].find(p => _normalizarNomeBuscaJogadorReal(p.nome) === alvo);
+            if (achado) return { ...achado, idade: achado.idade + anos, clube: clube, liga: liga };
+        }
+    }
+    return null;
+}
+
 function elencoRealDoClube(nomeClube, temporada) {
     let edicao = (typeof edicaoFcDaTemporada === "function") ? edicaoFcDaTemporada(temporada) : "fc26";
     let porEdicao = jogadoresPorClubePorEdicao[edicao] || jogadoresPorClubePorEdicao.fc26;
