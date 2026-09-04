@@ -118,6 +118,17 @@ function multiplicadorFadigaPorPreparo(preparoFisico) {
     return nivelPreparoFisico(preparoFisico).multiplicadorFadiga;
 }
 
+// Ordem de exibição das faixas de Preparo Físico (do pior pro melhor) na aba Departamento Físico
+// e Médico, com um valor representativo de cada faixa só pra reaproveitar nivelPreparoFisico() e
+// pegar o rótulo/cor certos sem duplicar as faixas aqui.
+const ORDEM_TIERS_PREPARO = [
+    { nivel: 'sem-condicao', repValor: 10 },
+    { nivel: 'despreparado', repValor: 30 },
+    { nivel: 'regular', repValor: 50 },
+    { nivel: 'preparado', repValor: 70 },
+    { nivel: 'incansavel', repValor: 90 }
+];
+
 // Idade também pesa no cansaço em campo (mesma ideia do multiplicador de Preparo Físico, só que
 // pela idade do jogador) — multiplica junto na fórmula de fadiga da partida (ver
 // calcularFadigaAtualizada). Até 23 anos o corpo ainda está em desenvolvimento (leve penalidade);
@@ -520,6 +531,21 @@ function planoDeUsoTexto(p) {
     return base;
 }
 
+// "Plano de Retorno Gradual" — recomendação pro jogador lesionado, no estilo de um protocolo real
+// de fisioterapia esportiva: quanto mais tempo falta, mais cedo na fase de tratamento ele está;
+// perto da alta, já dá pra planejar minutos limitados nos primeiros jogos de volta. Puramente
+// determinístico, baseado nos dias de lesão RESTANTES (o app não guarda a duração original da
+// lesão — uma simplificação conhecida, documentada aqui de propósito: os dias restantes já servem
+// como proxy razoável de gravidade, já que uma lesão rápida nunca teve muitos dias pra começo de
+// conversa).
+function planoRetornoGradualTexto(p) {
+    let dias = Math.max(0, Number(p.diasLesao) || 0);
+    if (dias <= 0) return 'Apto a retornar — sem restrições do departamento médico.';
+    if (dias <= 3) return `Volta em ${dias} dia(s). Já pode reintegrar aos treinos com bola normalmente — no retorno, ideal começar entre 60-70 minutos, sem o jogo inteiro de cara.`;
+    if (dias <= 10) return `Ainda são ${dias} dias de tratamento. Quando a alta chegar, planeje um retorno gradual: cerca de 45 minutos no primeiro jogo, subindo aos poucos nas partidas seguintes até reassumir a titularidade plena.`;
+    return `Lesão de longa duração — ainda faltam ${dias} dias. Fase de tratamento/fisioterapia; o plano de retorno gradual (minutos bem limitados nas primeiras partidas de volta) será refinado conforme a data de alta se aproximar.`;
+}
+
 // Abre o modal de detalhe físico de um jogador — cansaço, preparo físico, posição real com
 // função sugerida, posições que pode ocupar e o plano de uso pro próximo jogo. Pedido do
 // treinador: "os jogadores são estáticos, poderia ser interativo, ao clicar mostraria..."
@@ -584,6 +610,30 @@ function fecharModalDetalheFisico() {
     if (modal) modal.style.display = 'none';
 }
 
+// Sugestões de Desenvolvimento Individual: função real do EA FC (catálogo de js/funcoes-ea.js)
+// que o Preparador Físico recomenda treinar pra cada atleta, derivada direto da posição
+// cadastrada — nunca escolhida pelo usuário, e atualiza sozinha se a posição do jogador mudar.
+// Pedido do treinador: isso é sobre função de TREINO, não sobre condição física — vive na aba
+// Elenco (chamada por atualizarPlantelUI, js/plantel-ui.js), não mais no Departamento Médico.
+function atualizarSugestoesDesenvolvimentoUI() {
+    if (!db[currentSave] || !db[currentSave].nome) return;
+    let dev = document.getElementById('medico-desenvolvimento');
+    if (!dev) return;
+    let ativosDev = db[currentSave].plantel.filter(p => p.status === 'Ativo');
+    dev.innerHTML = ativosDev.map(p => {
+        let sugestao = funcaoDesenvolvimentoSugerida(p);
+        if (!sugestao) return '';
+        return `
+        <div class="medico-dev-linha">
+            <div>
+                <strong>${p.nome}</strong>
+                <span class="medico-card-sub">${p.posicao}</span>
+            </div>
+            <div class="medico-dev-funcao" title="${sugestao.funcao.descricao.replace(/"/g, '&quot;')}">🎯 ${sugestao.grupoNome}: ${sugestao.funcao.nome}</div>
+        </div>`;
+    }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
+}
+
 function toggleDesenvolvimentoIndividualPanel() {
     let panel = document.getElementById('medico-desenvolvimento');
     let btn = document.getElementById('btn-toggle-medico-dev');
@@ -618,102 +668,116 @@ function atualizarDepartamentoMedicoUI() {
     let relatorioTexto = document.getElementById('medico-relatorio-texto');
     if (relatorioTexto) relatorioTexto.innerText = gerarRelatorioMedicoTexto();
 
-    // Sugestões de Desenvolvimento Individual: função real do EA FC (catálogo de js/funcoes-ea.js)
-    // que o Preparador Físico recomenda treinar pra cada atleta, derivada direto da posição
-    // cadastrada — nunca escolhida pelo usuário, e atualiza sozinha se a posição do jogador mudar.
-    let dev = document.getElementById('medico-desenvolvimento');
-    if (dev) {
-        let ativosDev = db[currentSave].plantel.filter(p => p.status === 'Ativo');
-        dev.innerHTML = ativosDev.map(p => {
-            let sugestao = funcaoDesenvolvimentoSugerida(p);
-            if (!sugestao) return '';
-            return `
-            <div class="medico-dev-linha">
-                <div>
-                    <strong>${p.nome}</strong>
-                    <span class="medico-card-sub">${p.posicao}</span>
-                </div>
-                <div class="medico-dev-funcao" title="${sugestao.funcao.descricao.replace(/"/g, '&quot;')}">🎯 ${sugestao.grupoNome}: ${sugestao.funcao.nome}</div>
-            </div>`;
-        }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
+    // ================= 1) LESIONADOS & PREVENÇÃO =================
+    // O mais urgente primeiro: só quem está machucado, ordenado por quem volta mais cedo, com o
+    // plano de retorno gradual de cada um (ver planoRetornoGradualTexto).
+    let lesionadosEl = document.getElementById('medico-lesionados');
+    if (lesionadosEl) {
+        let lesionados = db[currentSave].plantel
+            .filter(p => p.status === 'Ativo' && p.diasLesao > 0)
+            .sort((a, b) => a.diasLesao - b.diasLesao);
+        lesionadosEl.innerHTML = lesionados.length
+            ? lesionados.map(p => `
+                <div class="medico-linha-ocorrencia" style="cursor:pointer;" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div><strong>${p.nome}</strong> <span class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</span></div>
+                        <span class="badge medico-badge-sm" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">🏥 ${p.diasLesao} dia(s) restantes</span>
+                    </div>
+                    <p style="font-size:13px; color:var(--text-muted); margin:8px 0 0; line-height:1.5;">${planoRetornoGradualTexto(p)}</p>
+                </div>`).join('')
+            : `<p style="color: var(--text-muted); text-align:center;">Elenco sem lesionados no momento. 🎉</p>`;
     }
 
-    let lista = document.getElementById('medico-lista');
-    if (lista) {
-        let ordem = { critico: 0, risco: 1, alerta: 2, ok: 3 };
-        let ativos = [...db[currentSave].plantel].filter(p => p.status === 'Ativo');
-        ativos.sort((a, b) => {
-            let ca = condicaoJogador(a), cb = condicaoJogador(b);
-            // Suspensão por cartão não fura fila aqui — é assunto de partida, não médico.
-            let na = (a.diasLesao > 0) ? -1 : ordem[ca.nivel];
-            let nb = (b.diasLesao > 0) ? -1 : ordem[cb.nivel];
-            return na - nb;
+    // ================= 2) RODÍZIO SUGERIDO =================
+    // Resposta direta pra "quem eu poupo agora?" — só quem está em risco/crítico de fadiga (não
+    // lesionado, isso já está na seção acima), ordenado por urgência.
+    let rodizioEl = document.getElementById('medico-rodizio');
+    if (rodizioEl) {
+        let candidatosRodizio = db[currentSave].plantel
+            .filter(p => p.status === 'Ativo' && !(p.diasLesao > 0))
+            .map(p => ({ p, c: condicaoJogador(p) }))
+            .filter(x => x.c.nivel === 'critico' || x.c.nivel === 'risco')
+            .sort((a, b) => (a.c.nivel === 'critico' ? 0 : 1) - (b.c.nivel === 'critico' ? 0 : 1));
+
+        rodizioEl.innerHTML = candidatosRodizio.length
+            ? candidatosRodizio.map(({ p, c }) => {
+                let carga = rotuloCargaSugerida(c.nivel);
+                let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
+                return `
+                <div class="medico-linha-ocorrencia" style="border-left-color:${carga.cor};">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div style="cursor:pointer;" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')"><strong>${p.nome}</strong> <span class="medico-card-sub">${p.posicao}</span></div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="badge medico-badge-sm" style="background: transparent; color: ${carga.cor}; border: 1px solid ${carga.cor};">${carga.texto}</span>
+                            <button class="medico-btn-inline" title="Dar descanso preventivo" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>
+                        </div>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-muted); margin:6px 0 0;">${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso • fôlego ${folegoPct}%</p>
+                </div>`;
+            }).join('')
+            : `<p style="color: var(--text-muted); text-align:center;">Ninguém precisa de rodízio agora — elenco descansado. 🟢</p>`;
+    }
+
+    // ================= 3) PREPARO FÍSICO DO ELENCO =================
+    // Visão geral completa do elenco disponível (fôlego + preparo físico de cada um), agrupada
+    // por faixa de Preparo Físico (Sem Condição → Incansável) em vez de uma grade única sorteada
+    // por fadiga — lesionados ficam de fora (já cobertos na seção 1).
+    let preparoEl = document.getElementById('medico-preparo');
+    if (preparoEl) {
+        let ativosPreparo = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !(p.diasLesao > 0));
+        let grupos = {};
+        ORDEM_TIERS_PREPARO.forEach(t => grupos[t.nivel] = []);
+        ativosPreparo.forEach(p => {
+            let nivel = nivelPreparoFisico(p.preparoFisico).nivel;
+            if (grupos[nivel]) grupos[nivel].push(p);
         });
 
-        // Grade de "quadrados" (no máximo 3 por linha) em vez de uma linha inteira por jogador —
-        // cada card traz só nome, posição/OVR e a barrinha de fadiga fina embaixo, reduzindo bem
-        // a rolagem da tela com o elenco inteiro.
-        let cardsHtml = ativos.map(p => {
-            let c = condicaoJogador(p);
-            // Suspensão por cartão vermelho não é uma "ocorrência médica" — o Departamento
-            // Médico só trata lesão e fadiga. O selo de suspenso continua na aba Elenco; aqui
-            // ele só deixa de aparecer quando esse era o ÚNICO motivo de indisponibilidade
-            // (uma lesão junto continua indisponível normalmente).
-            if (c.indisponivel && !(p.diasLesao > 0) && p.suspensoVermelho) {
-                c = Object.assign({}, c, { indisponivel: false, motivoIndisponivel: '' });
-            }
-            // A barra reflete FÔLEGO (inverso da fadiga: fôlego = 100 - fadiga), calculado direto
-            // de p.fadiga — não de p.stamina, que só é resincronizado dentro de
-            // processarCondicaoFisicaPosPartida e pode ficar desatualizado por outros caminhos
-            // (ver o mesmo cuidado em abrirModalDetalheFisico). Sobe junto com a barra de Preparo
-            // Físico logo abaixo — quanto mais vazia/vermelha, menos fôlego sobrou. A cor continua
-            // decidida pelos patamares de fadiga (p.fadiga), só o número exibido e o preenchimento
-            // da barra são o fôlego.
-            let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
-            let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
-            let corBorda = c.indisponivel ? 'var(--danger)' : corBarra;
+        let blocos = ORDEM_TIERS_PREPARO.filter(t => grupos[t.nivel].length).map(t => {
+            let infoTier = nivelPreparoFisico(t.repValor);
+            let corTier = corPorNivelPreparo(t.nivel);
+            let cardsTier = grupos[t.nivel].map(p => {
+                let c = condicaoJogador(p);
+                // Suspensão por cartão vermelho não é uma "ocorrência médica" — o Departamento
+                // Médico só trata lesão e fadiga (lesão já está fora desta lista).
+                if (c.indisponivel && p.suspensoVermelho) c = Object.assign({}, c, { indisponivel: false, motivoIndisponivel: '' });
 
-            // Um único selo por jogador (em vez de dois empilhados): pra quem está disponível,
-            // mostra direto o plano de carga sugerido — ele já carrega a cor/urgência do nível.
-            let badge = c.indisponivel
-                ? `<span class="badge medico-badge-sm" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">${p.diasLesao > 0 ? '🏥' : '🟥'} ${c.motivoIndisponivel}</span>`
-                : (carga => `<span class="badge medico-badge-sm" style="background: transparent; color: ${carga.cor}; border: 1px solid ${carga.cor};">${carga.texto}</span>`)(rotuloCargaSugerida(c.nivel));
+                // Fôlego = 100 - fadiga, calculado direto de p.fadiga (não de p.stamina, que pode
+                // ficar desatualizado — ver o mesmo cuidado no modal de detalhe).
+                let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
+                let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
+                let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
 
-            if (p.poupadoRestante > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 ${p.poupadoRestante}j</span>`;
-            if (p.riscoExtraLesao > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(226, 75, 75, 0.18); color: var(--danger);">⚠️ ${p.riscoExtraLesao}j</span>`;
+                let badge = (carga => `<span class="badge medico-badge-sm" style="background: transparent; color: ${carga.cor}; border: 1px solid ${carga.cor};">${carga.texto}</span>`)(rotuloCargaSugerida(c.nivel));
+                if (p.poupadoRestante > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 ${p.poupadoRestante}j</span>`;
 
-            let botaoDescanso = (!c.indisponivel && c.nivel !== 'ok')
-                ? `<button class="medico-card-btn" title="Dar descanso preventivo" onclick="event.stopPropagation(); forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
-                : '';
+                let botaoDescanso = c.nivel !== 'ok'
+                    ? `<button class="medico-card-btn" title="Dar descanso preventivo" onclick="event.stopPropagation(); forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
+                    : '';
 
-            let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''} • clique pra ver detalhes e plano de uso`;
+                let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''} • clique pra ver detalhes e plano de uso`;
 
-            // Preparo Físico ganha sua própria barrinha, curta, embaixo do fôlego — cor por
-            // patamar (ver nivelPreparoFisico/corPorNivelPreparo), pra bater o olho já no card
-            // sem precisar abrir o detalhe.
-            let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
-            let nivelPreparoCard = nivelPreparoFisico(p.preparoFisico);
-            let corPreparo = corPorNivelPreparo(nivelPreparoCard.nivel);
-
+                return `
+                <div class="medico-card" style="border-left-color:${corTier}; cursor:pointer;" title="${dicaExtra.replace(/"/g, '&quot;')}" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')">
+                    ${botaoDescanso}
+                    <strong class="medico-card-nome">${p.nome}</strong>
+                    <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
+                    <div class="medico-card-barra-linha" title="Fôlego: ${folegoPct}%">
+                        <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corBarra};"></div></div>
+                        <span class="medico-card-pct" style="color:${corBarra};">💨${folegoPct}%</span>
+                    </div>
+                    <div class="medico-card-barra-linha" title="Preparo Físico: ${infoTier.rotulo}">
+                        <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corTier};"></div></div>
+                        <span class="medico-card-pct" style="color:${corTier};">🏃${preparoPct}%</span>
+                    </div>
+                    <div class="medico-card-rodape">${badge}</div>
+                </div>`;
+            }).join('');
             return `
-            <div class="medico-card" style="border-left-color:${corBorda}; cursor:pointer;" title="${dicaExtra.replace(/"/g, '&quot;')}" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')">
-                ${botaoDescanso}
-                <strong class="medico-card-nome">${p.nome}</strong>
-                <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
-                <div class="medico-card-barra-linha" title="Fôlego: ${folegoPct}%">
-                    <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corBarra};"></div></div>
-                    <span class="medico-card-pct" style="color:${corBarra};">💨${folegoPct}%</span>
-                </div>
-                <div class="medico-card-barra-linha" title="Preparo Físico: ${nivelPreparoCard.rotulo}">
-                    <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corPreparo};"></div></div>
-                    <span class="medico-card-pct" style="color:${corPreparo};">🏃${preparoPct}%</span>
-                </div>
-                <div class="medico-card-rodape">${badge}</div>
-            </div>`;
+            <h4 style="margin:14px 0 8px; color:${corTier}; font-size:14px;">${infoTier.rotulo} (${grupos[t.nivel].length})</h4>
+            <div class="medico-grid">${cardsTier}</div>`;
         }).join('');
-        lista.innerHTML = cardsHtml
-            ? `<div class="medico-grid">${cardsHtml}</div>`
-            : `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
+
+        preparoEl.innerHTML = blocos || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador disponível no momento.</p>`;
     }
 
     if (typeof atualizarSelectCondicaoAuxiliar === 'function') atualizarSelectCondicaoAuxiliar();
