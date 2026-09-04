@@ -1245,7 +1245,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // natural do ESTILO DE JOGO escolhido — é o que amarra a recomendação ao estilo em vez de
         // sugerir um foco que contraria a identidade do time.
         // =====================================================================================
-        function _sinaisDaPartida(nomeAdversario, competicaoSelecionada, mando) {
+        function _sinaisDaPartida(nomeAdversario, competicaoSelecionada, mando, forcaAdversarioOvr) {
             let d = db[currentSave] || {};
             let partidas = Array.isArray(d.partidas) ? d.partidas : [];
             let ativos = (d.plantel || []).filter(p => p.status === 'Ativo');
@@ -1253,6 +1253,12 @@ ${textoRegrasCompatibilidadePosicional()}
             let ovrLiga = Number((String(d.liga || '').match(/\d+/g) || [70]).pop());
             let top11 = ativos.slice().sort((a, b) => (b.ovr || 0) - (a.ovr || 0)).slice(0, 11);
             let ovrTime = top11.length ? top11.reduce((soma, p) => soma + (p.ovr || 0), 0) / top11.length : ovrLiga;
+            // Força do ADVERSÁRIO desta partida (lida do print, quando anexado — ver
+            // gerarSugestaoDiretrizFoco) — pedido do treinador depois de reportar sugestão de
+            // "Extremamente Ofensivo" contra um time muito mais forte: sem isto, o único sinal de
+            // força era o elenco x a MÉDIA DA LIGA, cego pro adversário específico do dia.
+            let temLeituraAdversario = typeof forcaAdversarioOvr === 'number' && forcaAdversarioOvr > 0;
+            let gapAdversario = temLeituraAdversario ? Math.round(ovrTime - forcaAdversarioOvr) : null;
 
             let alvo = String(nomeAdversario || '').toLowerCase().trim();
             let confrontos = partidas.filter(p => String(p.adversario || '').toLowerCase().trim() === alvo);
@@ -1278,6 +1284,7 @@ ${textoRegrasCompatibilidadePosicional()}
 
             return {
                 ovrTime: Math.round(ovrTime), ovrLiga: ovrLiga, gapLiga: Math.round(ovrTime - ovrLiga),
+                forcaAdversarioOvr: temLeituraAdversario ? forcaAdversarioOvr : null, gapAdversario: gapAdversario,
                 confrontos: confrontos.length, vitorias: vitorias, empates: empates, derrotas: derrotas,
                 jogosRecentes: ultimos.length, pontosUltimos: pontosUltimos,
                 cansados: cansados, criticos: criticos, titularesConsiderados: top11.length,
@@ -1298,8 +1305,8 @@ ${textoRegrasCompatibilidadePosicional()}
 
         const _ESCADA_FOCO = ['extremamente_defensivo', 'defensivo', 'equilibrado', 'ofensivo', 'extremamente_ofensivo'];
 
-        function recomendarDiretrizFoco(nomeAdversario, competicaoSelecionada, mando) {
-            let s = _sinaisDaPartida(nomeAdversario, competicaoSelecionada, mando);
+        function recomendarDiretrizFoco(nomeAdversario, competicaoSelecionada, mando, forcaAdversarioOvr) {
+            let s = _sinaisDaPartida(nomeAdversario, competicaoSelecionada, mando, forcaAdversarioOvr);
             let estilo = _posturaDoEstiloAtivo();
             let motivos = [];
 
@@ -1314,7 +1321,15 @@ ${textoRegrasCompatibilidadePosicional()}
             if (s.mando === 'Casa') { escala += 1; motivos.push('jogamos em casa'); }
             else if (s.mando === 'Fora') { escala -= 1; motivos.push('jogamos fora'); }
 
-            if (s.gapLiga >= 4) { escala += 1; motivos.push(`nosso elenco está ${s.gapLiga} pontos de OVR acima do nível da liga`); }
+            // Prioriza a leitura do ADVERSÁRIO ESPECÍFICO desta partida (do print) sobre a média da
+            // liga sempre que ela existir — é um sinal mais forte, por isso o peso maior nos casos
+            // extremos (±1.5, contra ±1 da média da liga).
+            if (s.gapAdversario !== null) {
+                if (s.gapAdversario <= -6) { escala -= 1.5; motivos.push(`adversário bem mais forte que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
+                else if (s.gapAdversario <= -3) { escala -= 1; motivos.push(`adversário mais forte que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
+                else if (s.gapAdversario >= 6) { escala += 1.5; motivos.push(`adversário bem mais fraco que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
+                else if (s.gapAdversario >= 3) { escala += 1; motivos.push(`adversário mais fraco que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
+            } else if (s.gapLiga >= 4) { escala += 1; motivos.push(`nosso elenco está ${s.gapLiga} pontos de OVR acima do nível da liga`); }
             else if (s.gapLiga <= -4) { escala -= 1; motivos.push(`nosso elenco está ${Math.abs(s.gapLiga)} pontos de OVR abaixo do nível da liga`); }
 
             if (s.confrontos > 0) {
@@ -1339,7 +1354,8 @@ ${textoRegrasCompatibilidadePosicional()}
             }
 
             // ---- DIRETRIZ: estado físico do elenco x tamanho do jogo ----
-            let jogoDecisivo = s.saldoAgregado !== null || s.gapLiga <= -4 || (s.confrontos > 0 && s.derrotas > s.vitorias);
+            let gapParaDecidir = s.gapAdversario !== null ? s.gapAdversario : s.gapLiga;
+            let jogoDecisivo = s.saldoAgregado !== null || gapParaDecidir <= -4 || (s.confrontos > 0 && s.derrotas > s.vitorias);
             let elencoInteiro = s.titularesConsiderados >= 11;
             let diretriz;
             if (jogoDecisivo && s.cansados <= 3) {
@@ -1381,10 +1397,37 @@ ${textoRegrasCompatibilidadePosicional()}
             if (btn) { btn.innerText = '⏳ Analisando o contexto do time...'; btn.disabled = true; }
             if (typeof mostrarCarregandoIA === 'function') mostrarCarregandoIA('🧠 O Auxiliar está lendo o contexto da temporada...');
 
+            // Força real do ADVERSÁRIO desta partida (pedido do treinador: "sugestão de jogar
+            // Extremamente Ofensivo contra times muito mais fortes que o meu" — o motor só
+            // enxergava elenco x MÉDIA DA LIGA, cego pro rival específico do dia). Quando há print
+            // anexado, faz uma leitura rápida do nível dele ANTES de decidir diretriz/foco, pra essa
+            // decisão já nascer sabendo se o rival é mais forte ou mais fraco que nós — não só a
+            // média da liga. Falha na leitura (ou nenhum print anexado) não trava nada: cai pro
+            // comportamento de sempre, baseado só na liga.
+            let forcaAdversarioOvr = null;
+            if (imagemAdvEscalacao || imagemAdvTatica) {
+                if (btn) btn.innerText = '⏳ Avaliando o nível do adversário pelo print...';
+                try {
+                    let partsForca = [{ text: `Olhe a(s) imagem(ns) anexada(s) do adversário "${nomeAdvManual}" (escalação provável e/ou predefinições táticas dele) e estime o nível geral (OVR médio do time titular, escala 0-99, no mesmo padrão do EA FC) a partir dos ratings/nomes/posição na liga visíveis nas imagens. Responda APENAS com um JSON puro, sem nenhum texto fora dele: { "ovrEstimado": <número inteiro de 0 a 99, ou null se não der pra estimar com confiança nenhuma> }` }];
+                    if (imagemAdvEscalacao) partsForca.push({ inlineData: { mimeType: imagemAdvEscalacao.mimeType, data: imagemAdvEscalacao.base64 } });
+                    if (imagemAdvTatica) partsForca.push({ inlineData: { mimeType: imagemAdvTatica.mimeType, data: imagemAdvTatica.base64 } });
+                    const dataForca = await chamarIA({ contents: [{ parts: partsForca }] });
+                    let brutoForca = (dataForca.candidates[0].content.parts[0].text || '').trim();
+                    let matchForca = brutoForca.match(/\{[\s\S]*\}/);
+                    if (matchForca) {
+                        let jsonForca = JSON.parse(matchForca[0]);
+                        if (typeof jsonForca.ovrEstimado === 'number' && jsonForca.ovrEstimado > 0) forcaAdversarioOvr = jsonForca.ovrEstimado;
+                    }
+                } catch (e) {
+                    forcaAdversarioOvr = null;
+                }
+                if (btn) btn.innerText = '⏳ Analisando o contexto do time...';
+            }
+
             // Padrão seguro caso a IA falhe ou devolva algo inválido — o treinador ainda pode
             // ajustar tudo manualmente na Fase 2, então uma falha aqui nunca trava o fluxo.
             // O motor decide (sinais reais + postura do estilo); a IA só escreve a explicação.
-            let recomendacao = recomendarDiretrizFoco(nomeAdvManual, competicaoSelecionada, mandoSelecionado);
+            let recomendacao = recomendarDiretrizFoco(nomeAdvManual, competicaoSelecionada, mandoSelecionado, forcaAdversarioOvr);
             let diretrizRecomendada = recomendacao.diretriz;
             let focoRecomendado = recomendacao.foco;
             let justificativa = `${DIRETRIZES_ESTRATEGICAS[diretrizRecomendada].nome} com foco ${FOCOS_TATICOS_PARTIDA[focoRecomendado]} — ${recomendacao.motivos.join('; ')}.`;
@@ -1417,6 +1460,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 - Foco Tático da Partida: "${FOCOS_TATICOS_PARTIDA[focoRecomendado]}"
                 - Números e fatos que levaram a ela: ${recomendacao.motivos.join('; ')}.
                 - Leitura do elenco: OVR médio dos 11 melhores ${recomendacao.sinais.ovrTime} contra nível ${recomendacao.sinais.ovrLiga} da liga; ${recomendacao.sinais.cansados} titulares com desgaste alto e ${recomendacao.sinais.criticos} em estado crítico.
+                ${recomendacao.sinais.forcaAdversarioOvr !== null ? `- Leitura do adversário pelo print anexado: OVR estimado ${recomendacao.sinais.forcaAdversarioOvr}, contra nossos ${recomendacao.sinais.ovrTime} — isto pesou mais que a média da liga na decisão acima.` : ''}
 
                 Sua tarefa é APENAS escrever a justificativa dessa decisão pro treinador, com a sua voz de auxiliar: 2 a 4 frases, em português, citando os números acima e o adversário pelo nome. Não proponha outra diretriz nem outro foco.
 
@@ -2068,6 +2112,17 @@ ${textoRegrasCompatibilidadePosicional()}
 
         async function declararPartidaIA() {
             let nomeAdvManual = document.getElementById('declarar-adv-nome').value.trim();
+            // "🔄 Refazer o plano" chama esta mesma função de novo depois que uma sugestão já foi
+            // gerada — mas o campo de nome é limpo logo abaixo (linha ~2391) quando a primeira
+            // sugestão é montada, pra não ficar preso no adversário anterior na PRÓXIMA declaração
+            // do zero. Sem isto, "Refazer o plano" caía direto no alerta "Digite o nome do
+            // adversário" e não gerava nada (bug reportado pelo treinador: "ao mudar a sugestão,
+            // ele quebra"). Se o campo está vazio mas já existe um plano pra este mesmo jogo,
+            // reaproveita o adversário do plano atual — só uma declaração NOVA de verdade (nome
+            // digitado) sobrescreve isto.
+            if (!nomeAdvManual && db[currentSave] && db[currentSave].sugestaoAuxiliar && db[currentSave].sugestaoAuxiliar.adversarioNome) {
+                nomeAdvManual = db[currentSave].sugestaoAuxiliar.adversarioNome;
+            }
             let diretrizId = document.getElementById('declarar-adv-diretriz').value;
             let diretrizInfo = DIRETRIZES_ESTRATEGICAS[diretrizId] || { nome: diretrizId, descricaoIA: diretrizId };
             // Foco Tático da Partida: sempre captura e persiste a escolha. Pra presets `refinado`
@@ -2325,9 +2380,15 @@ ${textoRegrasCompatibilidadePosicional()}
                     // A diretriz "Titulares a Todo Custo (Risco de Lesão)" existe justamente pra
                     // desligar essa rede de segurança médica — o treinador decidiu conscientemente
                     // arriscar a lesão em troca de força máxima em campo, então a rotação
-                    // obrigatória por fadiga crítica/risco NÃO se aplica aqui (o aviso vira
-                    // "alertasRiscoLesao" mais abaixo, mas ninguém é trocado à força).
-                    let rotacoesAutomaticas = diretrizId === 'titulares-todo-custo' ? [] : aplicarRotacaoObrigatoriaEscalacao(res);
+                    // obrigatória por fadiga crítica (jogos seguidos) ou risco NÃO se aplica aqui (o
+                    // aviso vira "alertasRiscoLesao" mais abaixo, mas ninguém é trocado à força).
+                    // EXCEÇÃO (pedido do treinador, jogador escalado com 103% de fadiga): exaustão
+                    // REAL (fadiga >= 100%, não só "crítico" por sequência de jogos) continua sendo
+                    // trocada mesmo aqui — nem quem topa o risco quer um titular literalmente
+                    // exausto em campo, só cansado.
+                    let rotacoesAutomaticas = diretrizId === 'titulares-todo-custo'
+                        ? aplicarRotacaoObrigatoriaEscalacao(res, { apenasExaustaoExtrema: true })
+                        : aplicarRotacaoObrigatoriaEscalacao(res);
                     let alertaRotacao = (typeof verificarRotacaoEscalacao === 'function') ? verificarRotacaoEscalacao(res.escalacao) : "";
 
                     // O que a IA devolve é um PLANO. Quem escala e inicia a partida é a aba
@@ -2510,8 +2571,14 @@ ${textoRegrasCompatibilidadePosicional()}
         // que existir um jogador saudável disponível na mesma categoria de posição, em vez de confiar
         // 100% na IA seguir a regra. Se não houver alternativa saudável, mantém a escolha da IA
         // (mesma exceção que já existe no prompt). Retorna a lista de trocas feitas, em texto.
-        function aplicarRotacaoObrigatoriaEscalacao(res) {
+        // opcoes.apenasExaustaoExtrema: usado só pela diretriz "Titulares a Todo Custo", que desliga
+        // esta rede pra fadiga crítica comum de propósito — mas mesmo assim ninguém quer um titular
+        // em EXAUSTÃO REAL (fadiga >= FADIGA_CRITICO, ex: 103%) em campo, então esse caso continua
+        // forçando a troca (pedido do treinador após reportar o Vanderson escalado com 103%).
+        function aplicarRotacaoObrigatoriaEscalacao(res, opcoes) {
             if (!res || !res.escalacao || !db[currentSave]) return [];
+            let apenasExaustaoExtrema = !!(opcoes && opcoes.apenasExaustaoExtrema);
+            let cfgFisica = (typeof CONDICAO_FISICA_CFG !== 'undefined') ? CONDICAO_FISICA_CFG : null;
             let trocas = [];
             // Só quem já está escalado noutra posição é intocável (não pode jogar em dois lugares ao
             // mesmo tempo) — quem está no banco (reservas) É candidato válido a ser promovido pra titular.
@@ -2522,7 +2589,12 @@ ${textoRegrasCompatibilidadePosicional()}
                 let jogador = db[currentSave].plantel.find(x => x.nome.toLowerCase() === String(info.nome).toLowerCase().trim());
                 if (!jogador) return;
                 let condicao = (typeof condicaoJogador === 'function') ? condicaoJogador(jogador) : { nivel: 'ok' };
-                if (condicao.nivel !== 'critico' && condicao.nivel !== 'risco') return;
+                let emExaustaoExtrema = cfgFisica && (Number(jogador.fadiga) || 0) >= cfgFisica.FADIGA_CRITICO;
+                if (apenasExaustaoExtrema) {
+                    if (!emExaustaoExtrema) return;
+                } else if (condicao.nivel !== 'critico' && condicao.nivel !== 'risco') {
+                    return;
+                }
 
                 let candidatos = db[currentSave].plantel.filter(p => {
                     if (p.nome === jogador.nome || usadosTitulares.has(p.nome)) return false;
@@ -2540,7 +2612,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 usadosTitulares.delete(jogador.nome);
                 usadosTitulares.add(substituto.nome);
 
-                let motivo = condicao.nivel === 'critico' ? 'fadiga crítica' : 'risco de lesão';
+                let motivo = apenasExaustaoExtrema ? `exaustão total (${Math.round(jogador.fadiga)}% de fadiga)` : (condicao.nivel === 'critico' ? 'fadiga crítica' : 'risco de lesão');
                 res.escalacao[role] = { nome: substituto.nome, instrucao: `${info.instrucao || ''} (Rotação automática do Departamento Médico — ${jogador.nome} preservado por ${motivo}.)`.trim() };
 
                 if (!Array.isArray(res.reservas)) res.reservas = [];
