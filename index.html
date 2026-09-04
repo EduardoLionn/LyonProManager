@@ -1271,6 +1271,17 @@
                     <tbody></tbody>
                 </table>
             </div>
+
+            <!-- SUGESTÕES DE DESENVOLVIMENTO INDIVIDUAL — decisão do Preparador Físico, não do
+                 usuário: função real do EA FC derivada da posição de cada atleta. Vive aqui no
+                 Elenco (é sobre função de treino, não sobre condição física) — fica oculta por
+                 padrão pra não poluir a aba; só abre quando o treinador clica. -->
+            <div class="panel" style="border-left: 4px solid var(--warning);">
+                <button id="btn-toggle-medico-dev" onclick="toggleDesenvolvimentoIndividualPanel()" style="width: 100%; background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
+                    🎯 Ver Sugestões de Desenvolvimento Individual
+                </button>
+                <div id="medico-desenvolvimento" style="display:none; margin-top:15px;"></div>
+            </div>
         </div>
 
         <!-- ABA: MERCADO & TRANSFERÊNCIAS -->
@@ -1625,14 +1636,25 @@
 
             <div id="medico-resumo-cards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:15px; margin-bottom:20px;"></div>
 
-            <!-- SUGESTÕES DE DESENVOLVIMENTO INDIVIDUAL — decisão do Preparador Físico, não do
-                 usuário: função real do EA FC derivada da posição de cada atleta. Fica oculta por
-                 padrão pra não poluir a aba; só abre quando o treinador clica. -->
+            <!-- 1) LESIONADOS & PREVENÇÃO — o mais urgente primeiro: quem está machucado e o plano
+                 de retorno gradual de cada um, no estilo de um boletim médico de verdade. -->
+            <div class="panel" style="border-left: 4px solid var(--danger);">
+                <h3 style="margin-top:0;">🚑 Lesionados &amp; Prevenção</h3>
+                <div id="medico-lesionados"></div>
+            </div>
+
+            <!-- 2) RODÍZIO SUGERIDO — resposta direta a "quem eu poupo no próximo jogo?", sem
+                 precisar vasculhar o elenco inteiro: só quem realmente precisa de descanso agora. -->
             <div class="panel" style="border-left: 4px solid var(--warning);">
-                <button id="btn-toggle-medico-dev" onclick="toggleDesenvolvimentoIndividualPanel()" style="width: 100%; background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
-                    🎯 Ver Sugestões de Desenvolvimento Individual
-                </button>
-                <div id="medico-desenvolvimento" style="display:none; margin-top:15px;"></div>
+                <h3 style="margin-top:0;">🔄 Rodízio Sugerido</h3>
+                <div id="medico-rodizio"></div>
+            </div>
+
+            <!-- 3) PREPARO FÍSICO DO ELENCO — agrupado por faixa (Sem Condição → Incansável), pra
+                 bater o olho em quem tá fora de ritmo sem procurar jogador por jogador. -->
+            <div class="panel">
+                <h3 style="margin-top:0;">🏋️ Preparo Físico do Elenco</h3>
+                <div id="medico-preparo"></div>
             </div>
 
             <div class="panel" style="border-left: 4px solid var(--accent);">
@@ -1656,11 +1678,6 @@
                     <div><button onclick="declararLesao()" style="background: var(--danger); color: white; padding: 10px 15px;">🏥 Declarar Lesão</button></div>
                     <div><button onclick="aplicarCartaoVermelho()" style="background: var(--warning); color: black; padding: 10px 15px;">🟥 Cartão Vermelho</button></div>
                 </div>
-            </div>
-
-            <div class="panel">
-                <h3 style="margin-top:0;">👥 Condição Física do Elenco</h3>
-                <div id="medico-lista"></div>
             </div>
         </div>
 

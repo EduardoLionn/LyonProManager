@@ -646,6 +646,24 @@
 }
 .medico-dev-funcao { font-size: 12px; font-weight: bold; color: var(--warning); text-align: right; }
 
+/* Lesionados & Prevenção / Rodízio Sugerido: um bloco por jogador (cabeçalho + texto do plano
+   embaixo), em vez de "quadrados" — aqui cabe texto mais longo (plano de retorno/rodízio). */
+.medico-linha-ocorrencia {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--danger);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+}
+/* Botão pequeno de ação (ex: descanso preventivo) dentro de uma linha flex — ao contrário de
+   .medico-card-btn, este NÃO é posicionado em absoluto (não está dentro de um .medico-card). */
+.medico-btn-inline {
+    background: transparent; border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 6px; width: 26px; height: 26px; font-size: 12px; line-height: 1; cursor: pointer; padding: 0;
+}
+.medico-btn-inline:hover { background: rgba(75, 159, 226, 0.15); }
+
 /* --- MODAL MODERNO (substitui confirm()/prompt() do navegador) --- */
 .modal-moderno-box {
     background: var(--panel-bg);
