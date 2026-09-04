@@ -344,14 +344,23 @@
         // Lê UMA imagem (base64 já convertido) e tenta encaixar o jogador na lista temporária.
         // Usada tanto no lote inicial quanto pelo "Tentar Novamente" — se falhar de novo, volta
         // pra fila de falhas em vez de exigir reenvio do arquivo.
+        //
+        // O goleiro manda DOIS prints no MESMO lote (resumo + aba GL, que só existe pra ele) — a
+        // IA agora identifica qual tela é cada imagem ("tela": "resumo" ou "gl") em vez de tratar
+        // o print da aba GL como se fosse outro jogador. A ordem de upload não importa: se o print
+        // "gl" chegar antes do "resumo" (ou vice-versa), o valor de defesas fica em
+        // defesasPendentesGoleiro até o outro print do mesmo goleiro aparecer no lote.
         async function lerUmaImagemJogador(base64Data, mimeType, nomeArquivo, listaJogadores) {
-            let prompt = `Analise a tela de estatísticas do jogador.
+            let prompt = `Analise esta tela de estatísticas de UM jogador de uma partida de futebol (EA FC). Ela pode ser de UMA de duas telas diferentes do mesmo jogo — identifique qual é:
+            - Tela "resumo": cabeçalho "Desempenho individual", aba "Resumo" selecionada (linha de abas: Resumo | Posse de bola | Finalizações | Passes | Defesa | GL). Mostra "Nota total: X,X" e uma tabela geral (Gols, Assistências, Finalizações, Passes, Dribles, Divididas, Posses de bola, Faltas, Distâncias etc.) — esta tela NUNCA mostra "Defesas".
+            - Tela "gl": é a aba GL do MESMO goleiro, mostra "Nota de GL: X,X" e uma tabela "DEFESAS (GERAL)" com Finalizações contra, Finalizações certas, Defesas, Gols sofridos, Taxa de defesas etc. Só existe pra goleiro.
             ⚠️ REGRA CRÍTICA 1: IGNORE o nome grande/completo no topo esquerdo. Extraia APENAS o nome abreviado que está na tabela do lado esquerdo (Ex: "J. Carmona").
-            ⚠️ REGRA CRÍTICA 2: Verifique se há um ícone de uma pequena BOLA DE FUTEBOL ao lado do nome do jogador na lista da esquerda. Se houver a bolinha, retorne 1 no campo "mvp". Se não houver, retorne 0.
-            ⚠️ REGRA CRÍTICA 3: No painel de estatísticas à direita, "distanciaPercorrida" e "distanciaCorrida" são o PRIMEIRO número de cada linha "Distância percorr. x média do time (km)" e "Distância corrida x média do time (km)" — é a distância do PRÓPRIO jogador, não a média do time.
+            ⚠️ REGRA CRÍTICA 2: Verifique se há um ícone de uma pequena BOLA DE FUTEBOL ao lado do nome do jogador na lista da esquerda. Se houver a bolinha, retorne 1 no campo "mvp". Se não houver, retorne 0. Se for a tela "gl", sempre retorne 0 neste campo.
+            ⚠️ REGRA CRÍTICA 3: Na tela "resumo", "distanciaPercorrida" e "distanciaCorrida" são o PRIMEIRO número de cada linha "Distância percorr. x média do time (km)" e "Distância corrida x média do time (km)" — é a distância do PRÓPRIO jogador, não a média do time.
+            ⚠️ REGRA CRÍTICA 4: Se for a tela "gl", preencha SÓ "tela", "nome" e "defesas" (o número da linha "Defesas" da tabela DEFESAS (GERAL) — NÃO é "Finalizações contra" nem "Gols sofridos"). Deixe todos os outros campos como 0.
             Procure o nome extraído nesta lista e retorne exatamente como está nela, se existir: [${listaJogadores}].
             Retorne EXATAMENTE este JSON puro sem formatação markdown:
-            {"nome": "Nome Abreviado da Tabela", "overall": numero, "nota": numero, "gols": numero, "assistencias": numero, "finalizacoes": numero, "precisaoFinalizacao": numero, "passes": numero, "precisaoPasse": numero, "dribles": numero, "taxaDribles": numero, "dividas": numero, "taxaDivididas": numero, "possesGanhas": numero, "perdasPosse": numero, "faltas": numero, "defesas": numero, "distanciaPercorrida": numero, "distanciaCorrida": numero, "mvp": numero}`;
+            {"tela": "resumo ou gl", "nome": "Nome Abreviado da Tabela", "overall": numero, "nota": numero, "gols": numero, "assistencias": numero, "finalizacoes": numero, "precisaoFinalizacao": numero, "passes": numero, "precisaoPasse": numero, "dribles": numero, "taxaDribles": numero, "dividas": numero, "taxaDivididas": numero, "possesGanhas": numero, "perdasPosse": numero, "faltas": numero, "defesas": numero, "distanciaPercorrida": numero, "distanciaCorrida": numero, "mvp": numero}`;
 
             const data = await chamarIA({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: mimeType, data: base64Data } } ] }] });
             let rawText = data.candidates[0].content.parts[0].text;
@@ -363,11 +372,23 @@
             let p = db[currentSave].plantel.find(x => x.nome.toLowerCase() === nome.toLowerCase());
             if (p) nome = p.nome;
 
+            // Print da aba GL: não é um jogador novo, é o segundo print do MESMO goleiro — só funde
+            // o total de defesas no registro dele, criado pelo print "resumo" (já lido ou ainda por
+            // vir no mesmo lote, em qualquer ordem).
+            if (stats.tela === 'gl') {
+                let existente = jogadoresPartidaTemp.find(j => j.nome === nome);
+                if (existente) existente.defesas = stats.defesas || 0;
+                else defesasPendentesGoleiro[nome] = stats.defesas || 0;
+                return;
+            }
+
             if (!jogadoresPartidaTemp.find(j => j.nome === nome)) {
                 let divTotal = stats.dividas || 0; let taxaDiv = stats.taxaDivididas || 0;
+                let defesasJaLidas = defesasPendentesGoleiro[nome];
                 let dadosJogador = {
-                    idTemp: ++idTempCounter, nome: nome, nota: stats.nota || 7.0, gols: stats.gols || 0, assist: stats.assistencias || 0, fin: stats.finalizacoes || 0, precFin: stats.precisaoFinalizacao || 0, passes: stats.passes || 0, precPasse: stats.precisaoPasse || 0, dribles: stats.dribles || 0, taxaDribles: stats.taxaDribles || 0, dividasTotais: divTotal, taxaDivididas: taxaDiv, dividasGanhas: Math.round(divTotal * (taxaDiv / 100)), posses: stats.possesGanhas || 0, perdasPosse: stats.perdasPosse || 0, faltas: stats.faltas || 0, defesas: stats.defesas || 0, distanciaPercorrida: stats.distanciaPercorrida || 0, distanciaCorrida: stats.distanciaCorrida || 0, mvp: stats.mvp || 0, ovrAtualizado: stats.overall || (p ? p.ovr : 70)
+                    idTemp: ++idTempCounter, nome: nome, nota: stats.nota || 7.0, gols: stats.gols || 0, assist: stats.assistencias || 0, fin: stats.finalizacoes || 0, precFin: stats.precisaoFinalizacao || 0, passes: stats.passes || 0, precPasse: stats.precisaoPasse || 0, dribles: stats.dribles || 0, taxaDribles: stats.taxaDribles || 0, dividasTotais: divTotal, taxaDivididas: taxaDiv, dividasGanhas: Math.round(divTotal * (taxaDiv / 100)), posses: stats.possesGanhas || 0, perdasPosse: stats.perdasPosse || 0, faltas: stats.faltas || 0, defesas: (typeof defesasJaLidas === 'number') ? defesasJaLidas : (stats.defesas || 0), distanciaPercorrida: stats.distanciaPercorrida || 0, distanciaCorrida: stats.distanciaCorrida || 0, mvp: stats.mvp || 0, ovrAtualizado: stats.overall || (p ? p.ovr : 70)
                 };
+                if (typeof defesasJaLidas === 'number') delete defesasPendentesGoleiro[nome];
                 jogadoresPartidaTemp.push(dadosJogador);
                 if (!p) {
                     let novoP = { nome: nome, posicao: 'Meio-Campo', ovr: dadosJogador.ovrAtualizado, status: 'Ativo', jogosAvaliacao: 0 };
@@ -904,7 +925,7 @@
             let elDias = document.getElementById('partida-dias-proxima'); if (elDias) elDias.value = '3';
             let elAdv = document.getElementById('inicio-partida-adversario'); if (elAdv) elAdv.value = '';
 
-            salvarDados(); jogadoresPartidaTemp = []; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
+            salvarDados(); jogadoresPartidaTemp = []; defesasPendentesGoleiro = {}; renderizarListaTemp(); document.getElementById('vitoria-penaltis').checked = false;
             let elFinalClassico = document.getElementById('partida-final-classico'); if (elFinalClassico) elFinalClassico.checked = false;
             alert(tinhaPartidaAuxiliar ? "Partida salva! Confira a avaliação do Auxiliar Técnico no chat." : "Partida salva!");
 

@@ -7,6 +7,10 @@
         let statusFiltroMercado = 'Vendido';
         let idTempCounter = 0;
         let jogadoresPartidaTemp = [];
+        // Guarda o total de defesas lido da tela "GL" do goleiro quando esse print é processado
+        // ANTES do print "resumo" dele no mesmo lote (ordem de upload não importa) — ver
+        // lerUmaImagemJogador em js/diretoria-partidas.js. Nome -> número de defesas pendente.
+        let defesasPendentesGoleiro = {};
         let charts = {};
         let postsVisiveisSocial = 10; // <-- ADICIONE ESTA LINHA 
         
