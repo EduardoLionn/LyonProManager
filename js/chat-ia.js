@@ -1347,6 +1347,12 @@ ${textoRegrasCompatibilidadePosicional()}
             if (s.mando === 'Casa') { indice += 1; motivos.push('jogamos em casa'); }
             else if (s.mando === 'Fora') { indice -= 1; motivos.push('jogamos fora'); }
 
+            // Sem leitura real do adversário, nem a aproximação de liga nem o mando SOZINHOS
+            // (juntos, ainda são só 2 sinais fracos/indiretos) podem empurrar pra um extremo — só o
+            // ajuste fino abaixo (retrospecto/fase/identidade, sinais reais e concretos) pode dar
+            // esse último passo, se todos os sinais reais apontarem pro mesmo lado.
+            if (!temLeituraReal) indice = Math.max(1, Math.min(3, indice));
+
             // ---- AJUSTE FINO: postura do estilo + retrospecto + fase recente. Cada um pesa pouco
             // (±0.5) e a SOMA de todos eles nunca empurra mais que 1 degrau completo no final —
             // eles afinam a recomendação, mas quem decide o essencial é força relativa + mando.
@@ -1364,10 +1370,12 @@ ${textoRegrasCompatibilidadePosicional()}
                 else if (s.pontosUltimos <= 4) { ajusteFino -= 0.5; motivos.push(`momento ruim (${s.pontosUltimos} pontos nos últimos ${s.jogosRecentes})`); }
             }
 
-            indice += Math.max(-1, Math.min(1, Math.round(ajusteFino)));
-            // Sem leitura real do adversário, o resultado FINAL (já com mando e ajuste fino
-            // aplicados) nunca chega num extremo — é a mesma cautela de sempre por falta de sinal.
-            if (!temLeituraReal) indice = Math.max(1, Math.min(3, indice));
+            // Arredondamento SIMÉTRICO (não o Math.round puro, que arredonda -0.5 pra 0 em vez de
+            // -1) — sem isso, +0.5 e -0.5 de ajuste fino não tinham o mesmo peso, e situações
+            // opostas (ex: retrospecto bom vs. ruim contra adversários diferentes) podiam colapsar
+            // na mesma recomendação.
+            let ajusteArredondado = ajusteFino < 0 ? -Math.round(-ajusteFino) : Math.round(ajusteFino);
+            indice += Math.max(-1, Math.min(1, ajusteArredondado));
             indice = Math.max(0, Math.min(_ESCADA_FOCO.length - 1, indice));
             let foco = _ESCADA_FOCO[indice];
 
