@@ -14,8 +14,8 @@
 //   não está afiado é intencional).
 // - Contagem de jogos seguidos sem descanso (rodízio)
 // - Risco de lesão por desgaste (pode virar lesão real se ignorado)
-// - O "Boletim do Preparador Físico", usado pela aba Departamento Físico e Médico e também
-//   enviado ao Auxiliar Técnico (IA) para forçar rotação inteligente na escalação.
+// - O "Boletim do Preparador Físico", usado pelas abas Departamento Médico e Preparação Física e
+//   também enviado ao Auxiliar Técnico (IA) para forçar rotação inteligente na escalação.
 
 const CONDICAO_FISICA_CFG = {
     STAMINA_MAX: 100,
@@ -27,8 +27,15 @@ const CONDICAO_FISICA_CFG = {
     JOGOS_SEGUIDOS_ALERTA: 7,
     JOGOS_SEGUIDOS_RISCO: 10,          // "mais de 10 partidas seguidas" -> risco real
     JOGOS_SEGUIDOS_CRITICO: 14,
-    CHANCE_LESAO_RISCO: 16,            // % de chance de lesão por partida jogada em risco
-    CHANCE_LESAO_CRITICO: 32           // % de chance por partida jogada em risco crítico
+    // Chance de lesão por partida jogada em sobrecarga — pedido do treinador: "pode ir aumentando
+    // a chance a cada partida que o jogador estiver sobrecarregado", não mais um número fixo. A
+    // chance parte de uma base (risco ou crítico) e sobe a cada partida ALÉM do limiar que
+    // colocou o jogador nessa faixa (ver chanceLesaoAtual) — nunca passa do teto, pra continuar
+    // sendo um risco real de overuse, não uma sentença de morte certa.
+    CHANCE_LESAO_RISCO_BASE: 12,
+    CHANCE_LESAO_CRITICO_BASE: 25,
+    CHANCE_LESAO_INCREMENTO_POR_JOGO: 4,
+    CHANCE_LESAO_TETO: 75
 };
 
 // Divisor de recuperação por dias de descanso até a próxima partida — quanto mais dias, maior o
@@ -215,6 +222,35 @@ function condicaoJogador(p) {
     return { stamina: p.stamina, fadiga: p.fadiga, jogosSeguidos: p.jogosSeguidos, nivel, indisponivel, motivoIndisponivel };
 }
 
+// Chance REAL de lesão por sobrecarga se o jogador for escalado na condição atual — fonte única
+// de verdade usada tanto pelo sorteio de verdade (processarCondicaoFisicaPosPartida, passo 5)
+// quanto pelo texto do "Plano de Descanso" mostrado no Departamento Médico (planoDescansoRiscoTexto),
+// pra nunca mostrar um número que não bate com o que realmente pode acontecer.
+// Pedido do treinador: "pode ir aumentando a chance a cada partida que o jogador estiver
+// sobrecarregado" — a chance não é mais fixa (16%/32%): parte de uma base (risco ou crítico) e
+// sobe CHANCE_LESAO_INCREMENTO_POR_JOGO a cada partida ALÉM do limiar que colocou o jogador
+// nessa faixa, até o teto de segurança (nunca vira uma sentença de morte certa).
+// Validado: jogosSeguidos=14 (exatamente no limiar crítico) -> 25% (só a base). jogosSeguidos=20
+// (6 partidas além do limiar crítico) -> 25 + 6*4 = 49%. jogosSeguidos=30 (16 além) -> 25+64=89%,
+// travado no teto de 75%.
+function chanceLesaoAtual(p) {
+    let cfg = CONDICAO_FISICA_CFG;
+    let critico = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_CRITICO || p.fadiga >= cfg.FADIGA_CRITICO);
+    let risco = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_RISCO || p.fadiga >= cfg.FADIGA_RISCO);
+    if (!critico && !risco) return { chance: 0, critico: false };
+
+    let limiar = critico ? cfg.JOGOS_SEGUIDOS_CRITICO : cfg.JOGOS_SEGUIDOS_RISCO;
+    let jogosAlemDoLimiar = Math.max(0, (p.jogosSeguidos || 0) - limiar);
+    let base = critico ? cfg.CHANCE_LESAO_CRITICO_BASE : cfg.CHANCE_LESAO_RISCO_BASE;
+    let chance = base + jogosAlemDoLimiar * cfg.CHANCE_LESAO_INCREMENTO_POR_JOGO;
+
+    // Negar um pedido de descanso do Departamento Médico cobra o preço aqui: as próximas 2
+    // partidas do atleta entram com risco extra, mesmo que ele não esteja no limite.
+    if (p.riscoExtraLesao > 0) chance += cfg.CHANCE_LESAO_RISCO_BASE;
+
+    return { chance: Math.min(chance, cfg.CHANCE_LESAO_TETO), critico };
+}
+
 // Motor principal: roda toda vez que uma partida é salva.
 // diasDescanso = dias até a próxima partida (já vem contando a partir de AGORA, não da próxima vez que algo for declarado)
 // jogadoresQueJogaram = lista dos jogadores que estiveram em campo nesta partida. Aceita objetos
@@ -311,21 +347,14 @@ function processarCondicaoFisicaPosPartida(diasDescanso, jogadoresQueJogaram) {
         }
     });
 
-    // 5. Overuse real: ignorar o rodízio pode virar lesão de verdade
+    // 5. Overuse real: ignorar o rodízio pode virar lesão de verdade — chance calculada por
+    // chanceLesaoAtual (mesma fórmula mostrada no Plano de Descanso do Departamento Médico).
     db[currentSave].plantel.filter(p => p.status === 'Ativo').forEach(p => {
         if (!mapaQueJogou.has(p.nome) || p.diasLesao > 0) return;
-        let chance = 0;
-        let critico = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_CRITICO || p.fadiga >= cfg.FADIGA_CRITICO);
-        let risco = (p.jogosSeguidos >= cfg.JOGOS_SEGUIDOS_RISCO || p.fadiga >= cfg.FADIGA_RISCO);
-        if (critico) chance = cfg.CHANCE_LESAO_CRITICO;
-        else if (risco) chance = cfg.CHANCE_LESAO_RISCO;
-
-        // Negar um pedido de descanso do Departamento Médico cobra o preço aqui: as próximas
-        // 2 partidas do atleta entram com risco extra, mesmo que ele não esteja no limite.
-        if (p.riscoExtraLesao > 0) {
-            chance += cfg.CHANCE_LESAO_RISCO;
-            p.riscoExtraLesao -= 1;
-        }
+        let { chance, critico } = chanceLesaoAtual(p);
+        // O risco extra por negar um pedido de descanso só se CONSOME de verdade quando o
+        // jogador realmente entra em campo (aqui) — chanceLesaoAtual só lê o valor, nunca gasta.
+        if (p.riscoExtraLesao > 0) p.riscoExtraLesao -= 1;
         if (chance <= 0) return;
 
         if (gerarNumeroAleatorio(1, 100) <= chance) {
@@ -418,29 +447,6 @@ function verificarRotacaoEscalacao(escalacao) {
 
 // ---------------------- INTERFACE (ABA DEPARTAMENTO MÉDICO) ----------------------
 
-// Pedido do treinador: "tem um botão com símbolo de dormir q clico e descansa 100% o jogador,
-// odiei isso" — o ícone é pequeno (22x22px, no canto do card) e ficava fácil de tocar sem querer
-// no celular, zerando a fadiga/sequência de jogos do jogador na hora, sem chance de desfazer.
-// Uma confirmação explícita não tira a função de quem usa de propósito, só evita o toque errado.
-async function forcarDescansoPreventivo(nome) {
-    if (!db[currentSave]) return;
-    let p = db[currentSave].plantel.find(x => x.nome === nome);
-    if (!p) return;
-    let ok = await confirmarModerno(`Dar descanso preventivo pra ${nome}? Isso zera a fadiga e a sequência de jogos dele na hora.`, '💤 Descanso Preventivo');
-    if (!ok) return;
-    garantirCondicaoFisica(p);
-    p.jogosSeguidos = 0;
-    p.fadiga = 0;
-    p.stamina = CONDICAO_FISICA_CFG.STAMINA_MAX;
-    salvarDados();
-    atualizarDepartamentoMedicoUI();
-    if (currentSave === 'clube' && typeof atualizarPlantelUI === 'function') atualizarPlantelUI();
-    if (typeof adicionarNoticiaAutomatica === 'function') {
-        adicionarNoticiaAutomatica(`💤 DESCANSO PREVENTIVO: ${nome} é poupado pela comissão técnica.`, `Por recomendação do departamento médico, ${nome} folgou dos treinos de alta intensidade para preservar a condição física visando a sequência de jogos.`);
-    }
-    if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Descanso preventivo para ${nome}`);
-}
-
 // Categoria ampla cadastrada no jogador (o texto antes da "/" em p.posicao, ex: "Volante" em
 // "Volante/Organizador") -> grupo de função real do EA FC (js/funcoes-ea.js), pra saber em qual
 // catálogo de funções procurar a sugestão de desenvolvimento individual dele.
@@ -466,13 +472,56 @@ function funcaoDesenvolvimentoSugerida(p) {
     return { grupoNome: grupo.nome, funcao: funcao };
 }
 
-// Plano de carga: reaproveita o mesmo nível (ok/alerta/risco/crítico) já calculado pra fadiga
-// acumulada, só que na linguagem de treino que um preparador físico de verdade usaria.
-function rotuloCargaSugerida(nivel) {
-    if (nivel === 'critico') return { texto: '🔴 Recuperação Total', cor: 'var(--danger)' };
-    if (nivel === 'risco') return { texto: '🟠 Recuperação Ativa', cor: 'var(--danger)' };
-    if (nivel === 'alerta') return { texto: '🟡 Carga Moderada', cor: 'var(--warning)' };
-    return { texto: '🟢 Carga Plena', cor: 'var(--primary)' };
+// Mapeia cada sigla de função tática (a mesma "role" da escalação, ex: ZAD/VOL/MEI) pra uma das 7
+// categorias amplas do cadastro do jogador — usado só pra comparar "onde ele mais tem jogado" com
+// "a posição cadastrada" (ver categoriaMaisJogadaJogador). Independente do ROLE_GRUPO_NOME de
+// js/chat-ia.js (aquele é pra exibição lado-a-lado; este é só pra comparar categoria ampla).
+const CATEGORIA_POR_ROLE_SIGLA = {
+    GOL: 'Goleiro',
+    ZAD: 'Zagueiro', ZAE: 'Zagueiro', ZAC: 'Zagueiro',
+    LAD: 'Lateral', ALD: 'Lateral', LAE: 'Lateral', ALE: 'Lateral',
+    VOL: 'Volante', VOLD: 'Volante', VOLE: 'Volante',
+    MC: 'MeioCampo', MCD: 'MeioCampo', MCE: 'MeioCampo',
+    MEI: 'MeioCampo', MEID: 'MeioCampo', MEIE: 'MeioCampo',
+    PD: 'Ponta', MD: 'Ponta', PE: 'Ponta', ME: 'Ponta',
+    ATA: 'Atacante', ATD: 'Atacante', ATE: 'Atacante'
+};
+
+// Pedido do treinador: "quando jogar muito tempo em posição diferente, a sugestão de
+// desenvolvimento muda, e pode colocar pra mudar de posição". Olha o histórico real de partidas
+// (mesma fonte que já alimenta "Costuma jogar aqui neste time" no prompt da IA — ver
+// calcularHistoricoPosicoesJogadores, js/chat-ia.js) e devolve a categoria mais jogada, só quando
+// já tem amostra (3+ aparições contadas) pra não sugerir baseado em 1-2 jogos avulsos.
+function categoriaMaisJogadaJogador(nomeJogador) {
+    if (typeof calcularHistoricoPosicoesJogadores !== 'function') return null;
+    let porRole = calcularHistoricoPosicoesJogadores()[nomeJogador];
+    if (!porRole) return null;
+
+    let porCategoria = {};
+    Object.entries(porRole).forEach(([role, qtd]) => {
+        let categoria = CATEGORIA_POR_ROLE_SIGLA[role];
+        if (categoria) porCategoria[categoria] = (porCategoria[categoria] || 0) + qtd;
+    });
+
+    let entradas = Object.entries(porCategoria).sort((a, b) => b[1] - a[1]);
+    if (!entradas.length) return null;
+    let total = entradas.reduce((soma, [, qtd]) => soma + qtd, 0);
+    if (total < 3) return null;
+    return { categoria: entradas[0][0], vezes: entradas[0][1], total };
+}
+
+// Aviso pra trocar a posição cadastrada quando o jogador tem jogado majoritariamente numa
+// categoria diferente — só dispara com maioria clara (60%+ das aparições contadas), senão vira
+// ruído pra quem só revezou posição algumas vezes. Depois que o treinador muda a posição
+// cadastrada no Elenco, funcaoDesenvolvimentoSugerida já reage sozinha (deriva sempre ao vivo de
+// p.posicao) — este texto só existe pra AVISAR que vale a pena mudar.
+function sugestaoMudancaPosicaoTexto(p) {
+    let maisJogada = categoriaMaisJogadaJogador(p.nome);
+    if (!maisJogada) return '';
+    let categoriaCadastrada = String(p.posicao).split('/')[0];
+    if (maisJogada.categoria === categoriaCadastrada) return '';
+    if (maisJogada.vezes / maisJogada.total < 0.6) return '';
+    return `💡 Tem jogado mais como ${maisJogada.categoria} (${maisJogada.vezes}x) do que a posição cadastrada (${categoriaCadastrada}) — considere mudar a posição dele no Elenco pra atualizar o plano de desenvolvimento.`;
 }
 
 function corPorNivel(nivel) {
@@ -546,6 +595,20 @@ function planoRetornoGradualTexto(p) {
     return `Lesão de longa duração — ainda faltam ${dias} dias. Fase de tratamento/fisioterapia; o plano de retorno gradual (minutos bem limitados nas primeiras partidas de volta) será refinado conforme a data de alta se aproximar.`;
 }
 
+// "Plano de Descanso" — pro jogador AINDA NÃO lesionado, mas em risco/crítico de sobrecarga:
+// recomenda poupar (ou descanso obrigatório, se crítico) e mostra a chance REAL de lesão se for
+// escalado mesmo assim (mesma conta de chanceLesaoAtual, pra nunca divergir do que pode acontecer
+// de verdade). Pedido do treinador: "pode ir aumentando a chance a cada partida que o jogador
+// estiver sobrecarregado" — o texto já reflete isso, avisando que o risco sobe a cada partida
+// extra sem descanso.
+function planoDescansoRiscoTexto(p) {
+    let { chance, critico } = chanceLesaoAtual(p);
+    if (chance <= 0) return '';
+    let motivo = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso, fadiga em ${Math.round(p.fadiga)}%`;
+    if (critico) return `Risco CRÍTICO de lesão por sobrecarga (${motivo}). Descanso é praticamente obrigatório — escalando mesmo assim, a chance real de lesão nesta partida é de ${chance}%, e esse número só sobe a cada partida extra sem descansar.`;
+    return `Risco de lesão por sobrecarga (${motivo}). Recomendado poupar no próximo jogo — escalando mesmo assim, a chance real de lesão é de ${chance}%, e sobe a cada partida extra sobrecarregado.`;
+}
+
 // Abre o modal de detalhe físico de um jogador — cansaço, preparo físico, posição real com
 // função sugerida, posições que pode ocupar e o plano de uso pro próximo jogo. Pedido do
 // treinador: "os jogadores são estáticos, poderia ser interativo, ao clicar mostraria..."
@@ -613,8 +676,8 @@ function fecharModalDetalheFisico() {
 // Sugestões de Desenvolvimento Individual: função real do EA FC (catálogo de js/funcoes-ea.js)
 // que o Preparador Físico recomenda treinar pra cada atleta, derivada direto da posição
 // cadastrada — nunca escolhida pelo usuário, e atualiza sozinha se a posição do jogador mudar.
-// Pedido do treinador: isso é sobre função de TREINO, não sobre condição física — vive na aba
-// Elenco (chamada por atualizarPlantelUI, js/plantel-ui.js), não mais no Departamento Médico.
+// Pedido do treinador: isso é sobre preparo pra treino, não sobre condição física em si — vive na
+// aba Preparação Física (chamada por atualizarPreparacaoFisicaUI, mais abaixo neste arquivo).
 function atualizarSugestoesDesenvolvimentoUI() {
     if (!db[currentSave] || !db[currentSave].nome) return;
     let dev = document.getElementById('medico-desenvolvimento');
@@ -623,28 +686,57 @@ function atualizarSugestoesDesenvolvimentoUI() {
     dev.innerHTML = ativosDev.map(p => {
         let sugestao = funcaoDesenvolvimentoSugerida(p);
         if (!sugestao) return '';
+        // Pedido do treinador: quando o jogador tem jogado majoritariamente numa posição
+        // diferente da cadastrada, avisa — ver sugestaoMudancaPosicaoTexto.
+        let dicaMudanca = sugestaoMudancaPosicaoTexto(p);
         return `
         <div class="medico-dev-linha">
             <div>
                 <strong>${p.nome}</strong>
                 <span class="medico-card-sub">${p.posicao}</span>
+                ${dicaMudanca ? `<div class="medico-dev-dica">${dicaMudanca}</div>` : ''}
             </div>
-            <div class="medico-dev-funcao" title="${sugestao.funcao.descricao.replace(/"/g, '&quot;')}">🎯 ${sugestao.grupoNome}: ${sugestao.funcao.nome}</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div class="medico-dev-funcao" title="${sugestao.funcao.descricao.replace(/"/g, '&quot;')}">🎯 ${sugestao.grupoNome}: ${sugestao.funcao.nome}</div>
+                <button class="medico-btn-inline" title="Copiar" onclick="copiarSugestaoDesenvolvimento(this, '${p.nome.replace(/'/g, "\\'")}')">📋</button>
+            </div>
         </div>`;
     }).join('') || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador cadastrado ainda.</p>`;
 }
 
-function toggleDesenvolvimentoIndividualPanel() {
-    let panel = document.getElementById('medico-desenvolvimento');
-    let btn = document.getElementById('btn-toggle-medico-dev');
-    if (!panel || !btn) return;
-    if (panel.style.display === 'none' || !panel.style.display) {
-        panel.style.display = 'block';
-        btn.innerText = '🎯 Ocultar Sugestões de Desenvolvimento Individual';
-    } else {
-        panel.style.display = 'none';
-        btn.innerText = '🎯 Ver Sugestões de Desenvolvimento Individual';
+// Pedido do treinador: deixar a lista de Sugestões de Desenvolvimento Individual "mais fácil de
+// copiar" — cada linha tem seu próprio botão, e dá pra copiar tudo de uma vez (ex: pra colar
+// direto no menu de treino do EA FC). O botão vira ✅ por um instante como confirmação visual,
+// sem precisar de nenhum componente de toast novo.
+async function copiarTextoClipboard(texto, botaoEl) {
+    try {
+        await navigator.clipboard.writeText(texto);
+        if (botaoEl) {
+            let original = botaoEl.innerText;
+            botaoEl.innerText = '✅';
+            setTimeout(() => { botaoEl.innerText = original; }, 1200);
+        }
+    } catch (e) {
+        console.error('Erro ao copiar sugestão de desenvolvimento:', e);
+        alert('Não foi possível copiar automaticamente. Selecione o texto manualmente.');
     }
+}
+
+function copiarSugestaoDesenvolvimento(botaoEl, nomeJogador) {
+    if (!db[currentSave]) return;
+    let p = db[currentSave].plantel.find(x => x.nome === nomeJogador);
+    let sugestao = p && funcaoDesenvolvimentoSugerida(p);
+    if (!sugestao) return;
+    copiarTextoClipboard(`${p.nome}: ${sugestao.grupoNome} - ${sugestao.funcao.nome}`, botaoEl);
+}
+
+function copiarTodasSugestoesDesenvolvimento(botaoEl) {
+    if (!db[currentSave]) return;
+    let linhas = db[currentSave].plantel.filter(p => p.status === 'Ativo').map(p => {
+        let sugestao = funcaoDesenvolvimentoSugerida(p);
+        return sugestao ? `${p.nome}: ${sugestao.grupoNome} - ${sugestao.funcao.nome}` : null;
+    }).filter(Boolean);
+    copiarTextoClipboard(linhas.join('\n'), botaoEl);
 }
 
 function atualizarDepartamentoMedicoUI() {
@@ -688,96 +780,31 @@ function atualizarDepartamentoMedicoUI() {
             : `<p style="color: var(--text-muted); text-align:center;">Elenco sem lesionados no momento. 🎉</p>`;
     }
 
-    // ================= 2) RODÍZIO SUGERIDO =================
-    // Resposta direta pra "quem eu poupo agora?" — só quem está em risco/crítico de fadiga (não
-    // lesionado, isso já está na seção acima), ordenado por urgência.
-    let rodizioEl = document.getElementById('medico-rodizio');
-    if (rodizioEl) {
-        let candidatosRodizio = db[currentSave].plantel
+    // ================= 2) RISCO DE LESÃO =================
+    // Quem NÃO está lesionado mas está em risco/crítico de fadiga — o plano aqui é de descanso
+    // preventivo (planoDescansoRiscoTexto), simétrico ao plano de retorno gradual da seção 1.
+    let riscoEl = document.getElementById('medico-risco-lesao');
+    if (riscoEl) {
+        let candidatosRisco = db[currentSave].plantel
             .filter(p => p.status === 'Ativo' && !(p.diasLesao > 0))
             .map(p => ({ p, c: condicaoJogador(p) }))
             .filter(x => x.c.nivel === 'critico' || x.c.nivel === 'risco')
             .sort((a, b) => (a.c.nivel === 'critico' ? 0 : 1) - (b.c.nivel === 'critico' ? 0 : 1));
 
-        rodizioEl.innerHTML = candidatosRodizio.length
-            ? candidatosRodizio.map(({ p, c }) => {
-                let carga = rotuloCargaSugerida(c.nivel);
-                let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
+        riscoEl.innerHTML = candidatosRisco.length
+            ? candidatosRisco.map(({ p, c }) => {
+                let cor = c.nivel === 'critico' ? 'var(--danger)' : 'var(--warning)';
+                let rotulo = c.nivel === 'critico' ? '🔴 Risco crítico' : '🟠 Risco de lesão';
                 return `
-                <div class="medico-linha-ocorrencia" style="border-left-color:${carga.cor};">
+                <div class="medico-linha-ocorrencia" style="cursor:pointer; border-left-color:${cor};" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')">
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                        <div style="cursor:pointer;" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')"><strong>${p.nome}</strong> <span class="medico-card-sub">${p.posicao}</span></div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span class="badge medico-badge-sm" style="background: transparent; color: ${carga.cor}; border: 1px solid ${carga.cor};">${carga.texto}</span>
-                            <button class="medico-btn-inline" title="Dar descanso preventivo" onclick="forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>
-                        </div>
+                        <div><strong>${p.nome}</strong> <span class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</span></div>
+                        <span class="badge medico-badge-sm" style="background: transparent; color: ${cor}; border: 1px solid ${cor};">${rotulo}</span>
                     </div>
-                    <p style="font-size:12px; color:var(--text-muted); margin:6px 0 0;">${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso • fôlego ${folegoPct}%</p>
+                    <p style="font-size:13px; color:var(--text-muted); margin:8px 0 0; line-height:1.5;">${planoDescansoRiscoTexto(p)}</p>
                 </div>`;
             }).join('')
-            : `<p style="color: var(--text-muted); text-align:center;">Ninguém precisa de rodízio agora — elenco descansado. 🟢</p>`;
-    }
-
-    // ================= 3) PREPARO FÍSICO DO ELENCO =================
-    // Visão geral completa do elenco disponível (fôlego + preparo físico de cada um), agrupada
-    // por faixa de Preparo Físico (Sem Condição → Incansável) em vez de uma grade única sorteada
-    // por fadiga — lesionados ficam de fora (já cobertos na seção 1).
-    let preparoEl = document.getElementById('medico-preparo');
-    if (preparoEl) {
-        let ativosPreparo = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !(p.diasLesao > 0));
-        let grupos = {};
-        ORDEM_TIERS_PREPARO.forEach(t => grupos[t.nivel] = []);
-        ativosPreparo.forEach(p => {
-            let nivel = nivelPreparoFisico(p.preparoFisico).nivel;
-            if (grupos[nivel]) grupos[nivel].push(p);
-        });
-
-        let blocos = ORDEM_TIERS_PREPARO.filter(t => grupos[t.nivel].length).map(t => {
-            let infoTier = nivelPreparoFisico(t.repValor);
-            let corTier = corPorNivelPreparo(t.nivel);
-            let cardsTier = grupos[t.nivel].map(p => {
-                let c = condicaoJogador(p);
-                // Suspensão por cartão vermelho não é uma "ocorrência médica" — o Departamento
-                // Médico só trata lesão e fadiga (lesão já está fora desta lista).
-                if (c.indisponivel && p.suspensoVermelho) c = Object.assign({}, c, { indisponivel: false, motivoIndisponivel: '' });
-
-                // Fôlego = 100 - fadiga, calculado direto de p.fadiga (não de p.stamina, que pode
-                // ficar desatualizado — ver o mesmo cuidado no modal de detalhe).
-                let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
-                let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
-                let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
-
-                let badge = (carga => `<span class="badge medico-badge-sm" style="background: transparent; color: ${carga.cor}; border: 1px solid ${carga.cor};">${carga.texto}</span>`)(rotuloCargaSugerida(c.nivel));
-                if (p.poupadoRestante > 0) badge += `<span class="badge medico-badge-sm" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 ${p.poupadoRestante}j</span>`;
-
-                let botaoDescanso = c.nivel !== 'ok'
-                    ? `<button class="medico-card-btn" title="Dar descanso preventivo" onclick="event.stopPropagation(); forcarDescansoPreventivo('${p.nome.replace(/'/g, "\\'")}')">💤</button>`
-                    : '';
-
-                let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''} • clique pra ver detalhes e plano de uso`;
-
-                return `
-                <div class="medico-card" style="border-left-color:${corTier}; cursor:pointer;" title="${dicaExtra.replace(/"/g, '&quot;')}" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')">
-                    ${botaoDescanso}
-                    <strong class="medico-card-nome">${p.nome}</strong>
-                    <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
-                    <div class="medico-card-barra-linha" title="Fôlego: ${folegoPct}%">
-                        <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corBarra};"></div></div>
-                        <span class="medico-card-pct" style="color:${corBarra};">💨${folegoPct}%</span>
-                    </div>
-                    <div class="medico-card-barra-linha" title="Preparo Físico: ${infoTier.rotulo}">
-                        <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corTier};"></div></div>
-                        <span class="medico-card-pct" style="color:${corTier};">🏃${preparoPct}%</span>
-                    </div>
-                    <div class="medico-card-rodape">${badge}</div>
-                </div>`;
-            }).join('');
-            return `
-            <h4 style="margin:14px 0 8px; color:${corTier}; font-size:14px;">${infoTier.rotulo} (${grupos[t.nivel].length})</h4>
-            <div class="medico-grid">${cardsTier}</div>`;
-        }).join('');
-
-        preparoEl.innerHTML = blocos || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador disponível no momento.</p>`;
+            : `<p style="color: var(--text-muted); text-align:center;">Ninguém em risco de lesão agora — elenco descansado. 🟢</p>`;
     }
 
     if (typeof atualizarSelectCondicaoAuxiliar === 'function') atualizarSelectCondicaoAuxiliar();
@@ -800,4 +827,66 @@ function atualizarDepartamentoMedicoUI() {
             alertaAux.style.borderColor = riscoTotal > 0 ? 'var(--danger)' : 'var(--warning)';
         }
     }
+}
+
+// ---------------------- INTERFACE (ABA PREPARAÇÃO FÍSICA) ----------------------
+
+// Visão geral de prontidão física do elenco (fôlego + preparo físico de cada um), agrupada por
+// faixa de Preparo Físico (Sem Condição → Incansável) — sem linguagem de risco de lesão, isso é
+// assunto exclusivo do Departamento Médico agora (ver atualizarDepartamentoMedicoUI acima).
+function atualizarPreparacaoFisicaUI() {
+    if (!db[currentSave] || !db[currentSave].nome) return;
+    garantirCondicaoFisicaTodos();
+    if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
+
+    let preparoEl = document.getElementById('medico-preparo');
+    if (preparoEl) {
+        let ativosPreparo = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !(p.diasLesao > 0));
+        let grupos = {};
+        ORDEM_TIERS_PREPARO.forEach(t => grupos[t.nivel] = []);
+        ativosPreparo.forEach(p => {
+            let nivel = nivelPreparoFisico(p.preparoFisico).nivel;
+            if (grupos[nivel]) grupos[nivel].push(p);
+        });
+
+        let blocos = ORDEM_TIERS_PREPARO.filter(t => grupos[t.nivel].length).map(t => {
+            let infoTier = nivelPreparoFisico(t.repValor);
+            let corTier = corPorNivelPreparo(t.nivel);
+            let cardsTier = grupos[t.nivel].map(p => {
+                // Fôlego = 100 - fadiga, calculado direto de p.fadiga (não de p.stamina, que pode
+                // ficar desatualizado — ver o mesmo cuidado no modal de detalhe).
+                let folegoPct = Math.max(0, Math.min(100, Math.round(100 - (Number(p.fadiga) || 0))));
+                let corBarra = p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_RISCO ? 'var(--danger)' : (p.fadiga >= CONDICAO_FISICA_CFG.FADIGA_ALERTA ? 'var(--warning)' : 'var(--primary)');
+                let preparoPct = Math.max(0, Math.min(100, Math.round(p.preparoFisico)));
+
+                let badge = p.poupadoRestante > 0
+                    ? `<span class="badge medico-badge-sm" style="background: rgba(75, 159, 226, 0.18); color: var(--accent);">💤 poupado (${p.poupadoRestante}j)</span>`
+                    : '';
+
+                let dicaExtra = `${p.jogosSeguidos || 0} jogo(s) seguido(s) sem descanso${typeof p.moral === 'number' ? ` • moral ${Math.round(p.moral)}/100` : ''} • clique pra ver detalhes e plano de uso`;
+
+                return `
+                <div class="medico-card" style="border-left-color:${corTier}; cursor:pointer;" title="${dicaExtra.replace(/"/g, '&quot;')}" onclick="abrirModalDetalheFisico('${p.nome.replace(/'/g, "\\'")}')">
+                    <strong class="medico-card-nome">${p.nome}</strong>
+                    <div class="medico-card-sub">${p.posicao} • OVR ${p.ovr}</div>
+                    <div class="medico-card-barra-linha" title="Fôlego: ${folegoPct}%">
+                        <div class="stamina-bar"><div class="stamina-fill" style="width:${folegoPct}%; background:${corBarra};"></div></div>
+                        <span class="medico-card-pct" style="color:${corBarra};">💨${folegoPct}%</span>
+                    </div>
+                    <div class="medico-card-barra-linha" title="Preparo Físico: ${infoTier.rotulo}">
+                        <div class="stamina-bar"><div class="stamina-fill" style="width:${preparoPct}%; background:${corTier};"></div></div>
+                        <span class="medico-card-pct" style="color:${corTier};">🏃${preparoPct}%</span>
+                    </div>
+                    ${badge ? `<div class="medico-card-rodape">${badge}</div>` : ''}
+                </div>`;
+            }).join('');
+            return `
+            <h4 style="margin:14px 0 8px; color:${corTier}; font-size:14px;">${infoTier.rotulo} (${grupos[t.nivel].length})</h4>
+            <div class="medico-grid">${cardsTier}</div>`;
+        }).join('');
+
+        preparoEl.innerHTML = blocos || `<p style="color: var(--text-muted); text-align:center;">Nenhum jogador disponível no momento.</p>`;
+    }
+
+    if (typeof atualizarSugestoesDesenvolvimentoUI === 'function') atualizarSugestoesDesenvolvimentoUI();
 }

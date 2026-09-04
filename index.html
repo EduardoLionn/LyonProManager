@@ -435,7 +435,8 @@
         <button class="nav-btn" onclick="mudarAba('tab-upgrades')">⭐ Upgrades (OVR)</button>
         <button class="nav-btn" onclick="mudarAba('tab-historico')">🏆 Sala de Troféus</button>
         <button class="nav-btn" id="nav-btn-diretoria" onclick="mudarAba('tab-diretoria')">👔 Diretoria (IA)</button>
-        <button class="nav-btn" id="nav-btn-medico" onclick="mudarAba('tab-medico')">🏥 Departamento Físico e Médico</button>
+        <button class="nav-btn" id="nav-btn-medico" onclick="mudarAba('tab-medico')">🏥 Departamento Médico</button>
+        <button class="nav-btn" id="nav-btn-preparacao-fisica" onclick="mudarAba('tab-preparacao-fisica')">🏋️ Preparação Física</button>
         <button class="nav-btn" id="nav-btn-convocacao" style="display:none;" onclick="mudarAba('tab-convocacao')">📋 Convocação</button>
         <button class="nav-btn" onclick="mudarAba('tab-perfil-treinador')">🧑‍💼 Perfil do Treinador</button>
         <button class="nav-btn" onclick="mudarAba('tab-auxiliar')">🤖 Auxiliar Técnico (IA)</button>
@@ -1286,16 +1287,6 @@
                 </table>
             </div>
 
-            <!-- SUGESTÕES DE DESENVOLVIMENTO INDIVIDUAL — decisão do Preparador Físico, não do
-                 usuário: função real do EA FC derivada da posição de cada atleta. Vive aqui no
-                 Elenco (é sobre função de treino, não sobre condição física) — fica oculta por
-                 padrão pra não poluir a aba; só abre quando o treinador clica. -->
-            <div class="panel" style="border-left: 4px solid var(--warning);">
-                <button id="btn-toggle-medico-dev" onclick="toggleDesenvolvimentoIndividualPanel()" style="width: 100%; background: var(--panel-bg); border: 1px solid var(--border); color: var(--text-muted); padding: 12px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; transition: 0.2s;">
-                    🎯 Ver Sugestões de Desenvolvimento Individual
-                </button>
-                <div id="medico-desenvolvimento" style="display:none; margin-top:15px;"></div>
-            </div>
         </div>
 
         <!-- ABA: MERCADO & TRANSFERÊNCIAS -->
@@ -1644,8 +1635,8 @@
         <!-- ABA: DEPARTAMENTO MÉDICO -->
         <div id="tab-medico" class="tab-content">
             <div class="panel" style="border-left: 4px solid var(--danger);">
-                <h2 style="margin:0;">🏥 Departamento Físico e Médico</h2>
-                <span style="font-size: 13px; color: var(--text-muted);">Saúde, preparo físico e carga de treino do elenco — tudo num só lugar. Clique num jogador pra ver o detalhe completo e o plano de uso.</span>
+                <h2 style="margin:0;">🏥 Departamento Médico</h2>
+                <span style="font-size: 13px; color: var(--text-muted);">Lesionados, prevenção e risco de lesão do elenco. Clique num jogador pra ver o detalhe completo e o plano de uso.</span>
             </div>
 
             <div id="medico-resumo-cards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:15px; margin-bottom:20px;"></div>
@@ -1657,18 +1648,11 @@
                 <div id="medico-lesionados"></div>
             </div>
 
-            <!-- 2) RODÍZIO SUGERIDO — resposta direta a "quem eu poupo no próximo jogo?", sem
-                 precisar vasculhar o elenco inteiro: só quem realmente precisa de descanso agora. -->
+            <!-- 2) RISCO DE LESÃO — quem ainda não se machucou mas está sobrecarregado, com o plano
+                 de descanso (planoDescansoRiscoTexto) e a chance real de lesão se jogar assim mesmo. -->
             <div class="panel" style="border-left: 4px solid var(--warning);">
-                <h3 style="margin-top:0;">🔄 Rodízio Sugerido</h3>
-                <div id="medico-rodizio"></div>
-            </div>
-
-            <!-- 3) PREPARO FÍSICO DO ELENCO — agrupado por faixa (Sem Condição → Incansável), pra
-                 bater o olho em quem tá fora de ritmo sem procurar jogador por jogador. -->
-            <div class="panel">
-                <h3 style="margin-top:0;">🏋️ Preparo Físico do Elenco</h3>
-                <div id="medico-preparo"></div>
+                <h3 style="margin-top:0;">⚠️ Risco de Lesão</h3>
+                <div id="medico-risco-lesao"></div>
             </div>
 
             <div class="panel" style="border-left: 4px solid var(--accent);">
@@ -1695,7 +1679,30 @@
             </div>
         </div>
 
-        <!-- MODAL: DETALHE FÍSICO DO JOGADOR (clique num card do Departamento Físico e Médico) -->
+        <!-- ABA: PREPARAÇÃO FÍSICA — prontidão geral do elenco (fôlego + preparo físico) e as
+             Sugestões de Desenvolvimento Individual (função de treino do EA FC), separada do
+             Departamento Médico: aqui não é sobre lesão, é sobre condição e evolução de treino. -->
+        <div id="tab-preparacao-fisica" class="tab-content">
+            <div class="panel" style="border-left: 4px solid var(--primary);">
+                <h2 style="margin:0;">🏋️ Preparação Física</h2>
+                <span style="font-size: 13px; color: var(--text-muted);">Fôlego, preparo físico e sugestões de desenvolvimento individual do elenco. Clique num jogador pra ver o detalhe completo.</span>
+            </div>
+
+            <div class="panel">
+                <h3 style="margin-top:0;">🏃 Preparo Físico do Elenco</h3>
+                <div id="medico-preparo"></div>
+            </div>
+
+            <div class="panel" style="border-left: 4px solid var(--warning);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0;">🎯 Sugestões de Desenvolvimento Individual</h3>
+                    <button class="medico-btn-inline" title="Copiar tudo" onclick="copiarTodasSugestoesDesenvolvimento(this)" style="width:auto; padding:6px 12px;">📋 Copiar Tudo</button>
+                </div>
+                <div id="medico-desenvolvimento" style="margin-top:15px;"></div>
+            </div>
+        </div>
+
+        <!-- MODAL: DETALHE FÍSICO DO JOGADOR (clique num card do Departamento Médico ou da Preparação Física) -->
         <div id="modal-detalhe-fisico" class="modal-troca-overlay" style="display: none;">
             <div class="setup-box modal-troca-box">
                 <h2 id="detalhe-fisico-nome" style="margin-top:0;"></h2>
