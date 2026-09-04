@@ -1305,44 +1305,70 @@ ${textoRegrasCompatibilidadePosicional()}
 
         const _ESCADA_FOCO = ['extremamente_defensivo', 'defensivo', 'equilibrado', 'ofensivo', 'extremamente_ofensivo'];
 
+        // Degrau BASE da escada pelo nível relativo de força (gap = nosso OVR - o do adversário).
+        // Tabela fixa pedida pelo treinador depois de um caso real (elenco OVR 79 x PSG OVR 88, em
+        // casa, saiu "Extremamente Ofensivo" e foi catastrófico):
+        //   gap >= +8  -> muito mais fracos que nós  -> Extremamente Ofensivo
+        //   gap +3..+7 -> mais fracos                -> Ofensivo
+        //   gap -2..+2 -> nível parecido              -> Equilibrado
+        //   gap -7..-3 -> mais fortes                 -> Defensivo
+        //   gap <= -8  -> muito mais fortes           -> Extremamente Defensivo
+        function _degrauPorGapForca(gap) {
+            if (gap >= 8) return 4;
+            if (gap >= 3) return 3;
+            if (gap >= -2) return 2;
+            if (gap >= -7) return 1;
+            return 0;
+        }
+
         function recomendarDiretrizFoco(nomeAdversario, competicaoSelecionada, mando, forcaAdversarioOvr) {
             let s = _sinaisDaPartida(nomeAdversario, competicaoSelecionada, mando, forcaAdversarioOvr);
             let estilo = _posturaDoEstiloAtivo();
             let motivos = [];
 
-            // ---- FOCO: postura do estilo + contexto real da partida ----
-            // A postura do estilo entra com peso LIMITADO (no máximo um degrau e meio da escada):
-            // ela inclina a recomendação pro lado da identidade do time, mas não pode saturar a
-            // escala sozinha — se saturasse, adversários diferentes cairiam sempre no mesmo foco,
-            // que era exatamente a reclamação ("toda sugestão entrega o mesmo").
-            let escala = Math.max(-1.5, Math.min(1.5, estilo.valor));
+            // ---- FOCO: nível relativo do adversário é o fator PRINCIPAL, não mais um empurrãozinho
+            // perdido entre vários outros — era exatamente isso que deixava a recomendação "burra"
+            // contra times muito mais fortes. Prioriza a leitura real do adversário (do print); sem
+            // ela, cai pra média da liga como aproximação mais fraca — por isso o resultado final,
+            // nesse caso, nunca chega num extremo (trava entre Defensivo e Ofensivo): não dá pra
+            // confiar numa comparação de liga pra cravar "extremamente" alguma coisa sobre um
+            // adversário desconhecido (ex: rival de copa/Champions de fora da liga do treinador).
+            let temLeituraReal = s.gapAdversario !== null;
+            let indice = temLeituraReal ? _degrauPorGapForca(s.gapAdversario) : _degrauPorGapForca(s.gapLiga);
+
+            if (temLeituraReal) {
+                let rotulos = ['muito mais forte', 'mais forte', 'de nível parecido', 'mais fraco', 'muito mais fraco'];
+                motivos.push(`adversário ${rotulos[indice]} que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`);
+            } else if (s.gapLiga >= 3 || s.gapLiga <= -3) {
+                motivos.push(`sem leitura do adversário — nosso elenco está ${Math.abs(s.gapLiga)} pontos de OVR ${s.gapLiga > 0 ? 'acima' : 'abaixo'} do nível da liga (aproximação mais fraca, sem print)`);
+            }
+
+            // ---- MANDO: desloca exatamente 1 degrau, não mais que isso ----
+            if (s.mando === 'Casa') { indice += 1; motivos.push('jogamos em casa'); }
+            else if (s.mando === 'Fora') { indice -= 1; motivos.push('jogamos fora'); }
+
+            // ---- AJUSTE FINO: postura do estilo + retrospecto + fase recente. Cada um pesa pouco
+            // (±0.5) e a SOMA de todos eles nunca empurra mais que 1 degrau completo no final —
+            // eles afinam a recomendação, mas quem decide o essencial é força relativa + mando.
+            let ajusteFino = 0;
+            ajusteFino += Math.max(-1.5, Math.min(1.5, estilo.valor)) / 3;
             if (estilo.dna) motivos.push(`o estilo do time joga em ${(opcaoDnaPorId('altura_bloco', estilo.dna.altura_bloco) || {}).nome || 'bloco médio'} e ${((opcaoDnaPorId('reacao_perda', estilo.dna.reacao_perda) || {}).nome || '').toLowerCase()}`);
 
-            if (s.mando === 'Casa') { escala += 1; motivos.push('jogamos em casa'); }
-            else if (s.mando === 'Fora') { escala -= 1; motivos.push('jogamos fora'); }
-
-            // Prioriza a leitura do ADVERSÁRIO ESPECÍFICO desta partida (do print) sobre a média da
-            // liga sempre que ela existir — é um sinal mais forte, por isso o peso maior nos casos
-            // extremos (±1.5, contra ±1 da média da liga).
-            if (s.gapAdversario !== null) {
-                if (s.gapAdversario <= -6) { escala -= 1.5; motivos.push(`adversário bem mais forte que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
-                else if (s.gapAdversario <= -3) { escala -= 1; motivos.push(`adversário mais forte que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
-                else if (s.gapAdversario >= 6) { escala += 1.5; motivos.push(`adversário bem mais fraco que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
-                else if (s.gapAdversario >= 3) { escala += 1; motivos.push(`adversário mais fraco que nós (OVR estimado ${s.forcaAdversarioOvr} contra os nossos ${s.ovrTime})`); }
-            } else if (s.gapLiga >= 4) { escala += 1; motivos.push(`nosso elenco está ${s.gapLiga} pontos de OVR acima do nível da liga`); }
-            else if (s.gapLiga <= -4) { escala -= 1; motivos.push(`nosso elenco está ${Math.abs(s.gapLiga)} pontos de OVR abaixo do nível da liga`); }
-
             if (s.confrontos > 0) {
-                if (s.vitorias > s.derrotas) { escala += 1; motivos.push(`histórico favorável contra ${nomeAdversario} (${s.vitorias}V ${s.empates}E ${s.derrotas}D)`); }
-                else if (s.derrotas > s.vitorias) { escala -= 1; motivos.push(`histórico ruim contra ${nomeAdversario} (${s.vitorias}V ${s.empates}E ${s.derrotas}D)`); }
+                if (s.vitorias > s.derrotas) { ajusteFino += 0.5; motivos.push(`histórico favorável contra ${nomeAdversario} (${s.vitorias}V ${s.empates}E ${s.derrotas}D)`); }
+                else if (s.derrotas > s.vitorias) { ajusteFino -= 0.5; motivos.push(`histórico ruim contra ${nomeAdversario} (${s.vitorias}V ${s.empates}E ${s.derrotas}D)`); }
             }
 
             if (s.jogosRecentes >= 3) {
-                if (s.pontosUltimos >= 10) { escala += 1; motivos.push(`time embalado (${s.pontosUltimos} pontos nos últimos ${s.jogosRecentes})`); }
-                else if (s.pontosUltimos <= 4) { escala -= 1; motivos.push(`momento ruim (${s.pontosUltimos} pontos nos últimos ${s.jogosRecentes})`); }
+                if (s.pontosUltimos >= 10) { ajusteFino += 0.5; motivos.push(`time embalado (${s.pontosUltimos} pontos nos últimos ${s.jogosRecentes})`); }
+                else if (s.pontosUltimos <= 4) { ajusteFino -= 0.5; motivos.push(`momento ruim (${s.pontosUltimos} pontos nos últimos ${s.jogosRecentes})`); }
             }
 
-            let indice = Math.max(0, Math.min(_ESCADA_FOCO.length - 1, 2 + Math.round(escala / 2)));
+            indice += Math.max(-1, Math.min(1, Math.round(ajusteFino)));
+            // Sem leitura real do adversário, o resultado FINAL (já com mando e ajuste fino
+            // aplicados) nunca chega num extremo — é a mesma cautela de sempre por falta de sinal.
+            if (!temLeituraReal) indice = Math.max(1, Math.min(3, indice));
+            indice = Math.max(0, Math.min(_ESCADA_FOCO.length - 1, indice));
             let foco = _ESCADA_FOCO[indice];
 
             // Jogo de volta de mata-mata manda em tudo: o placar agregado decide a postura.
