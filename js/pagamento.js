@@ -42,6 +42,41 @@ async function abrirCheckout(tipo) {
     }
 }
 
+// Abre o Customer Portal da Stripe (hospedado por ela — cancelamento, troca de cartão, faturas),
+// pedido do treinador pra evitar cobrança automática pra sempre sem uma saída fácil. "botaoEl" é
+// opcional: quando informado, mostra um estado de carregamento nele enquanto a sessão é criada.
+async function abrirPortalAssinatura(botaoEl) {
+    let user = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+    if (!user) return;
+    let textoOriginal = botaoEl ? botaoEl.innerText : null;
+    if (botaoEl) { botaoEl.disabled = true; botaoEl.innerText = 'Abrindo...'; }
+    let mensagemPadrao = 'Não foi possível abrir o gerenciamento de assinatura agora. Tente novamente em instantes.';
+    // "mensagemUsuario" começa na padrão e só é trocada pela mensagem específica da API no único
+    // caso conhecido que vale a pena diferenciar (400 = sem assinatura ainda) — qualquer outra
+    // falha (rede fora do ar, 401, 500, JSON inválido, exceção inesperada) preserva a padrão, pra
+    // nunca vazar algo técnico tipo "HTTP 500" ou "Failed to fetch" pro usuário.
+    let mensagemUsuario = mensagemPadrao;
+    try {
+        let idToken = await user.getIdToken();
+        let resposta = await fetch(`${LYONPRO_API_BASE}/api/criar-sessao-portal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken }
+        });
+        if (resposta.status === 400) {
+            let dados = await resposta.json().catch(() => ({}));
+            if (dados.erro) mensagemUsuario = dados.erro;
+            throw new Error();
+        }
+        if (!resposta.ok) throw new Error();
+        let dados = await resposta.json();
+        window.location.href = dados.url;
+    } catch (err) {
+        console.error('Erro ao abrir portal de assinatura:', err);
+        alert(mensagemUsuario);
+        if (botaoEl) { botaoEl.disabled = false; botaoEl.innerText = textoOriginal; }
+    }
+}
+
 // Depois que a Stripe redireciona de volta com ?checkout=sucesso, o webhook pode levar alguns
 // segundos pra confirmar — em vez de deixar o jogador preso, tenta de novo por um tempinho.
 async function _authAguardarConfirmacaoPagamento(uid) {

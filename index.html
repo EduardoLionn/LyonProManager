@@ -44,13 +44,23 @@
             <!-- Trava o app pra quem já confirmou o e-mail mas ainda não tem assinatura ativa —
                  só libera depois que o webhook da Stripe marca assinaturaStatus como "ativa". -->
             <div id="auth-paywall" style="display:none; text-align:center;">
-                <h2 style="margin: 6px 0 10px;">⚽ Assine o LyonPro Manager</h2>
-                <p style="color:var(--text-muted); font-size:14px; margin-bottom:20px;">
-                    Sua conta ainda não tem uma assinatura ativa. Escolha uma forma de pagamento pra liberar o acesso.
+                <div style="font-size:34px; line-height:1; margin-bottom:4px;">⚽</div>
+                <h2 style="margin: 0 0 10px;">Assine o LyonPro Manager</h2>
+                <p style="color:var(--text-muted); font-size:14px; margin-bottom:18px;">
+                    Sua conta ainda não tem uma assinatura ativa. Escolha uma forma de pagamento pra liberar o acesso completo.
                 </p>
                 <p id="auth-paywall-msg" style="color:var(--warning); font-size:13px; min-height:16px; margin: 0 0 10px;"></p>
                 <button id="auth-btn-assinar-brl" style="width:100%; margin-bottom:10px;" onclick="abrirCheckout('brl')">🇧🇷 Assinar com Cartão ou Boleto</button>
                 <button id="auth-btn-assinar-usd" style="width:100%; background:transparent; border:1px solid var(--primary); color:var(--primary);" onclick="abrirCheckout('usd')">🌍 Subscribe with international card</button>
+
+                <!-- Selo de confiança: pedido do treinador ("a tela de pagamento tá feia, dá
+                     sensação de insegurança") — deixa claro quem processa o pagamento (Stripe,
+                     não a gente) e que dá pra cancelar quando quiser (ver abrirPortalAssinatura). -->
+                <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:16px; padding:10px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--text-muted);">
+                    <span>🔒</span>
+                    <span>Pagamento processado com segurança pela <strong style="color:var(--text-main, #fff);">Stripe</strong> — cancele quando quiser</span>
+                </div>
+
                 <p style="text-align:center; font-size:13px; margin-top:16px;">
                     <a href="javascript:void(0)" id="auth-link-recheck-assinatura" onclick="authRecheckAssinatura()" style="color:var(--text-muted);">Já assinei, verificar novamente</a>
                 </p>
@@ -438,6 +448,7 @@
                 <option value="selecao">Seleção Nacional</option>
             </select>
             <button class="btn-backup" onclick="exportarBackup()">📥 Baixar Backup</button>
+            <button id="btn-gerenciar-assinatura-sidebar" onclick="abrirPortalAssinatura(this)" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border); color:var(--text-muted);">💳 Gerenciar Assinatura</button>
             <button onclick="authLogout()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border); color:var(--text-muted);">🚪 Sair (<span id="auth-usuario-email-sidebar"></span>)</button>
         </div>
     </div>
@@ -463,7 +474,10 @@
                     <button class="btn-hero-secundario" onclick="menuAbrirCarregarSave()">📂 Carregar Save</button>
                 </div>
 
-                <button onclick="authLogout()" style="margin-top:20px; background:transparent; border:1px solid var(--border); color:var(--text-muted); font-size:12px; padding:6px 12px;">🚪 Sair (<span id="auth-usuario-email-hero"></span>)</button>
+                <div style="margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                    <button id="btn-gerenciar-assinatura-hero" onclick="abrirPortalAssinatura(this)" style="background:transparent; border:1px solid var(--border); color:var(--text-muted); font-size:12px; padding:6px 12px;">💳 Gerenciar Assinatura</button>
+                    <button onclick="authLogout()" style="background:transparent; border:1px solid var(--border); color:var(--text-muted); font-size:12px; padding:6px 12px;">🚪 Sair (<span id="auth-usuario-email-hero"></span>)</button>
+                </div>
             </div>
 
             <!-- LISTA DE SAVES SALVOS NESTE NAVEGADOR -->
