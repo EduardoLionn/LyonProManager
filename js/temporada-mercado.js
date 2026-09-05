@@ -797,8 +797,20 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                     let posicaoReal = (realDb && typeof SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA !== 'undefined')
                         ? SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA[realDb.posicao]
                         : null;
+                    // Detecta transferência JÁ processada num scan anterior (o treinador costuma
+                    // colar o histórico inteiro de novo, não só as linhas novas): uma ENTRADA cujo
+                    // nome já bate com alguém ATIVO no elenco já foi aplicada antes (senão o
+                    // jogador não estaria lá); uma SAÍDA cujo nome bate com alguém que NÃO está
+                    // mais Ativo (Vendido/Emprestado/Dispensado) também já foi aplicada. Em ambos
+                    // os casos a linha some da tela seria arriscado, então ela ainda aparece pra
+                    // revisão, só nasce desmarcada e sinalizada — o treinador confirma que quer
+                    // reprocessar se for engano.
+                    let jaProcessada = existente
+                        ? (direcao === 'entrada' ? existente.status === 'Ativo' : existente.status !== 'Ativo')
+                        : false;
                     return {
-                        incluir: true,
+                        incluir: !jaProcessada,
+                        jaProcessada: jaProcessada,
                         nome: nome,
                         tipo: tipo,
                         posicao: existente ? existente.posicao : (posicaoReal || 'MeioCampo/Dinâmico'),
@@ -810,6 +822,11 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                     };
                 });
                 renderizarListaTransferenciasExtraidas();
+
+                let jaProcessadasCount = transferenciasExtraidas.filter(t => t.jaProcessada).length;
+                if (jaProcessadasCount > 0) {
+                    alert(`${jaProcessadasCount} linha(s) já pareciam processadas em uma leitura anterior (o jogador já está com esse status no elenco) e vieram desmarcadas — revise antes de marcar de novo, se for o caso.`);
+                }
             } catch (e) {
                 alert('Não foi possível analisar os prints: ' + e.message);
             }
@@ -833,6 +850,7 @@ Retorne EXATAMENTE este JSON puro, sem nenhum texto antes ou depois:
                     <td>
                         <input type="text" value="${t.nome.replace(/"/g, '&quot;')}" style="width:130px;" onchange="atualizarCampoTransferenciaExtraida(${idx}, 'nome', this.value)">
                         ${t.clubeContrario ? `<div style="font-size:10px; color:var(--text-muted);">vs ${t.clubeContrario.replace(/</g, '&lt;')}</div>` : ''}
+                        ${t.jaProcessada ? `<div style="font-size:10px; color:var(--warning);">⚠️ já processada antes</div>` : ''}
                     </td>
                     <td>
                         <select onchange="atualizarCampoTransferenciaExtraida(${idx}, 'tipo', this.value)">

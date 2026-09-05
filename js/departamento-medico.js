@@ -100,14 +100,26 @@ const PREPARO_FISICO_CFG = {
     // ou não), então qualquer partida disputada soma o mesmo ganho, mesmo entrando nos últimos
     // minutos. Uma simplificação conhecida, documentada aqui de propósito.
     GANHO_POR_PARTIDA: 25,
-    // Perda por DIA sem jogar (não por partida) — pedido do treinador: um jogador saudável que
-    // fica de fora perde 1%/dia; exemplo do pedido: não joga hoje, a próxima partida é 14 dias
-    // depois, perde 14%.
+    // Perda BASE por DIA sem jogar (não por partida), antes do ajuste por idade — ver
+    // multiplicadorPreparoFisicoPorIdade logo abaixo.
     PERDA_POR_DIA_SEM_JOGAR: 1,
-    // Enquanto lesionado, o ritmo de perda dobra — pedido do treinador: 30 dias de lesão = -60%
-    // de preparo físico (30 * 2%).
+    // Enquanto lesionado, o ritmo de perda base dobra — mesma lógica de ajuste por idade se aplica
+    // em cima disso.
     PERDA_POR_DIA_LESIONADO: 2
 };
+
+// A perda fixa de 1%/dia estava punindo igual um jovem de 19 anos e um veterano de 35 — pedido do
+// treinador pra variar por faixa etária: jovem perde mais devagar (recupera ritmo rápido natural-
+// mente), veterano perde mais rápido. Mesmas faixas já usadas em multiplicadorFadigaPorIdade, só
+// que aqui os valores refletem o efeito INVERSO (perda de preparo, não fadiga em campo).
+function multiplicadorPreparoFisicoPorIdade(idade) {
+    let i = Number(idade);
+    if (isNaN(i)) return 1;
+    if (i <= 23) return 0.4;
+    if (i <= 29) return 1.0;
+    if (i <= 33) return 1.1;
+    return 1.2;
+}
 
 // Classifica o Preparo Físico nas 5 faixas do pedido do treinador — cada uma com um rótulo, uma
 // recomendação de minutos (usada no "Plano de Uso" da aba) e o multiplicador de fadiga aplicado
@@ -178,7 +190,8 @@ function penalidadePorPreparoFisico(preparoFisico, peso) {
 function atualizarPreparoFisicoPosPartida(p, jogou, diasSemJogar, lesionado) {
     let cfg = PREPARO_FISICO_CFG;
     let dias = Math.max(0, Number(diasSemJogar) || 0);
-    let taxaPorDia = lesionado ? cfg.PERDA_POR_DIA_LESIONADO : cfg.PERDA_POR_DIA_SEM_JOGAR;
+    let taxaBase = lesionado ? cfg.PERDA_POR_DIA_LESIONADO : cfg.PERDA_POR_DIA_SEM_JOGAR;
+    let taxaPorDia = taxaBase * multiplicadorPreparoFisicoPorIdade(p.idade);
     let novoValor = p.preparoFisico - (dias * taxaPorDia) + (jogou ? cfg.GANHO_POR_PARTIDA : 0);
     p.preparoFisico = Math.max(cfg.MINIMO, Math.min(cfg.MAXIMO, Math.round(novoValor)));
 }
