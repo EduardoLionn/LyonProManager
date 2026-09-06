@@ -42,6 +42,10 @@
         
         .sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 0; overflow-y: auto; }
         .sidebar h1 { font-family: var(--font-display); color: var(--primary); font-size: 21px; text-align: center; margin-bottom: 25px; letter-spacing: 1.5px; text-transform: uppercase; }
+        /* Brasão do app (assets/img/logo.png) no lugar do emoji ⚽ genérico — dimensionado em "em"
+           pra acompanhar o font-size de onde for usado (sidebar, topbar mobile, telas de logo)
+           sem precisar de uma regra de tamanho por lugar. */
+        .app-logo-icon { height: 2.1em; width: auto; vertical-align: -0.55em; margin-right: 0.45em; }
         .nav-btn { background: transparent; color: var(--text-muted); border: none; padding: 14px 20px; text-align: left; font-size: 15px; cursor: pointer; border-left: 3px solid transparent; transition: 0.2s; }
         .nav-btn:hover { background: rgba(255,255,255,0.05); color: white; }
         .nav-btn.active { border-left-color: var(--primary); color: white; background: rgba(232, 184, 75, 0.1); font-weight: bold; }
