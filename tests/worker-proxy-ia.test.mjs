@@ -158,5 +158,80 @@ console.log('\n=== A chave da API nunca aparece na resposta ===');
     else { falhas++; console.log('  ❌ A CHAVE VAZOU NA RESPOSTA'); }
 }
 
+console.log('\n=== Limite por usuário (LIMITE_IA opcional): por minuto e por dia ===');
+{
+    // Mock mínimo de um KV do Cloudflare: só get/put, sem TTL de verdade (não precisamos —
+    // o teste não espera o tempo passar, só verifica os limiares numéricos direto).
+    function criarKvFake() {
+        const dados = new Map();
+        return {
+            async get(chave) { return dados.has(chave) ? dados.get(chave) : null; },
+            async put(chave, valor) { dados.set(chave, valor); }
+        };
+    }
+
+    // --- Por minuto: 20 chamadas na mesma janela passam, a 21ª é bloqueada ---
+    {
+        const kv = criarKvFake();
+        const envComLimite = { ...ENV, LIMITE_IA: kv };
+        const token = await assinarToken(payloadValido({ sub: 'uid-limite-minuto' }));
+        let todasPassaram = true;
+        for (let i = 0; i < 20; i++) {
+            const resp = await worker.fetch(req(token), envComLimite);
+            if (resp.status !== 200) todasPassaram = false;
+        }
+        checks++;
+        if (todasPassaram) console.log('  ✅ 20 chamadas no mesmo minuto passam normalmente');
+        else { falhas++; console.log('  ❌ alguma das 20 primeiras chamadas foi bloqueada indevidamente'); }
+
+        await verificar('a 21ª chamada no mesmo minuto é bloqueada (429)', worker.fetch(req(token), envComLimite), 429);
+    }
+
+    // --- Por dia: teto pré-populado em 600 bloqueia mesmo com o minuto livre ---
+    {
+        const kv = criarKvFake();
+        const envComLimite = { ...ENV, LIMITE_IA: kv };
+        const uid = 'uid-limite-dia-cheio';
+        const token = await assinarToken(payloadValido({ sub: uid }));
+        const diaAtual = Math.floor(Date.now() / 86400000);
+        await kv.put(`ia-dia:${uid}:${diaAtual}`, '600');
+
+        const resp = await verificar('atingido o teto de 600/dia, a chamada seguinte é bloqueada mesmo com o minuto livre', worker.fetch(req(token), envComLimite), 429);
+        checks++;
+        const corpoErro = resp ? await resp.clone().text() : '';
+        if (/[Ll]imite di[áa]rio/.test(corpoErro)) console.log('  ✅ a mensagem de erro é específica do limite diário (não confunde com o de minuto)');
+        else { falhas++; console.log('  ❌ mensagem de erro não menciona o limite diário:', corpoErro); }
+    }
+
+    // --- Por dia: com 599 já usadas, a 600ª chamada (exatamente no teto) ainda passa ---
+    {
+        const kv = criarKvFake();
+        const envComLimite = { ...ENV, LIMITE_IA: kv };
+        const uid = 'uid-limite-dia-quase';
+        const token = await assinarToken(payloadValido({ sub: uid }));
+        const diaAtual = Math.floor(Date.now() / 86400000);
+        await kv.put(`ia-dia:${uid}:${diaAtual}`, '599');
+
+        await verificar('a 600ª chamada do dia (exatamente no teto) ainda passa', worker.fetch(req(token), envComLimite), 200);
+        checks++;
+        const novoValor = await kv.get(`ia-dia:${uid}:${diaAtual}`);
+        if (novoValor === '600') console.log('  ✅ o contador diário avançou pra 600 depois dessa chamada');
+        else { falhas++; console.log('  ❌ contador diário inesperado:', novoValor); }
+    }
+
+    // --- Sem LIMITE_IA configurado, nenhum teto se aplica (comportamento antigo preservado) ---
+    {
+        const token = await assinarToken(payloadValido({ sub: 'uid-sem-limite' }));
+        let bloqueouIndevido = false;
+        for (let i = 0; i < 25; i++) {
+            const resp = await worker.fetch(req(token), ENV);
+            if (resp.status === 429) { bloqueouIndevido = true; break; }
+        }
+        checks++;
+        if (!bloqueouIndevido) console.log('  ✅ sem LIMITE_IA configurado, 25 chamadas seguidas não são bloqueadas (comportamento antigo preservado)');
+        else { falhas++; console.log('  ❌ bloqueou sem LIMITE_IA configurado (regressão)'); }
+    }
+}
+
 console.log(`\n${checks - falhas}/${checks} verificações passaram.`);
 process.exit(falhas > 0 ? 1 : 0);
