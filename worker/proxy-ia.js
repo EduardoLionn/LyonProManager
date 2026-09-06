@@ -140,15 +140,31 @@ export default {
             return json({ erro: 'Sessão inválida. Entre de novo no site.' }, 401, origem);
         }
 
-        // 2) Limite por usuário, se o KV estiver configurado (opcional — ver README).
-        //    Segura o caso de uma conta legítima ser usada para abusar da cota.
+        // 2) Limites por usuário, se o KV estiver configurado (opcional — ver README).
+        //    Dois tetos independentes: por minuto (pega pico repentino/loop de bug na hora) e
+        //    por dia (trava o pior caso de uma conta comprometida ou script abusando da cota,
+        //    sem incomodar uso normal). Conta do dono do site: uma partida completa (prints de
+        //    todos os jogadores + tática + sugestões ao vivo + relatório) fica em torno de 25
+        //    chamadas, então 600/dia cobre folgado até uma maratona de 8-10 partidas no mesmo
+        //    dia, além de scout/transferências.
         if (env.LIMITE_IA) {
-            const chave = `ia:${uid}:${Math.floor(Date.now() / 60000)}`; // janela de 1 minuto
-            const usadas = parseInt(await env.LIMITE_IA.get(chave) || '0', 10);
-            if (usadas >= 20) {
+            const chaveMinuto = `ia:${uid}:${Math.floor(Date.now() / 60000)}`;
+            const usadasMinuto = parseInt(await env.LIMITE_IA.get(chaveMinuto) || '0', 10);
+            if (usadasMinuto >= 20) {
                 return json({ erro: 'Muitas consultas à IA em pouco tempo. Espere um instante.' }, 429, origem);
             }
-            await env.LIMITE_IA.put(chave, String(usadas + 1), { expirationTtl: 120 });
+
+            const chaveDia = `ia-dia:${uid}:${Math.floor(Date.now() / 86400000)}`;
+            const usadasDia = parseInt(await env.LIMITE_IA.get(chaveDia) || '0', 10);
+            if (usadasDia >= 600) {
+                return json({ erro: 'Limite diário de consultas à IA atingido. Volta amanhã.' }, 429, origem);
+            }
+
+            await env.LIMITE_IA.put(chaveMinuto, String(usadasMinuto + 1), { expirationTtl: 120 });
+            // TTL de 2 dias (não 1) pra sobrar folga em qualquer horário em que a janela do dia
+            // começou — a chave já é fixa por dia calendário (Math.floor(ms/86400000)), o TTL é
+            // só limpeza automática do KV, não faz parte da lógica da janela.
+            await env.LIMITE_IA.put(chaveDia, String(usadasDia + 1), { expirationTtl: 172800 });
         }
 
         // 3) Corpo precisa ser o formato que o app manda — barra requisição malformada
