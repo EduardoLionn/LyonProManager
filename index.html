@@ -1474,10 +1474,15 @@
        <button class="btn-filtro" onclick="filtrarMercado('EmprestadoIn', this)">🔵 Emprestados (Chegando)</button>
    </div>
    
-                <table id="tabela-mercado" class="tabela-cards-mobile">
-                    <thead><tr><th>Status</th><th class="th-sortable" onclick="ordenarTransferencias('posicao')">Posição ↕️</th><th class="th-sortable" onclick="ordenarTransferencias('nome')">Nome ↕️</th><th class="th-sortable" onclick="ordenarTransferencias('ovr')">OVR ↕️</th><th class="th-sortable" onclick="ordenarTransferencias('idade')">Idade ↕️</th><th>Ações / Raio-X</th></tr></thead>
-                    <tbody></tbody>
-                </table>
+                <div id="mercado-sort-row" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; font-size:11px;">
+                    <span style="color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Ordenar por:</span>
+                    <button class="transfer-card-acao-btn btn-ordenar-mercado" onclick="ordenarTransferencias('posicao')">Posição ↕️</button>
+                    <button class="transfer-card-acao-btn btn-ordenar-mercado" onclick="ordenarTransferencias('nome')">Nome ↕️</button>
+                    <button class="transfer-card-acao-btn btn-ordenar-mercado" onclick="ordenarTransferencias('ovr')">OVR ↕️</button>
+                    <button class="transfer-card-acao-btn btn-ordenar-mercado" onclick="ordenarTransferencias('idade')">Idade ↕️</button>
+                    <button class="transfer-card-acao-btn btn-ordenar-mercado" id="btn-ordenar-valor-mercado" onclick="ordenarTransferencias('valor')" style="display:none;">Valor ↕️</button>
+                </div>
+                <div id="tabela-mercado" class="transfer-list"></div>
         </div>
 
         <!-- ABA: SCOUT (OLHEIRO-CHEFE) -->
@@ -1682,7 +1687,6 @@
                         <input type="number" id="input-dias-lesao" placeholder="Ex: 7" style="width: 100%; box-sizing: border-box;" value="0">
                     </div>
                     <div><button onclick="declararLesao()" style="background: var(--danger); color: white; padding: 10px 15px;">🏥 Declarar Lesão</button></div>
-                    <div><button onclick="aplicarCartaoVermelho()" style="background: var(--warning); color: black; padding: 10px 15px;">🟥 Cartão Vermelho</button></div>
                 </div>
             </div>
         </div>

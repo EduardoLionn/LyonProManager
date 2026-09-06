@@ -405,6 +405,16 @@
         flex-wrap: nowrap !important;
     }
 
+    /* Mesmo problema na gaveta do menu: ajustarInterfaceSave() (core-utilidades.js) liga a
+       sidebar via JS (sidebar.style.display = 'flex'), então o inline style dela também bate no
+       seletor genérico acima — só que a sidebar é uma coluna de altura fixa (100vh) com MUITOS
+       itens de menu, então "wrap" jogava os itens que não cabiam numa SEGUNDA COLUNA à direita,
+       cortada fora da tela (só dava pra ver arrastando o dedo pro lado, em vez de rolar a lista
+       verticalmente como o esperado). */
+    .sidebar[style*="display: flex"], .sidebar[style*="display:flex"] {
+        flex-wrap: nowrap !important;
+    }
+
     /* Linha de filtros do gráfico do Dashboard: vários <select> com largura fixa em px
        (um deles tem 320px). Sendo item de um flex row sem largura própria, "max-width:100%"
        não resolve (containing block indefinido) — força a linha a ocupar 100% e cada
@@ -628,6 +638,50 @@
 }
 @media (max-width: 560px) {
     .medico-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- ABA TRANSFERÊNCIAS: cards modernos em vez da tabela genérica de linhas rótulo/valor
+   (pedido do treinador: "acho feio esse design da aba transferências, nada moderno"). Cada
+   transferência vira um cartão com o círculo de OVR à esquerda (cor pela faixa, igual ao resto
+   do app), nome/posição/idade no meio, e as ações como pílulas compactas à direita — o Raio-X
+   expande DENTRO do próprio cartão (mesma ideia de "acordeão" já usada nos cards de partida do
+   histórico), em vez de abrir uma linha de tabela solta embaixo. */
+.transfer-list { display: flex; flex-direction: column; gap: 10px; }
+.transfer-card {
+    background: var(--input-bg); border: 1px solid var(--border); border-left: 4px solid var(--border);
+    border-radius: 12px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    transition: border-color 0.15s, transform 0.15s;
+}
+.transfer-card:hover { transform: translateY(-1px); border-color: var(--accent); }
+.transfer-card.tc-vendido { border-left-color: var(--danger); }
+.transfer-card.tc-emprestado { border-left-color: var(--warning); }
+.transfer-card.tc-ativo { border-left-color: var(--primary); }
+.transfer-card.tc-aposentado { border-left-color: var(--text-muted); }
+
+.transfer-card-ovr {
+    flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-dark); border: 2px solid currentColor;
+    font-family: var(--font-display); font-weight: bold; font-size: 14px;
+}
+.transfer-card-main { flex: 1 1 160px; min-width: 0; }
+.transfer-card-nome-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.transfer-card-nome { font-size: 15px; font-weight: bold; color: var(--text-main); }
+.transfer-card-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
+.transfer-card-valor { flex: 0 0 auto; font-family: var(--font-display); font-weight: bold; color: var(--primary); font-size: 14px; white-space: nowrap; }
+.transfer-card-acoes { display: flex; gap: 6px; flex-wrap: wrap; flex: 0 0 auto; }
+.transfer-card-acao-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+    border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: bold; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.transfer-card-acao-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(75, 159, 226, 0.1); }
+.transfer-card-acao-btn.tca-perigo:hover { border-color: var(--danger); color: var(--danger); background: rgba(226, 75, 75, 0.1); }
+.transfer-card-expand { flex-basis: 100%; margin-top: 4px; padding-top: 14px; border-top: 1px dashed var(--border); }
+@media (max-width: 640px) {
+    .transfer-card-acoes { flex-basis: 100%; justify-content: flex-start; margin-top: 4px; }
+    .raiox-container { grid-template-columns: minmax(0,1fr) !important; }
 }
 
 /* Sugestões de Desenvolvimento Individual: uma linha por jogador, nome à esquerda e a função
