@@ -356,10 +356,27 @@ function scoutToggleInteresse(nome, clube, liga, idade, posicaoEA, ovr) {
     renderizarChat('scout');
 }
 
+// Alterna a visibilidade de uma das duas seções (interesse/observações) — pedido do treinador:
+// "gostaria que fosse mais compacta, e as duas abas normalmente oculta". Começam fechadas
+// (ver display:none no HTML) e ficam do jeito que o treinador deixou entre uma abertura de aba
+// e outra — só o botão precisa trocar de rótulo pra refletir o estado atual.
+function scoutToggleSecao(qual) {
+    let idCorpo = qual === 'interesse' ? 'scout-lista-interesse-corpo' : 'scout-observacoes-corpo';
+    let idBtn = qual === 'interesse' ? 'btn-toggle-interesse' : 'btn-toggle-observacoes';
+    let corpo = document.getElementById(idCorpo);
+    let btn = document.getElementById(idBtn);
+    if (!corpo || !btn) return;
+    let abrindo = corpo.style.display === 'none';
+    corpo.style.display = abrindo ? 'block' : 'none';
+    btn.textContent = abrindo ? '🙈 Ocultar' : '👁️ Mostrar';
+}
+
 function scoutRenderListaInteresse() {
     let container = document.getElementById('scout-lista-interesse-corpo');
     if (!container) return;
     let lista = db.clube.scoutListaInteresse || [];
+    let contador = document.getElementById('scout-interesse-contador');
+    if (contador) contador.textContent = lista.length;
     if (lista.length === 0) {
         container.innerHTML = `<p class="wizard-elenco-vazio">Nenhum jogador salvo ainda — use "⭐ Salvar na Lista" nas sugestões do olheiro.</p>`;
         return;
@@ -369,14 +386,14 @@ function scoutRenderListaInteresse() {
         // "|| 70" é só um fallback pra itens salvos numa Lista de Interesse anterior a este campo
         // existir (save antigo) — daqui em diante todo item novo já vem com o ovr real guardado.
         let btnObservar = jaObservado
-            ? `<button class="btn-upload" style="margin:0; padding:6px 10px; opacity:0.7;" disabled>${jaObservado === 'completo' ? '📋 Relatório pronto' : '👁️ Observando...'}</button>`
-            : `<button class="btn-upload" style="margin:0; padding:6px 10px; color:var(--accent); border-color:var(--accent);" onclick="scoutAdicionarObservacao('${j.nome.replace(/'/g, "\\'")}', '${j.clube.replace(/'/g, "\\'")}', '${j.liga.replace(/'/g, "\\'")}', ${j.idade}, '${j.posicaoEA}', ${j.ovr || 70})">👁️ Observar</button>`;
+            ? `<button class="transfer-card-acao-btn" disabled style="opacity:0.7;">${jaObservado === 'completo' ? '📋 Relatório pronto' : '👁️ Observando...'}</button>`
+            : `<button class="transfer-card-acao-btn" onclick="scoutAdicionarObservacao('${j.nome.replace(/'/g, "\\'")}', '${j.clube.replace(/'/g, "\\'")}', '${j.liga.replace(/'/g, "\\'")}', ${j.idade}, '${j.posicaoEA}', ${j.ovr || 70})">👁️ Observar</button>`;
         return `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 0; border-bottom:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 0; border-bottom:1px solid var(--border); font-size:12.5px;">
             <span><strong>${j.nome}</strong> — ${j.clube} (${j.liga}), ${j.idade} anos</span>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${j.nome.replace(/'/g, "\\'")}', '${j.posicaoEA}', ${j.idade})">📥 Usar no Formulário de Compra</button>
-                <button class="btn-ssc-rejeitar" onclick="scoutToggleInteresse('${j.nome.replace(/'/g, "\\'")}', '${j.clube.replace(/'/g, "\\'")}', '${j.liga.replace(/'/g, "\\'")}', ${j.idade}, '${j.posicaoEA}')">🗑️ Remover</button>
+            <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                <button class="transfer-card-acao-btn" onclick="scoutUsarNomeNoFormularioCompra('${j.nome.replace(/'/g, "\\'")}', '${j.posicaoEA}', ${j.idade})">📥 Usar no Formulário</button>
+                <button class="transfer-card-acao-btn tca-perigo" onclick="scoutToggleInteresse('${j.nome.replace(/'/g, "\\'")}', '${j.clube.replace(/'/g, "\\'")}', '${j.liga.replace(/'/g, "\\'")}', ${j.idade}, '${j.posicaoEA}')">🗑️ Remover</button>
                 ${btnObservar}
             </div>
         </div>`;
@@ -510,6 +527,8 @@ function scoutRenderObservacoes() {
     let container = document.getElementById('scout-observacoes-corpo');
     if (!container) return;
     let lista = db.clube.scoutObservacoes || [];
+    let contador = document.getElementById('scout-observacoes-contador');
+    if (contador) contador.textContent = lista.length;
     if (lista.length === 0) {
         container.innerHTML = `<p class="wizard-elenco-vazio">Nenhum jogador em observação — use "👁️ Observar" nas sugestões do olheiro.</p>`;
         return;
@@ -517,18 +536,18 @@ function scoutRenderObservacoes() {
     container.innerHTML = lista.slice().reverse().map(o => {
         let argsRemover = `'${o.nome.replace(/'/g, "\\'")}', '${o.clube.replace(/'/g, "\\'")}'`;
         let corpoRelatorio = o.status === 'completo'
-            ? `<div style="font-size:12.5px; color:var(--text-muted); margin-top:6px; line-height:1.5;">
+            ? `<div style="font-size:12px; color:var(--text-muted); margin-top:4px; line-height:1.4;">
                    <strong>OVR estimado:</strong> ${o.ovrMin}-${o.ovrMax} · <strong>Pode jogar como:</strong> ${o.posicoesPossiveis.join(' / ') || o.posicaoEA}<br>
                    ${o.qualidadesTexto}
                </div>`
-            : `<div style="font-size:12.5px; color:var(--warning); margin-top:6px;">🔭 Observando — o relatório completo fecha depois da sua próxima partida.</div>`;
+            : `<div style="font-size:12px; color:var(--warning); margin-top:4px;">🔭 Observando — o relatório completo fecha depois da sua próxima partida.</div>`;
         return `
-        <div style="padding:10px 0; border-bottom:1px solid var(--border);">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-                <span><strong>${o.nome}</strong> — ${o.clube} (${o.liga}), ${o.idade} anos · <span style="color:var(--gold);">Valor estimado: €${o.valorMin}M–${o.valorMax}M</span></span>
-                <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <button class="btn-ssc-confirmar" onclick="scoutUsarNomeNoFormularioCompra('${o.nome.replace(/'/g, "\\'")}', '${o.posicaoEA}', ${o.idade})">📥 Usar no Formulário de Compra</button>
-                    <button class="btn-ssc-rejeitar" onclick="scoutRemoverObservacao(${argsRemover})">🗑️ Remover</button>
+        <div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:12.5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span><strong>${o.nome}</strong> — ${o.clube} (${o.liga}), ${o.idade} anos · <span style="color:var(--gold);">€${o.valorMin}M–${o.valorMax}M</span></span>
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                    <button class="transfer-card-acao-btn" onclick="scoutUsarNomeNoFormularioCompra('${o.nome.replace(/'/g, "\\'")}', '${o.posicaoEA}', ${o.idade})">📥 Usar no Formulário</button>
+                    <button class="transfer-card-acao-btn tca-perigo" onclick="scoutRemoverObservacao(${argsRemover})">🗑️ Remover</button>
                 </div>
             </div>
             ${corpoRelatorio}

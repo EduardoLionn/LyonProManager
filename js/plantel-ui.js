@@ -6,8 +6,8 @@
             if(currentSave !== 'clube') return;
             if (typeof garantirCamposElencoTodos === 'function') garantirCamposElencoTodos();
             atualizarOrcamentoMercado();
-            let tbody = document.querySelector('#tabela-plantel tbody'); tbody.innerHTML = '';
-            
+            let lista = document.getElementById('tabela-plantel'); lista.innerHTML = '';
+
             let plantelSort = [...db.clube.plantel];
             plantelSort.sort((a, b) => {
                 let valA = a[ordemAtualPlantel.coluna]; let valB = b[ordemAtualPlantel.coluna];
@@ -17,19 +17,27 @@
                 return 0;
             });
 
-            plantelSort.filter(p => p.status === 'Ativo').forEach((p, idx) => {
-                let isListado = db.clube.exigenciasDiretoria.includes(p.nome) ? `<span class="badge bg-vendido" style="margin-left:10px;">⚠️ Listado Pela Diretoria</span>` : '';
+            let ativos = plantelSort.filter(p => p.status === 'Ativo');
+            if (ativos.length === 0) {
+                lista.innerHTML = `<div style="text-align:center; padding:25px; color:var(--text-muted);">Nenhum jogador cadastrado ainda.</div>`;
+                atualizarSelectCondicaoAuxiliar();
+                if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
+                return;
+            }
+
+            ativos.forEach((p, idx) => {
+                let isListado = db.clube.exigenciasDiretoria.includes(p.nome) ? `<span class="badge bg-vendido">⚠️ Listado Pela Diretoria</span>` : '';
 
                 // Braçadeira e moral vêm da Central de Mensagens (capitão/vice e eventos do elenco)
                 let badgeLideranca = '';
-                if (db.clube.capitao === p.nome) badgeLideranca = ` <span class="badge" style="background: rgba(255,215,0,0.18); color: var(--gold);">🎖️ Capitão</span>`;
-                else if (db.clube.viceCapitao === p.nome) badgeLideranca = ` <span class="badge" style="background: rgba(232,184,75,0.14); color: var(--primary);">🅥 Vice-capitão</span>`;
+                if (db.clube.capitao === p.nome) badgeLideranca = `<span class="badge" style="background: rgba(255,215,0,0.18); color: var(--gold);">🎖️ Capitão</span>`;
+                else if (db.clube.viceCapitao === p.nome) badgeLideranca = `<span class="badge" style="background: rgba(232,184,75,0.14); color: var(--primary);">🅥 Vice-capitão</span>`;
 
                 let badgeMoral = '';
                 if (typeof p.moral === 'number') {
-                    if (p.moral < 40) badgeMoral = ` <span class="badge" style="background: rgba(226,75,75,0.15); color: var(--danger);">😠 Moral ${Math.round(p.moral)}</span>`;
-                    else if (p.moral < 55) badgeMoral = ` <span class="badge" style="background: rgba(217,130,43,0.15); color: var(--warning);">😕 Moral ${Math.round(p.moral)}</span>`;
-                    else if (p.moral >= 85) badgeMoral = ` <span class="badge" style="background: rgba(75,159,226,0.15); color: var(--accent);">😄 Moral ${Math.round(p.moral)}</span>`;
+                    if (p.moral < 40) badgeMoral = `<span class="badge" style="background: rgba(226,75,75,0.15); color: var(--danger);">😠 Moral ${Math.round(p.moral)}</span>`;
+                    else if (p.moral < 55) badgeMoral = `<span class="badge" style="background: rgba(217,130,43,0.15); color: var(--warning);">😕 Moral ${Math.round(p.moral)}</span>`;
+                    else if (p.moral >= 85) badgeMoral = `<span class="badge" style="background: rgba(75,159,226,0.15); color: var(--accent);">😄 Moral ${Math.round(p.moral)}</span>`;
                 }
                 if (p.poupadoRestante > 0) badgeMoral += ` <span class="badge" style="background: rgba(75,159,226,0.18); color: var(--accent);">💤 Poupado (${p.poupadoRestante})</span>`;
                 if (p.pediuSaida) badgeMoral += ` <span class="badge" style="background: rgba(226,75,75,0.15); color: var(--danger);">🚪 Pediu para sair</span>`;
@@ -37,22 +45,22 @@
                 // --- NOVAS BADGES DE LESÃO E CARTÃO VERMELHO ---
                 let badgeCondicao = '';
                 if (p.diasLesao && p.diasLesao > 0) {
-                    badgeCondicao += ` <span class="badge" style="background: rgba(255, 107, 107, 0.2); color: var(--danger);">🏥 Lesionado (${p.diasLesao} dias)</span>`;
+                    badgeCondicao += `<span class="badge" style="background: rgba(255, 107, 107, 0.2); color: var(--danger);">🏥 Lesionado (${p.diasLesao} dias)</span>`;
                 }
                 if (p.suspensoVermelho) {
-                    badgeCondicao += ` <span class="badge" style="background: rgba(255, 184, 0, 0.2); color: var(--warning);">🟥 Suspenso</span>`;
+                    badgeCondicao += `<span class="badge" style="background: rgba(255, 184, 0, 0.2); color: var(--warning);">🟥 Suspenso</span>`;
                 }
                 // --- BADGE DE FÔLEGO BAIXO / RISCO DE LESÃO (Departamento Médico) ---
                 if (!badgeCondicao && typeof condicaoJogador === 'function') {
                     let condFisica = condicaoJogador(p);
                     if (condFisica.nivel === 'critico') {
-                        badgeCondicao += ` <span class="badge" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">🚨 Risco Crítico (${p.jogosSeguidos || 0}j)</span>`;
+                        badgeCondicao += `<span class="badge" style="background: rgba(226, 75, 75, 0.2); color: var(--danger);">🚨 Risco Crítico (${p.jogosSeguidos || 0}j)</span>`;
                     } else if (condFisica.nivel === 'risco') {
-                        badgeCondicao += ` <span class="badge" style="background: rgba(226, 75, 75, 0.15); color: var(--danger);">⚠️ Risco de Lesão (${p.jogosSeguidos || 0}j)</span>`;
+                        badgeCondicao += `<span class="badge" style="background: rgba(226, 75, 75, 0.15); color: var(--danger);">⚠️ Risco de Lesão (${p.jogosSeguidos || 0}j)</span>`;
                     } else if (condFisica.nivel === 'alerta') {
                         // Fôlego = 100 - fadiga, calculado direto de p.fadiga (não de p.stamina,
                         // que só é resincronizado dentro de processarCondicaoFisicaPosPartida).
-                        badgeCondicao += ` <span class="badge" style="background: rgba(217, 130, 43, 0.15); color: var(--warning);">🟡 Fôlego Baixo (${Math.round(100 - (Number(p.fadiga) || 0))}%)</span>`;
+                        badgeCondicao += `<span class="badge" style="background: rgba(217, 130, 43, 0.15); color: var(--warning);">🟡 Fôlego Baixo (${Math.round(100 - (Number(p.fadiga) || 0))}%)</span>`;
                     }
                 }
 
@@ -64,36 +72,43 @@
                 }
                 optionsSelect += `<option value="Excluir">Excluir (Erro)</option>`;
 
-                tbody.innerHTML += `
-                <tr id="linha-jogador-${idx}">
-                    <td data-label="Posição">${p.posicao}</td><td class="tc-titulo"><strong>${p.nome}</strong>${badgeLideranca} ${isListado} ${badgeCondicao}${badgeMoral}</td>
-                    <td data-label="OVR" style="${getOvrClass(p.ovr)} font-weight:bold; font-size:16px;">${p.ovr}</td>
-                    <td data-label="Idade">${p.idade || '-'}</td>
-                    <td class="tc-acoes" style="display:flex; gap: 10px; align-items: center;">
-                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXPlantel('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
-                        <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; border-color: var(--warning); color: var(--warning);" onclick="abrirModalEditarJogador('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar</button>
-                        <select onchange="alterarStatus('${p.nome.replace(/'/g, "\\'")}', this.value)" style="padding:6px; font-size:13px; width: 120px;">
+                // Reaproveita o mesmo card compacto da aba Transferências (.transfer-card) — pedido
+                // do treinador: a tabela genérica "rótulo: valor" do Elenco também ficava feia e
+                // gigante, principalmente no celular, igual o que já tinha sido resolvido lá.
+                let card = document.createElement('div');
+                card.className = 'transfer-card';
+                card.id = `linha-jogador-${idx}`;
+                card.innerHTML = `
+                    <div class="transfer-card-ovr" style="${getOvrClass(p.ovr)}">${p.ovr}</div>
+                    <div class="transfer-card-main">
+                        <div class="transfer-card-nome-linha">
+                            <span class="transfer-card-nome">${p.nome}</span>${badgeLideranca}${isListado}${badgeCondicao}${badgeMoral}
+                        </div>
+                        <div class="transfer-card-meta"><span>${p.posicao}</span><span>${p.idade ? p.idade + ' anos' : 'idade -'}</span></div>
+                    </div>
+                    <div class="transfer-card-acoes">
+                        <button class="transfer-card-acao-btn" onclick="toggleRaioXPlantel('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
+                        <button class="transfer-card-acao-btn" onclick="abrirModalEditarJogador('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar</button>
+                        <select onchange="alterarStatus('${p.nome.replace(/'/g, "\\'")}', this.value)" style="padding:5px 8px; font-size:11px; font-weight:bold; border-radius:8px; background:transparent; border:1px solid var(--border); color:var(--text-muted);">
                             ${optionsSelect}
                         </select>
-                    </td>
-                </tr>
-                <tr id="raiox-row-${idx}" class="row-raiox" style="display:none;">
-                    <td colspan="5">
+                    </div>
+                    <div id="raiox-row-${idx}" class="transfer-card-expand" style="display:none;">
                         <div class="raiox-container">
                             <div id="raiox-dados-plantel-${idx}" style="background: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"></div>
                             <div style="height: 350px;"><canvas id="canvas-raiox-plantel-${idx}"></canvas></div>
                         </div>
-                    </td>
-                </tr>`;
+                    </div>`;
+                lista.appendChild(card);
             });
             atualizarSelectCondicaoAuxiliar();
             if (typeof renderizarLiderancaUI === 'function') renderizarLiderancaUI();
         }
 
         function toggleRaioXPlantel(nome, idx) {
-            let row = document.getElementById(`raiox-row-${idx}`);
-            if (row.style.display === 'none') { document.querySelectorAll('.row-raiox').forEach(el => el.style.display = 'none'); row.style.display = 'table-row'; renderizarDadosRaioX(nome, `canvas-raiox-plantel-${idx}`, `raiox-dados-plantel-${idx}`); } 
-            else { row.style.display = 'none'; }
+            let painel = document.getElementById(`raiox-row-${idx}`);
+            if (painel.style.display === 'none') { document.querySelectorAll('#tabela-plantel .transfer-card-expand').forEach(el => el.style.display = 'none'); painel.style.display = 'block'; renderizarDadosRaioX(nome, `canvas-raiox-plantel-${idx}`, `raiox-dados-plantel-${idx}`); }
+            else { painel.style.display = 'none'; }
         }
 
         let ordemAtualMercado = { coluna: 'nome', ascendente: true };
@@ -191,7 +206,7 @@
 
         function toggleRaioXMercado(nome, idx) {
             let painel = document.getElementById(`raiox-mercado-row-${idx}`);
-            if (painel.style.display === 'none') { document.querySelectorAll('.transfer-card-expand').forEach(el => el.style.display = 'none'); painel.style.display = 'block'; renderizarDadosRaioX(nome, `canvas-raiox-mercado-${idx}`, `raiox-dados-mercado-${idx}`); }
+            if (painel.style.display === 'none') { document.querySelectorAll('#tabela-mercado .transfer-card-expand').forEach(el => el.style.display = 'none'); painel.style.display = 'block'; renderizarDadosRaioX(nome, `canvas-raiox-mercado-${idx}`, `raiox-dados-mercado-${idx}`); }
             else { painel.style.display = 'none'; }
         }
 
