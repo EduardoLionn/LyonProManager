@@ -113,31 +113,20 @@
        statusFiltroMercado = status;
        if(btn) { document.querySelectorAll('#tab-mercado .btn-filtro').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
 
-       let thead = document.querySelector('#tabela-mercado thead');
-       let tbody = document.querySelector('#tabela-mercado tbody');
-       tbody.innerHTML = '';
+       let lista = document.getElementById('tabela-mercado');
+       lista.innerHTML = '';
 
        let mostrarColunaValor = (status === 'Vendido' || status === 'Comprado');
+       let btnOrdenarValor = document.getElementById('btn-ordenar-valor-mercado');
+       if (btnOrdenarValor) btnOrdenarValor.style.display = mostrarColunaValor ? 'inline-flex' : 'none';
 
-       // Cabeçalho clicável (igual à tabela do Elenco) — clicar na coluna ordena por ela,
-       // sem precisar de uma fileira extra de botões "Ordenar por".
-       let colValor = mostrarColunaValor ? `<th class="th-sortable" onclick="ordenarTransferencias('valor')">Valor (€M) ↕️</th>` : '';
-       thead.innerHTML = `<tr><th>Status</th>
-           <th class="th-sortable" onclick="ordenarTransferencias('posicao')">Posição ↕️</th>
-           <th class="th-sortable" onclick="ordenarTransferencias('nome')">Nome ↕️</th>
-           <th class="th-sortable" onclick="ordenarTransferencias('ovr')">OVR ↕️</th>
-           <th class="th-sortable" onclick="ordenarTransferencias('idade')">Idade ↕️</th>
-           ${colValor}
-           <th>Ações / Raio-X</th></tr>`;
-       
-       let achou = false;
        let jogadoresFiltrados = db.clube.plantel.filter(p => {
            if (status === 'Comprado' || status === 'EmprestadoIn') return p.origem === status;
            return p.status === status;
        });
 
        jogadoresFiltrados.sort((a, b) => {
-           let valA = a[ordemAtualMercado.coluna]; 
+           let valA = a[ordemAtualMercado.coluna];
            let valB = b[ordemAtualMercado.coluna];
            if (ordemAtualMercado.coluna === 'posicao') { valA = ordemPosicoes[a.posicao] || 6; valB = ordemPosicoes[b.posicao] || 6; }
            if (ordemAtualMercado.coluna === 'valor') { valA = a.valor || 0; valB = b.valor || 0; }
@@ -146,13 +135,17 @@
            return 0;
        });
 
+       if (jogadoresFiltrados.length === 0) {
+           lista.innerHTML = `<div style="text-align:center; padding: 25px; color:var(--text-muted);">Nenhum jogador.</div>`;
+           return;
+       }
+
        jogadoresFiltrados.forEach((p, idx) => {
-           achou = true;
-           let extraInfo = status === 'Emprestado' ? `<br><span style="font-size:11px; color:var(--text-muted)">Retorna em: ${p.temporadasEmprestimo} temp.</span>` : '';
-           let badgeClass = 'bg-aposentado'; 
-           if (status === 'Vendido') badgeClass = 'bg-vendido';
-           if (status === 'Emprestado') badgeClass = 'bg-emprestado';
-           if (status === 'Comprado' || status === 'EmprestadoIn') badgeClass = 'bg-ativo';
+           let extraInfo = status === 'Emprestado' ? `<span>Retorna em: ${p.temporadasEmprestimo} temp.</span>` : '';
+           let badgeClass = 'bg-aposentado', corClass = 'tc-aposentado';
+           if (status === 'Vendido') { badgeClass = 'bg-vendido'; corClass = 'tc-vendido'; }
+           if (status === 'Emprestado') { badgeClass = 'bg-emprestado'; corClass = 'tc-emprestado'; }
+           if (status === 'Comprado' || status === 'EmprestadoIn') { badgeClass = 'bg-ativo'; corClass = 'tc-ativo'; }
 
            let nomeStatus = p.status;
            if (status === 'Comprado') nomeStatus = 'Comprado';
@@ -162,42 +155,44 @@
            // aparecia igual a aposentadoria de verdade) — motivoSaida guarda a distinção.
            if (status === 'Aposentado') nomeStatus = p.motivoSaida === 'Dispensa' ? 'Dispensado' : 'Aposentado';
 
-           let tdValor = mostrarColunaValor ? `<td data-label="Valor (€M)">€${(p.valor || 0).toFixed(1)}M</td>` : '';
+           let pillValor = mostrarColunaValor ? `<div class="transfer-card-valor">€${(p.valor || 0).toFixed(1)}M</div>` : '';
 
             // NOVO: Botões extras para o mercado (Editar Valor e Excluir)
-            let btnEdit = mostrarColunaValor ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--warning); border-color:var(--warning);" onclick="editarValorTransferencia('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar Valor</button>` : '';
-            let btnExc = `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--danger); border-color:var(--danger);" onclick="excluirJogadorTransferencia('${p.nome.replace(/'/g, "\\'")}')">🗑️ Excluir</button>`;
+            let btnEdit = mostrarColunaValor ? `<button class="transfer-card-acao-btn" onclick="editarValorTransferencia('${p.nome.replace(/'/g, "\\'")}')">✏️ Editar Valor</button>` : '';
+            let btnExc = `<button class="transfer-card-acao-btn tca-perigo" onclick="excluirJogadorTransferencia('${p.nome.replace(/'/g, "\\'")}')">🗑️ Excluir</button>`;
 
             // NOVO: Botão de Chamar de Volta para quem está Emprestado fora
-            let btnChamarVolta = (status === 'Emprestado') ? `<button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold; color:var(--primary); border-color:var(--primary);" onclick="alterarStatus('${p.nome.replace(/'/g, "\\'")}', 'ChamarDeVolta')">🔙 Chamar de Volta</button>` : '';
+            let btnChamarVolta = (status === 'Emprestado') ? `<button class="transfer-card-acao-btn" onclick="alterarStatus('${p.nome.replace(/'/g, "\\'")}', 'ChamarDeVolta')">🔙 Chamar de Volta</button>` : '';
 
-            tbody.innerHTML += `
-            <tr>
-                <td data-label="Status"><span class="badge ${badgeClass}">${nomeStatus}</span>${extraInfo}</td>
-                <td data-label="Posição">${p.posicao}</td><td class="tc-titulo"><strong>${p.nome}</strong></td>
-                <td data-label="OVR"><strong style="${getOvrClass(p.ovr)} font-size:15px;">${p.ovr}</strong></td>
-                <td data-label="Idade">${p.idade || '-'}</td>
-                ${tdValor}
-                <td class="tc-acoes" style="display: flex; gap: 5px; flex-wrap: wrap;">
-                    <button class="btn-upload" style="margin:0; padding:6px 10px; font-weight:bold;" onclick="toggleRaioXMercado('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
+            let card = document.createElement('div');
+            card.className = `transfer-card ${corClass}`;
+            card.innerHTML = `
+                <div class="transfer-card-ovr" style="${getOvrClass(p.ovr)}">${p.ovr}</div>
+                <div class="transfer-card-main">
+                    <div class="transfer-card-nome-linha">
+                        <span class="transfer-card-nome">${p.nome}</span>
+                        <span class="badge ${badgeClass}">${nomeStatus}</span>
+                    </div>
+                    <div class="transfer-card-meta"><span>${p.posicao}</span><span>${p.idade ? p.idade + ' anos' : 'idade -'}</span>${extraInfo}</div>
+                </div>
+                ${pillValor}
+                <div class="transfer-card-acoes">
+                    <button class="transfer-card-acao-btn" onclick="toggleRaioXMercado('${p.nome.replace(/'/g, "\\'")}', ${idx})">📊 Raio-X</button>
                     ${btnEdit}
                     ${btnChamarVolta}
                     ${btnExc}
-                </td>
-            </tr>
-            <tr id="raiox-mercado-row-${idx}" class="row-raiox" style="display:none;">
-                <td colspan="${mostrarColunaValor ? 7 : 6}">
+                </div>
+                <div id="raiox-mercado-row-${idx}" class="transfer-card-expand" style="display:none;">
                     <div class="raiox-container"><div id="raiox-dados-mercado-${idx}"></div><div style="height: 350px;"><canvas id="canvas-raiox-mercado-${idx}"></canvas></div></div>
-                </td>
-            </tr>`;
+                </div>`;
+            lista.appendChild(card);
        });
-       if(!achou) tbody.innerHTML = `<tr><td colspan="${mostrarColunaValor ? 7 : 6}" style="text-align:center; padding: 25px;">Nenhum jogador.</td></tr>`;
    }
 
         function toggleRaioXMercado(nome, idx) {
-            let row = document.getElementById(`raiox-mercado-row-${idx}`);
-            if (row.style.display === 'none') { document.querySelectorAll('.row-raiox').forEach(el => el.style.display = 'none'); row.style.display = 'table-row'; renderizarDadosRaioX(nome, `canvas-raiox-mercado-${idx}`, `raiox-dados-mercado-${idx}`); } 
-            else { row.style.display = 'none'; }
+            let painel = document.getElementById(`raiox-mercado-row-${idx}`);
+            if (painel.style.display === 'none') { document.querySelectorAll('.transfer-card-expand').forEach(el => el.style.display = 'none'); painel.style.display = 'block'; renderizarDadosRaioX(nome, `canvas-raiox-mercado-${idx}`, `raiox-dados-mercado-${idx}`); }
+            else { painel.style.display = 'none'; }
         }
 
         function toggleSection(id) { let el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }

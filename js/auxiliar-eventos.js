@@ -375,22 +375,6 @@ Exemplo do formato exigido:
             }
         }
 
-        function aplicarCartaoVermelho() {
-            let nome = document.getElementById('select-jogador-condicao').value;
-            if(!nome) return alert("Por favor, selecione um jogador.");
-            
-            let jogador = db[currentSave].plantel.find(p => p.nome === nome);
-            if(jogador) {
-                garantirCondicaoFisica(jogador);
-                jogador.suspensoVermelho = true;
-                salvarDados();
-                if(currentSave === 'clube') atualizarPlantelUI();
-                atualizarDepartamentoMedicoUI();
-                if (typeof registrarAcaoJogo === 'function') registrarAcaoJogo(`Cartão vermelho: ${nome}`);
-                alert(`🟥 ${nome} está suspenso pelo próximo jogo devido a um Cartão Vermelho.`);
-            }
-        }
-
 // Cole AQUI o seu primeiro bloco de código:
         // FUNÇÕES AUXILIARES DE RISCO (Adicione em qualquer lugar no seu JS)
         function game_over_demissao() {
