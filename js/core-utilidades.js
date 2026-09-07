@@ -43,7 +43,11 @@ async function chamarIA(corpo, timeoutMs) {
         throw new Error('Sessão expirada — recarregue a página e entre de novo para usar a IA.');
     }
     if (resposta.status === 429) {
-        throw new Error('Muitas consultas à IA em pouco tempo. Espere um instante e tente de novo.');
+        // O Worker manda o motivo exato no corpo (limite por minuto vs. limite diário) — sem
+        // isso as duas situações (espera alguns segundos vs. só volta amanhã) pareciam idênticas.
+        let motivo = 'Muitas consultas à IA em pouco tempo. Espere um instante e tente de novo.';
+        try { motivo = (await resposta.json()).erro || motivo; } catch (e) {}
+        throw new Error(motivo);
     }
     return await resposta.json();
 }
