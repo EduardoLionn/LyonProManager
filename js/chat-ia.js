@@ -841,7 +841,10 @@ ${textoRegrasCompatibilidadePosicional()}
 
             let boxBanco = document.getElementById('banco-sugestao-auxiliar');
             if (boxBanco) {
-                let listaReservas = (reservas || []).filter(r => r && r.nome);
+                // Mesma rede de segurança de declararPartidaIA, aplicada também na renderização —
+                // cobre planos já salvos antes desse fix, sem precisar gerar a sugestão de novo.
+                let titularesNomesRender = new Set(Object.values(escalacaoMap || {}).map(j => j && j.nome).filter(Boolean));
+                let listaReservas = (reservas || []).filter(r => r && r.nome && !titularesNomesRender.has(r.nome));
                 if (listaReservas.length) {
                     boxBanco.innerHTML = `<h4 style="margin:0 0 10px 0; font-size:13px; color:var(--text-muted); text-transform:uppercase;">🪑 Banco <span style="font-weight:normal; text-transform:none;">(clique pra ver como cada um pode entrar)</span></h4>
                         <div class="banco-reservas-grid">
@@ -2730,7 +2733,13 @@ ${textoRegrasCompatibilidadePosicional()}
                         escalacao: res.escalacao,
                         funcoesPorRole: funcoesPorRole,
                         reservas: (() => {
-                            let lista = (typeof garantirGoleiroNoBanco === 'function') ? garantirGoleiroNoBanco(res.reservas, res.escalacao) : (Array.isArray(res.reservas) ? res.reservas : []);
+                            // Rede de segurança final: um titular NUNCA pode aparecer no banco também —
+                            // seja porque a IA (texto livre) escreveu o mesmo nome nos dois campos, seja
+                            // porque a formação escolhida ficou sem cálculo próprio (escalacaoFixaEscolhida
+                            // vazio) e o banco caiu pro que a IA sugeriu sem passar pelo motor determinístico.
+                            let titularesNomes = new Set(Object.values(res.escalacao || {}).map(j => j && j.nome).filter(Boolean));
+                            let reservasSemDuplicata = (Array.isArray(res.reservas) ? res.reservas : []).filter(r => !(r && titularesNomes.has(r.nome)));
+                            let lista = (typeof garantirGoleiroNoBanco === 'function') ? garantirGoleiroNoBanco(reservasSemDuplicata, res.escalacao) : reservasSemDuplicata;
                             return (typeof ordenarBancoPorPosicao === 'function') ? ordenarBancoPorPosicao(lista) : lista;
                         })(),
                         alertaRotacao: alertaRotacao,
