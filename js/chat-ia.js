@@ -2502,7 +2502,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     alert('Não consegui montar o plano a partir disso. Tente de novo ou digite o nome do adversário.');
                 }
             } catch (e) {
-                alert('Erro ao analisar o adversário. Verifique sua conexão e tente novamente.');
+                alert(mensagemErroIA(e));
             }
             btn.innerText = '▶️ Prosseguir com Escalação'; btn.disabled = false;
         }
