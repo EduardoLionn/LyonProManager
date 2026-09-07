@@ -48,8 +48,17 @@ async function chamarIA(corpo, timeoutMs) {
         // Idem: o Worker distingue "nunca logou"/"token de outro projeto"/"token vencido" — expor
         // qual dessas é ajuda a saber se é mesmo sessão vencida ou outra causa (ex: bloqueador de
         // terceiros cortando o Authorization, cache de login corrompido etc.).
-        let motivo = 'Sessão expirada — recarregue a página e entre de novo para usar a IA.';
-        try { motivo = (await resposta.json()).erro || motivo; } catch (e) {}
+        // DIAGNÓSTICO TEMPORÁRIO: um treinador relatou esse erro mesmo logo depois de logar de
+        // novo (então não é sessão vencida de verdade) — se o corpo não vier no formato esperado
+        // {erro: "..."}, mostra o texto cru da resposta pra dar pra ver o que está voltando sem
+        // precisar abrir o DevTools (impossível no celular dele).
+        let bruto = '';
+        try { bruto = await resposta.text(); } catch (e) {}
+        let motivo = null;
+        try { motivo = JSON.parse(bruto).erro; } catch (e) {}
+        if (!motivo) {
+            motivo = `Sessão expirada (diagnóstico: HTTP ${resposta.status}, resposta do servidor: "${(bruto || '(vazio)').slice(0, 300)}")`;
+        }
         throw new Error(motivo);
     }
     if (resposta.status === 429) {
