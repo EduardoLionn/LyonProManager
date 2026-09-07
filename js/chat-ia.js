@@ -1185,11 +1185,16 @@ ${textoRegrasCompatibilidadePosicional()}
                 notaMediaFn: notaMediaUltimos5JogosJogador,
                 pesoPreparoFisico: 0.35
             },
+            'rodar-time-todo': {
+                nome: 'Rodar Time Todo (Recondicionar Elenco)',
+                descricaoIA: 'Priorizar minutos pra quem está fora de ritmo, sem limite: mesmo cálculo base (OVR + desempenho recente) com a mesma penalidade por fadiga CÚBICA da Rotação Equilibrada, mas o Preparo Físico não desconta pontos — ele SOMA. Quem está com o Preparo Físico abaixo de 60% recebe um bônus proporcional a quanto falta pra esse patamar, podendo superar um titular bem mais forte tecnicamente: é a versão mais radical, pra sacudir o elenco inteiro de uma vez, mesmo abrindo mão de qualidade técnica pra isso. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaRodarTimeTodo,
+                pesoPreparoFisico: -0.4
+            },
             'dar-ritmo': {
                 nome: 'Dar Ritmo de Jogo (Recondicionar Elenco)',
-                descricaoIA: 'Priorizar minutos pra quem está fora de ritmo: mesmo cálculo base (OVR + desempenho recente) com a mesma penalidade por fadiga CÚBICA da Rotação Equilibrada, mas o Preparo Físico não desconta pontos — ele SOMA. Quem está com o Preparo Físico abaixo de 60% recebe um bônus proporcional a quanto falta pra esse patamar, podendo superar um titular mais em forma técnica: é uma escolha deliberada de dar minutos a quem precisa recuperar o ritmo (o Preparo Físico só sobe jogando partidas de verdade). A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
-                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaDarRitmo,
-                pesoPreparoFisico: -0.4
+                descricaoIA: 'Versão moderada de dar minutos a quem está fora de ritmo: em vez de um bônus livre na pontuação, funciona por COTA — no máximo 70% dos relacionados (titulares + banco) são preenchidos priorizando quem está com o Preparo Físico abaixo de 60%, sempre respeitando a posição de cada um; os outros 30% (no mínimo) seguem a seleção técnica normal (OVR + desempenho recente, penalidade de fadiga cúbica). Isso evita forçar a barra: um jogador com Preparo Físico zerado mas muito abaixo do nível do resto do elenco não entra só por estar despreparado. A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                selecionarEscalacaoEBanco: montarRelacionadosDarRitmo
             }
         };
 
@@ -1247,6 +1252,42 @@ ${textoRegrasCompatibilidadePosicional()}
             if (alinhamento <= 0) return 0;
             const FATOR_ESCALA = 1.2;
             return Math.round(alinhamento * FATOR_ESCALA * 10) / 10;
+        }
+
+        // =====================================================================================
+        // IMPROVISO DE POSIÇÃO SÓ EM FOCO EXTREMO (pedido do treinador): um jogador com mais de
+        // uma posição no catálogo (ex: Zagueiro/Construtor também serve de Volante) tem, mesmo
+        // assim, uma posição PRIMÁRIA — o grupo de função que corresponde à sigla da posição dele
+        // (Zagueiro/... -> grupo "zagueiro"). Os outros grupos listados em gruposFuncao são
+        // IMPROVISO: tecnicamente cobertos, mas não é a posição dele. Antes, a escalação
+        // automática usava esse improviso sempre que precisasse (às vezes escalando o Zagueiro/
+        // Construtor no meio mesmo com um Volante de nível parecido sobrando no banco, sem sentido
+        // nenhum). Agora, na escalação AUTOMÁTICA, o improviso só entra quando o Foco Tático da
+        // partida é EXTREMO (|intensidade| >= 2 — Extremamente Ofensivo/Defensivo, Tudo ou Nada) E
+        // o perfil da especialidade puxa pra MESMA direção do foco (defesa/extremamente_defensivo,
+        // ataque-fisico/extremamente_ofensivo-tudo_ou_nada) — nunca no sentido contrário. A troca
+        // MANUAL de jogador em campo continua livre, sem essa trava (usa posicaoCompativelComRole
+        // puro, como sempre usou).
+        // =====================================================================================
+        const GRUPO_PRIMARIO_POR_PREFIXO = {
+            Goleiro: 'goleiro', Zagueiro: 'zagueiro', Lateral: 'lateral', Volante: 'volante',
+            MeioCampo: 'meio_campo_central', Ponta: 'ponta', Atacante: 'atacante'
+        };
+        function grupoPrimarioDaPosicao(posicaoJogador) {
+            let prefixo = String(posicaoJogador || '').split('/')[0];
+            return GRUPO_PRIMARIO_POR_PREFIXO[prefixo] || null;
+        }
+        function posicaoCompativelComRoleAutomatico(role, posicaoJogador, focoPartidaId) {
+            if (!posicaoCompativelComRole(role, posicaoJogador)) return false;
+            let grupoDoRole = grupoFuncaoDoRole(role);
+            let grupoPrimario = grupoPrimarioDaPosicao(posicaoJogador);
+            if (!grupoPrimario || grupoDoRole === grupoPrimario) return true; // posição de carteirinha — sempre livre
+
+            let intensidade = FOCO_INTENSIDADE_TATICA[focoPartidaId] || 0;
+            if (Math.abs(intensidade) < 2) return false; // só foco extremo libera improviso
+            let especialidade = ESPECIALIDADES_JOGADOR[posicaoJogador];
+            let tendencia = especialidade ? PERFIL_TENDENCIA_OFENSIVA[especialidade.perfil] : 0;
+            return (tendencia * intensidade) > 0; // só quando os dois puxam pro mesmo lado
         }
 
         // Chamado pelo onchange do select — grava a escolha no save (currentSave) assim que o
@@ -1753,18 +1794,22 @@ ${textoRegrasCompatibilidadePosicional()}
             return Math.round((notaBase - penalidade) * 10) / 10;
         }
 
-        // Pedido do treinador pra nova diretriz "Dar Ritmo de Jogo": a MESMA nota_base e a MESMA
-        // curva de penalidade por fadiga CÚBICA da Rotação Equilibrada — o que muda de verdade não
-        // é a fadiga, é o Preparo Físico. Em vez de descontar pontos de quem está fora de ritmo
-        // (como penalidadePorPreparoFisico faz pra todas as outras diretrizes), esta usa um
-        // "pesoPreparoFisico" NEGATIVO no catálogo (ver DIRETRIZES_ESTRATEGICAS['dar-ritmo']): o
-        // mesmo cálculo de sempre (deficit_pra_60 * peso) vira um valor negativo, e como ele é
+        // Pedido do treinador pra diretriz "Rodar Time Todo" (a versão radical/sem-teto do que
+        // era "Dar Ritmo de Jogo" — a versão nova, com cota de 70%, tem seu próprio motor mais
+        // abaixo, montarRelacionadosDarRitmo): a MESMA nota_base e a MESMA curva de penalidade por
+        // fadiga CÚBICA da Rotação Equilibrada — o que muda de verdade não é a fadiga, é o Preparo
+        // Físico. Em vez de descontar pontos de quem está fora de ritmo (como
+        // penalidadePorPreparoFisico faz pra todas as outras diretrizes), esta usa um
+        // "pesoPreparoFisico" NEGATIVO no catálogo (ver DIRETRIZES_ESTRATEGICAS['rodar-time-todo']):
+        // o mesmo cálculo de sempre (deficit_pra_60 * peso) vira um valor negativo, e como ele é
         // SUBTRAÍDO da pontuação efetiva no motor, subtrair um negativo SOMA pontos — sem precisar
-        // de nenhuma fórmula nova só pra inverter o sinal.
+        // de nenhuma fórmula nova só pra inverter o sinal. Sem teto: pode escalar qualquer OVR se
+        // o resto do elenco estiver mais fora de forma ainda — é a escolha deliberada de quem quer
+        // sacudir o time inteiro de uma vez, mesmo perdendo força técnica.
         //
         //   penalidade_fadiga = (fadiga_atual / 100)^3 * 60      [igual à Rotação Equilibrada]
         //   bônus_preparo_fisico = max(0, 60 - preparo_fisico) * 0.4   [aplicado fora, no motor]
-        function calcularPontuacaoEfetivaDarRitmo(ovr, notaMedia, fadigaAtual) {
+        function calcularPontuacaoEfetivaRodarTimeTodo(ovr, notaMedia, fadigaAtual) {
             let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
             let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
             let penalidade = Math.pow(fadiga / 100, 3) * 60;
@@ -1773,8 +1818,8 @@ ${textoRegrasCompatibilidadePosicional()}
 
         // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
         // escalação, sem passar pelo catálogo.
-        function selecionarEscalacaoDarRitmo(esquema) {
-            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaDarRitmo, null, -0.4);
+        function selecionarEscalacaoRodarTimeTodo(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaRodarTimeTodo, null, -0.4);
         }
 
         // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
@@ -1807,18 +1852,20 @@ ${textoRegrasCompatibilidadePosicional()}
         // e as funções táticas da formação, e devolve {ROLE: "Nome"}. Usado tanto por
         // selecionarEscalacaoPorPontuacao (candidatos = elenco inteiro disponível) quanto pela
         // diretriz "Dar Oportunidade à Base/Jovens" (candidatos = só quem entrou na cota).
-        function alocarPorPosicaoKuhn(candidatosOrdenados, roles) {
+        function alocarPorPosicaoKuhn(candidatosOrdenados, roles, focoPartidaId) {
             let posicaoPorNome = {};
             candidatosOrdenados.forEach(c => { posicaoPorNome[c.jogador.nome] = c.jogador.posicao; });
 
             let ocupantePorRole = {}; // role -> nome do jogador titular naquela função
 
             // Caminho aumentante clássico de Kuhn: tenta alocar "nomeJogador" numa função livre
-            // compatível; se todas as compatíveis já estiverem ocupadas, tenta primeiro liberar uma
-            // delas realocando o ocupante atual pra outra função compatível dele.
+            // compatível (posição de carteirinha sempre, improviso só em foco extremo alinhado —
+            // ver posicaoCompativelComRoleAutomatico); se todas as compatíveis já estiverem
+            // ocupadas, tenta primeiro liberar uma delas realocando o ocupante atual pra outra
+            // função compatível dele.
             function tentarAlocar(nomeJogador, visitadas) {
                 for (let role of roles) {
-                    if (visitadas.has(role) || !posicaoCompativelComRole(role, posicaoPorNome[nomeJogador])) continue;
+                    if (visitadas.has(role) || !posicaoCompativelComRoleAutomatico(role, posicaoPorNome[nomeJogador], focoPartidaId)) continue;
                     visitadas.add(role);
                     let ocupanteAtual = ocupantePorRole[role];
                     if (!ocupanteAtual || tentarAlocar(ocupanteAtual, visitadas)) {
@@ -1915,17 +1962,33 @@ ${textoRegrasCompatibilidadePosicional()}
             });
             if (!roles.length || !candidatos.length) return {};
 
+            // Elegibilidade pra função exigida: se a Afinidade Tática (0 a 5, ver AFINIDADE_TATICA em
+            // funcoes-ea.js) não tem entrada pro par (especialidade do jogador, função exigida ali), o
+            // jogador NÃO JOGA naquela função — não é "joga mal", é inelegível mesmo (confirmado pelo
+            // treinador: "oq n tiver, é pq n joga... agr n é só posição q conta, tem a posição e a
+            // função"). Sem função exigida (foco sem Matriz Dinâmica pra esse grupo), só a compatibilidade
+            // de grupo (posicaoCompativelComRole) decide.
+            function elegivelParaFuncao(role, jogador) {
+                let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
+                if (!funcaoExigida) return true;
+                let grupo = grupoFuncaoDoRole(role);
+                return afinidadeTatica(jogador.posicao, grupo, funcaoExigida) > 0;
+            }
+
             // Peso de cada par (função-do-campinho, jogador): pontuação efetiva da diretriz, mais o
-            // bônus de perfil alinhado ao Foco Tático da partida, menos 8 se a especialidade do
-            // jogador não tiver a função exigida ali cadastrada.
+            // bônus de perfil alinhado ao Foco Tático da partida, menos uma penalidade graduada pela
+            // Afinidade Tática entre a especialidade do jogador e a função exigida ali — afinidade 5
+            // (encaixe perfeito) não penaliza, afinidade 1 (o mínimo pra ser elegível) penaliza o mesmo
+            // tanto que a antiga regra binária ("não cobre" = -8, mas hoje isso já bloqueia antes de
+            // chegar aqui — ver elegivelParaFuncao), com gradação linear entre os dois extremos.
+            const _FATOR_PENALIDADE_AFINIDADE = 2; // (5 - afinidade) * 2 → 0 (afinidade 5) até 8 (afinidade 1)
             function peso(role, jogador) {
                 let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0) - penalidadePorPreparoFisico(jogador.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(jogador.posicao, focoPartidaId);
                 let grupo = grupoFuncaoDoRole(role);
                 let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
                 if (!funcaoExigida) return base; // Foco sem função definida pra esse grupo — sem penalidade
-                let especialidade = ESPECIALIDADES_JOGADOR[jogador.posicao];
-                let cobre = especialidade && especialidade.gruposFuncao[grupo] && especialidade.gruposFuncao[grupo].includes(funcaoExigida);
-                return cobre ? base : base - 8;
+                let afinidade = afinidadeTatica(jogador.posicao, grupo, funcaoExigida);
+                return base - (5 - afinidade) * _FATOR_PENALIDADE_AFINIDADE;
             }
 
             let n = roles.length, m = Math.max(candidatos.length, roles.length);
@@ -1934,7 +1997,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 let linha = [];
                 for (let j = 0; j < m; j++) {
                     let jogador = candidatos[j];
-                    if (!jogador || !posicaoCompativelComRole(roles[i], jogador.posicao)) { linha.push(_CUSTO_INCOMPATIVEL_AFINIDADE); continue; }
+                    if (!jogador || !posicaoCompativelComRole(roles[i], jogador.posicao) || !elegivelParaFuncao(roles[i], jogador)) { linha.push(_CUSTO_INCOMPATIVEL_AFINIDADE); continue; }
                     linha.push(-peso(roles[i], jogador));
                 }
                 custo.push(linha);
@@ -1964,9 +2027,8 @@ ${textoRegrasCompatibilidadePosicional()}
                 let jogador = db[currentSave].plantel.find(p => p.nome === nome);
                 if (!jogador) return null;
                 let grupo = grupoFuncaoDoRole(role);
-                let especialidade = ESPECIALIDADES_JOGADOR[jogador.posicao];
-                let cobre = especialidade && especialidade.gruposFuncao[grupo] && especialidade.gruposFuncao[grupo].includes(funcaoExigida);
-                if (cobre) return null;
+                let afinidade = afinidadeTatica(jogador.posicao, grupo, funcaoExigida);
+                if (afinidade >= 3) return null; // encaixe razoável ou melhor — não precisa justificar
                 let nomeFuncao = (GRUPOS_FUNCAO_EA[grupo] && GRUPOS_FUNCAO_EA[grupo].funcoes.find(f => f.id === funcaoExigida) || {}).nome || funcaoExigida;
                 return { role, nome: jogador.nome, posicao: jogador.posicao, funcaoExigida: nomeFuncao };
             }).filter(Boolean);
@@ -1996,7 +2058,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(p.posicao, focoPartidaId)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
-            return alocarPorPosicaoKuhn(candidatos, roles);
+            return alocarPorPosicaoKuhn(candidatos, roles, focoPartidaId);
         }
 
         // Atalhos diretos pra cada diretriz — usados pelos testes e por quem quiser calcular uma
@@ -2122,7 +2184,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // sobrou de maior pontuação geral (jovem ou veterano) — só DEPOIS disso organiza quem
         // joga em qual função tática (Kuhn, igual às outras diretrizes), sempre só entre quem já
         // entrou nos relacionados pela cota.
-        function montarRelacionadosOportunidadeJovens(esquema) {
+        function montarRelacionadosOportunidadeJovens(esquema, focoPartidaId) {
             let coords = coordsFormacoes[esquema];
             if (!coords || !db[currentSave]) return null;
             let roles = coords.map(c => c.role);
@@ -2170,7 +2232,7 @@ ${textoRegrasCompatibilidadePosicional()}
 
             // Titulares: Kuhn só entre os relacionados já escolhidos pela cota — "os 11 com
             // maiores notas efetivas assumem a titularidade, jovens ou não" (pedido, passo 4).
-            let escalacao = alocarPorPosicaoKuhn(relacionados, roles);
+            let escalacao = alocarPorPosicaoKuhn(relacionados, roles, focoPartidaId);
 
             // Caso raro de inviabilidade posicional (a cota deixou de fora o único jogador
             // compatível com alguma função): completa só o que sobrou vazio puxando o resto do
@@ -2178,7 +2240,7 @@ ${textoRegrasCompatibilidadePosicional()}
             // sem titular só por causa da cota, se existir alguém compatível no elenco.
             if (Object.keys(escalacao).length < roles.length) {
                 let foraDosRelacionados = listaGeralDesc.filter(c => !nomesRelacionados.has(c.jogador.nome));
-                escalacao = alocarPorPosicaoKuhn(relacionados.concat(foraDosRelacionados), roles);
+                escalacao = alocarPorPosicaoKuhn(relacionados.concat(foraDosRelacionados), roles, focoPartidaId);
                 Object.values(escalacao).forEach(nome => {
                     if (!nomesRelacionados.has(nome)) {
                         nomesRelacionados.add(nome);
@@ -2218,8 +2280,133 @@ ${textoRegrasCompatibilidadePosicional()}
 
         // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
         // escalação, sem os detalhes de banco/cota.
-        function selecionarEscalacaoOportunidadeJovens(esquema) {
-            let resultado = montarRelacionadosOportunidadeJovens(esquema);
+        function selecionarEscalacaoOportunidadeJovens(esquema, focoPartidaId) {
+            let resultado = montarRelacionadosOportunidadeJovens(esquema, focoPartidaId);
+            return resultado ? resultado.escalacao : null;
+        }
+
+        // =====================================================================================
+        // DIRETRIZ "DAR RITMO DE JOGO" (versão moderada, com teto) — pedido do treinador: a
+        // versão sem-teto anterior (bônus livre na pontuação) forçava demais a barra, chegando a
+        // escalar jogador de OVR bem baixo só por estar com o Preparo Físico zerado; essa versão
+        // virou "Rodar Time Todo" (ver calcularPontuacaoEfetivaRodarTimeTodo, acima). Esta aqui
+        // segue o MESMO molde de cota da "Dar Oportunidade à Base/Jovens" — no máximo 70% dos
+        // relacionados (titulares + banco) favorecem quem está fora de forma; o resto (no mínimo
+        // 30%) segue sempre a seleção técnica normal, então o time nunca fica dominado só por
+        // quem está mal preparado.
+        // =====================================================================================
+
+        // "despreparado" pra fins de cota: o mesmo limiar de 60% já usado em
+        // penalidadePorPreparoFisico (onde o desconto começa pra todas as outras diretrizes).
+        function ehDespreparado(p) {
+            return Number(p.preparoFisico) < 60;
+        }
+
+        // Monta os RELACIONADOS (titulares + banco) da diretriz "Dar Ritmo de Jogo": separa o
+        // elenco em despreparados/preparados por pontuação efetiva (a mesma curva CÚBICA da
+        // Rotação Equilibrada, sem bônus nenhum de Preparo Físico — quem prioriza é a cota, não a
+        // pontuação), preenche até 70% das vagas totais com os despreparados de maior pontuação e
+        // o resto com quem sobrou de maior pontuação geral (despreparado ou não) — só DEPOIS disso
+        // organiza quem joga em qual função tática (Kuhn, igual às outras diretrizes), sempre só
+        // entre quem já entrou nos relacionados pela cota.
+        function montarRelacionadosDarRitmo(esquema, focoPartidaId) {
+            let coords = coordsFormacoes[esquema];
+            if (!coords || !db[currentSave]) return null;
+            let roles = coords.map(c => c.role);
+            let plantel = db[currentSave].plantel;
+
+            let candidatos = plantel.filter(p => {
+                if (p.status !== 'Ativo') return false;
+                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                if (currentSave === 'selecao' && p.convocado === false) return false;
+                return true;
+            }).map(p => ({
+                jogador: p,
+                despreparado: ehDespreparado(p),
+                pontuacaoEfetiva: calcularPontuacaoEfetivaRotacaoEquilibrada(p.ovr, notaMediaEscaladaJogador(p), p.fadiga || 0)
+            }));
+
+            let listaDespreparados = candidatos.filter(c => c.despreparado).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+            let listaPreparados = candidatos.filter(c => !c.despreparado).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+            let listaGeralDesc = candidatos.slice().sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+
+            // VAGAS_TOTAIS_RELACIONADOS_JOVENS é genérico (11 titulares + 9 do banco = 20), apesar
+            // do nome — a mesma estrutura fixa vale pra qualquer diretriz baseada em cota.
+            let vagasTotais = Math.min(VAGAS_TOTAIS_RELACIONADOS_JOVENS, candidatos.length);
+            let cotaDespreparados = Math.min(listaDespreparados.length, Math.floor(vagasTotais * 0.7));
+
+            let relacionados = listaDespreparados.slice(0, cotaDespreparados);
+            let nomesRelacionados = new Set(relacionados.map(c => c.jogador.nome));
+
+            // Preenche o restante das vagas só com quem está PREPARADO (diferente da cota de
+            // jovens, que preenche com "o melhor geral, jovem ou não") — o teto de 70% é um
+            // limite de verdade, então o excedente de despreparados nunca pode furar a cota
+            // entrando "por trás" só por ter pontuação técnica mais alta. Só recorre a mais
+            // despreparados se não sobrar gente preparada suficiente pra fechar as vagas.
+            listaPreparados.forEach(c => {
+                if (relacionados.length >= vagasTotais || nomesRelacionados.has(c.jogador.nome)) return;
+                relacionados.push(c);
+                nomesRelacionados.add(c.jogador.nome);
+            });
+            if (relacionados.length < vagasTotais) {
+                listaGeralDesc.forEach(c => {
+                    if (relacionados.length >= vagasTotais || nomesRelacionados.has(c.jogador.nome)) return;
+                    relacionados.push(c);
+                    nomesRelacionados.add(c.jogador.nome);
+                });
+            }
+            relacionados.sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
+
+            // Titulares: Kuhn só entre os relacionados já escolhidos pela cota.
+            let escalacao = alocarPorPosicaoKuhn(relacionados, roles, focoPartidaId);
+
+            // Caso raro de inviabilidade posicional (a cota deixou de fora o único jogador
+            // compatível com alguma função): completa só o que sobrou vazio puxando o resto do
+            // elenco disponível, na ordem de pontuação efetiva — nunca deixa uma função tática
+            // sem titular só por causa da cota, se existir alguém compatível no elenco.
+            if (Object.keys(escalacao).length < roles.length) {
+                let foraDosRelacionados = listaGeralDesc.filter(c => !nomesRelacionados.has(c.jogador.nome));
+                escalacao = alocarPorPosicaoKuhn(relacionados.concat(foraDosRelacionados), roles, focoPartidaId);
+                Object.values(escalacao).forEach(nome => {
+                    if (!nomesRelacionados.has(nome)) {
+                        nomesRelacionados.add(nome);
+                        let extra = foraDosRelacionados.find(c => c.jogador.nome === nome);
+                        if (extra) relacionados.push(extra);
+                    }
+                });
+            }
+
+            // Banco: estrutura fixa de sempre, priorizando quem já está nos relacionados (dentro
+            // da cota) e só recorrendo ao resto do elenco se alguma linha ficar sem candidato
+            // compatível na cota.
+            let nomesTitulares = new Set(Object.values(escalacao));
+            let poolRelacionados = relacionados.filter(c => !nomesTitulares.has(c.jogador.nome));
+            let poolResto = candidatos.filter(c => !nomesRelacionados.has(c.jogador.nome) && !nomesTitulares.has(c.jogador.nome));
+            let paraCategoria = (lista) => lista
+                .slice()
+                .sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva)
+                .map(c => ({ jogador: c.jogador, categoria: String(c.jogador.posicao).split('/')[0], pontuacaoEfetiva: c.pontuacaoEfetiva }));
+            let candidatosBanco = paraCategoria(poolRelacionados).concat(paraCategoria(poolResto));
+
+            let banco = [];
+            let usadosNoBanco = new Set();
+            BANCO_RESERVA_ESTRUTURA.forEach(grupo => {
+                candidatosBanco
+                    .filter(c => grupo.categorias.includes(c.categoria) && !usadosNoBanco.has(c.jogador.nome))
+                    .slice(0, grupo.vagas)
+                    .forEach(c => {
+                        usadosNoBanco.add(c.jogador.nome);
+                        banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: `Reserva de ${grupo.rotulo}` });
+                    });
+            });
+
+            return { escalacao, banco, relacionados, listaDespreparados, listaPreparados };
+        }
+
+        // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
+        // escalação, sem os detalhes de banco/cota.
+        function selecionarEscalacaoDarRitmo(esquema, focoPartidaId) {
+            let resultado = montarRelacionadosDarRitmo(esquema, focoPartidaId);
             return resultado ? resultado.escalacao : null;
         }
 
@@ -2347,7 +2534,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 }
             } else if (diretrizInfo.selecionarEscalacaoEBanco) {
                 formacoesPreferidasIA.forEach(esq => {
-                    let resultado = diretrizInfo.selecionarEscalacaoEBanco(esq);
+                    let resultado = diretrizInfo.selecionarEscalacaoEBanco(esq, focoPartidaId);
                     if (resultado && resultado.escalacao) {
                         escalacoesFixasPorFormacao[esq] = resultado.escalacao;
                         bancosFixosPorFormacao[esq] = resultado.banco;
