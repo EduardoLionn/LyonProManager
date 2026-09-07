@@ -17,7 +17,12 @@ async function chamarIA(corpo, timeoutMs) {
     let cabecalhos = { 'Content-Type': 'application/json' };
     try {
         let user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
-        if (user) cabecalhos['Authorization'] = 'Bearer ' + await user.getIdToken();
+        // Força renovar o token em vez de usar o cache do SDK: com a aba em segundo plano
+        // (tela apagada, trocou de app no celular) o timer de renovação automática do Firebase
+        // não roda, então na volta o token em cache já podia estar vencido mesmo com poucos
+        // minutos de uso real — e cada chamada de IA só acontece de vez em quando, não a cada
+        // poucos segundos, então o request extra de renovação não pesa.
+        if (user) cabecalhos['Authorization'] = 'Bearer ' + await user.getIdToken(true);
     } catch (e) {
         // Sem token: o Worker vai recusar. Melhor recusar do que virar proxy aberto.
     }
@@ -40,7 +45,12 @@ async function chamarIA(corpo, timeoutMs) {
     }
 
     if (resposta.status === 401 || resposta.status === 403) {
-        throw new Error('Sessão expirada — recarregue a página e entre de novo para usar a IA.');
+        // Idem: o Worker distingue "nunca logou"/"token de outro projeto"/"token vencido" — expor
+        // qual dessas é ajuda a saber se é mesmo sessão vencida ou outra causa (ex: bloqueador de
+        // terceiros cortando o Authorization, cache de login corrompido etc.).
+        let motivo = 'Sessão expirada — recarregue a página e entre de novo para usar a IA.';
+        try { motivo = (await resposta.json()).erro || motivo; } catch (e) {}
+        throw new Error(motivo);
     }
     if (resposta.status === 429) {
         // O Worker manda o motivo exato no corpo (limite por minuto vs. limite diário) — sem
