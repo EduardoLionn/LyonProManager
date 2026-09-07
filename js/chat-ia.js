@@ -1184,14 +1184,20 @@ ${textoRegrasCompatibilidadePosicional()}
                 calcularPontuacaoEfetiva: calcularPontuacaoEfetivaEmMelhorMomento,
                 notaMediaFn: notaMediaUltimos5JogosJogador,
                 pesoPreparoFisico: 0.35
+            },
+            'dar-ritmo': {
+                nome: 'Dar Ritmo de Jogo (Recondicionar Elenco)',
+                descricaoIA: 'Priorizar minutos pra quem está fora de ritmo: mesmo cálculo base (OVR + desempenho recente) com a mesma penalidade por fadiga CÚBICA da Rotação Equilibrada, mas o Preparo Físico não desconta pontos — ele SOMA. Quem está com o Preparo Físico abaixo de 60% recebe um bônus proporcional a quanto falta pra esse patamar, podendo superar um titular mais em forma técnica: é uma escolha deliberada de dar minutos a quem precisa recuperar o ritmo (o Preparo Físico só sobe jogando partidas de verdade). A escalação NÃO é mais uma decisão sua, é um dado já calculado (veja o bloco "TITULARES JÁ DEFINIDOS" abaixo).',
+                calcularPontuacaoEfetiva: calcularPontuacaoEfetivaDarRitmo,
+                pesoPreparoFisico: -0.4
             }
         };
 
         // =====================================================================================
-        // FOCO TÁTICO DA PARTIDA — pedido do treinador: por enquanto só captura a escolha (o
-        // "estado" fica salvo no save, pronto pra alimentar uma lógica futura de formação ideal,
-        // altura da linha defensiva e perfis de jogadores por posição). NENHUMA dessas
-        // diretrizes/cálculos usa este valor ainda — é só o campo + a persistência dele.
+        // FOCO TÁTICO DA PARTIDA — captura a escolha (o "estado" fica salvo no save) e, desde o
+        // bônus de perfil abaixo, também influencia QUEM joga em cada posição (ver
+        // bonusFocoPorPerfil). O resto (formação ideal, altura da linha defensiva) ainda não usa
+        // este valor fora de um Estilo de Jogo refinado ativo (Gegenpressing/DNA/Personalizado).
         // =====================================================================================
         const FOCOS_TATICOS_PARTIDA = {
             'equilibrado': 'Equilibrado (Padrão)',
@@ -1202,6 +1208,46 @@ ${textoRegrasCompatibilidadePosicional()}
             'extremamente_defensivo': 'Extremamente Defensivo (Retranca)',
             'segura_o_jogo': 'Segurar o Jogo (Matar Tempo)'
         };
+
+        // =====================================================================================
+        // BÔNUS DE FOCO POR PERFIL DA ESPECIALIDADE (pedido do treinador): com foco Defensivo e
+        // dois laterais direitos disputando a mesma vaga — um Ala Clássico (perfil "amplitude") e
+        // outro Defensivo (perfil "defesa") — o Lateral Defensivo deve ganhar pontos a mais e
+        // levar o desempate. O bônus só reforça quem já "puxa" pro mesmo lado do foco (nunca
+        // penaliza quem puxa pro lado errado) e fica pequeno o bastante (no máximo ~6 pontos, bem
+        // menos que a diferença de nota_base entre um titular e um reserva claramente pior) pra
+        // continuar orgânico: se o alinhado for muito pior tecnicamente, ele ainda não leva a vaga.
+        // -2 = perfil bem defensivo · 0 = neutro · +2 = perfil bem ofensivo.
+        const PERFIL_TENDENCIA_OFENSIVA = {
+            defesa: -2,
+            equilibrado: 0,
+            criacao: 1,
+            amplitude: 1,
+            ataque: 2,
+            fisico: 2
+        };
+        // Quanto o Foco Tático da partida "puxa" pro lado ofensivo (positivo) ou defensivo
+        // (negativo) — Equilibrado não dá bônus nenhum (intensidade 0).
+        const FOCO_INTENSIDADE_TATICA = {
+            equilibrado: 0,
+            ofensivo: 1,
+            extremamente_ofensivo: 2,
+            tudo_ou_nada: 2.5,
+            defensivo: -1,
+            extremamente_defensivo: -2,
+            segura_o_jogo: -1.5
+        };
+        function bonusFocoPorPerfil(especialidadeJogador, focoId) {
+            let intensidade = FOCO_INTENSIDADE_TATICA[focoId];
+            if (!intensidade) return 0;
+            let def = ESPECIALIDADES_JOGADOR[especialidadeJogador];
+            let tendencia = def ? PERFIL_TENDENCIA_OFENSIVA[def.perfil] : undefined;
+            if (!tendencia) return 0;
+            let alinhamento = tendencia * intensidade; // só positivo quando os dois puxam pro mesmo lado
+            if (alinhamento <= 0) return 0;
+            const FATOR_ESCALA = 1.2;
+            return Math.round(alinhamento * FATOR_ESCALA * 10) / 10;
+        }
 
         // Chamado pelo onchange do select — grava a escolha no save (currentSave) assim que o
         // treinador muda, sem precisar de nenhum outro botão de salvar.
@@ -1707,6 +1753,30 @@ ${textoRegrasCompatibilidadePosicional()}
             return Math.round((notaBase - penalidade) * 10) / 10;
         }
 
+        // Pedido do treinador pra nova diretriz "Dar Ritmo de Jogo": a MESMA nota_base e a MESMA
+        // curva de penalidade por fadiga CÚBICA da Rotação Equilibrada — o que muda de verdade não
+        // é a fadiga, é o Preparo Físico. Em vez de descontar pontos de quem está fora de ritmo
+        // (como penalidadePorPreparoFisico faz pra todas as outras diretrizes), esta usa um
+        // "pesoPreparoFisico" NEGATIVO no catálogo (ver DIRETRIZES_ESTRATEGICAS['dar-ritmo']): o
+        // mesmo cálculo de sempre (deficit_pra_60 * peso) vira um valor negativo, e como ele é
+        // SUBTRAÍDO da pontuação efetiva no motor, subtrair um negativo SOMA pontos — sem precisar
+        // de nenhuma fórmula nova só pra inverter o sinal.
+        //
+        //   penalidade_fadiga = (fadiga_atual / 100)^3 * 60      [igual à Rotação Equilibrada]
+        //   bônus_preparo_fisico = max(0, 60 - preparo_fisico) * 0.4   [aplicado fora, no motor]
+        function calcularPontuacaoEfetivaDarRitmo(ovr, notaMedia, fadigaAtual) {
+            let notaBase = (Number(ovr) + Number(notaMedia)) / 2;
+            let fadiga = Math.max(0, Math.min(100, Number(fadigaAtual) || 0));
+            let penalidade = Math.pow(fadiga / 100, 3) * 60;
+            return Math.round((notaBase - penalidade) * 10) / 10;
+        }
+
+        // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
+        // escalação, sem passar pelo catálogo.
+        function selecionarEscalacaoDarRitmo(esquema) {
+            return selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaDarRitmo, null, -0.4);
+        }
+
         // Atalho direto pra diretriz — usado pelos testes e por quem quiser calcular só a
         // escalação, sem passar pelo catálogo.
         function selecionarEscalacaoEmMelhorMomento(esquema) {
@@ -1830,7 +1900,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // sempre que a especialidade do jogador não cobrir a função exigida ali (funcoesPorRole,
         // vinda da Matriz Dinâmica do Foco ativo — ver gerarRelatorioTaticoRefinadoPorFoco). Cada
         // par (função-do-campinho, jogador) tem seu PRÓPRIO peso — daí o Húngaro em vez do Kuhn.
-        function selecionarEscalacaoPorAfinidadeTatica(esquema, funcoesPorRole, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico) {
+        function selecionarEscalacaoPorAfinidadeTatica(esquema, funcoesPorRole, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId) {
             let coords = coordsFormacoes[esquema];
             if (!coords || !db[currentSave]) return null;
             let roles = coords.map(c => c.role);
@@ -1845,10 +1915,11 @@ ${textoRegrasCompatibilidadePosicional()}
             });
             if (!roles.length || !candidatos.length) return {};
 
-            // Peso de cada par (função-do-campinho, jogador): pontuação efetiva da diretriz,
-            // menos 8 se a especialidade do jogador não tiver a função exigida ali cadastrada.
+            // Peso de cada par (função-do-campinho, jogador): pontuação efetiva da diretriz, mais o
+            // bônus de perfil alinhado ao Foco Tático da partida, menos 8 se a especialidade do
+            // jogador não tiver a função exigida ali cadastrada.
             function peso(role, jogador) {
-                let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0) - penalidadePorPreparoFisico(jogador.preparoFisico, pesoPreparo);
+                let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0) - penalidadePorPreparoFisico(jogador.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(jogador.posicao, focoPartidaId);
                 let grupo = grupoFuncaoDoRole(role);
                 let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
                 if (!funcaoExigida) return base; // Foco sem função definida pra esse grupo — sem penalidade
@@ -1908,7 +1979,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // "pesoPreparoFisico" (rodada 80): peso da diretriz ativa (DIRETRIZES_ESTRATEGICAS.pesoPreparoFisico)
         // pra penalidadePorPreparoFisico — default 0.35 (peso "padrão") quando quem chama não passa
         // nada, pra atalhos antigos/testes que ainda não sabem desse parâmetro continuarem funcionando.
-        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico) {
+        function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId) {
             let coords = coordsFormacoes[esquema];
             if (!coords || !db[currentSave]) return null;
             let roles = coords.map(c => c.role);
@@ -1922,7 +1993,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 return true;
             }).map(p => ({
                 jogador: p,
-                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo)
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(p.posicao, focoPartidaId)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
             return alocarPorPosicaoKuhn(candidatos, roles);
@@ -1966,7 +2037,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // "notaMediaFn" opcional — mesma lógica de selecionarEscalacaoPorPontuacao acima: por
         // padrão notaMediaEscaladaJogador, mas a diretriz "Em Melhor Momento" passa a versão só
         // dos últimos 5 jogos, sem fallback pro OVR.
-        function montarBancoReserva(nomesJaEscalados, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico) {
+        function montarBancoReserva(nomesJaEscalados, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId) {
             if (!db[currentSave]) return [];
             let usados = new Set(nomesJaEscalados || []);
             let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
@@ -1980,7 +2051,7 @@ ${textoRegrasCompatibilidadePosicional()}
             }).map(p => ({
                 jogador: p,
                 categoria: String(p.posicao).split('/')[0],
-                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo)
+                pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(p.posicao, focoPartidaId)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
             let banco = [];
@@ -2221,7 +2292,9 @@ ${textoRegrasCompatibilidadePosicional()}
             //      trava aqui, antes dessa chamada extra).
             // Os dois devolvem exatamente o mesmo formato (`pacoteRefinado`), então todo o resto
             // desta função trata as duas situações de forma idêntica dali em diante. Fora daqui —
-            // nenhum preset refinado, nem Personalizado — o Foco continua 100% inerte.
+            // nenhum preset refinado, nem Personalizado — o pacote tático completo (formação,
+            // predefinição, abordagem defensiva) continua inerte ao Foco; só o bônus de perfil por
+            // posição (bonusFocoPorPerfil) age independente disso.
             let btn = document.getElementById('btn-declarar-partida-ia');
             btn.innerText = '⏳ Analisando o adversário e montando o plano...'; btn.disabled = true;
 
@@ -2266,10 +2339,10 @@ ${textoRegrasCompatibilidadePosicional()}
             if (pacoteRefinado && diretrizInfo.calcularPontuacaoEfetiva) {
                 // Gegenpressing Dinâmico decidiu a formação sozinho — só ELA entra como fixa (a IA
                 // não escolhe entre as outras preferidas nesse caso, a formação já não é dela).
-                let fixaAfinidade = selecionarEscalacaoPorAfinidadeTatica(pacoteRefinado.esquemaEscolhido, pacoteRefinado.funcoesPorRole, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
+                let fixaAfinidade = selecionarEscalacaoPorAfinidadeTatica(pacoteRefinado.esquemaEscolhido, pacoteRefinado.funcoesPorRole, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
                 if (fixaAfinidade && Object.keys(fixaAfinidade).length) {
                     escalacoesFixasPorFormacao[pacoteRefinado.esquemaEscolhido] = fixaAfinidade;
-                    bancosFixosPorFormacao[pacoteRefinado.esquemaEscolhido] = montarBancoReserva(Object.values(fixaAfinidade), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
+                    bancosFixosPorFormacao[pacoteRefinado.esquemaEscolhido] = montarBancoReserva(Object.values(fixaAfinidade), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
                     alertasAfinidadeAtivos = alertasAfinidadeTatica(fixaAfinidade, pacoteRefinado.funcoesPorRole);
                 }
             } else if (diretrizInfo.selecionarEscalacaoEBanco) {
@@ -2282,7 +2355,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 });
             } else if (diretrizInfo.calcularPontuacaoEfetiva) {
                 formacoesPreferidasIA.forEach(esq => {
-                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
+                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
                     if (fixa) escalacoesFixasPorFormacao[esq] = fixa;
                 });
             }
@@ -2403,7 +2476,7 @@ ${textoRegrasCompatibilidadePosicional()}
                         } else if (diretrizInfo.selecionarEscalacaoEBanco) {
                             res.reservas = bancosFixosPorFormacao[res.formacaoEscolhida] || [];
                         } else if (diretrizInfo.calcularPontuacaoEfetiva) {
-                            res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico);
+                            res.reservas = montarBancoReserva(Object.values(escalacaoFixaEscolhida), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
                         }
                     }
 
