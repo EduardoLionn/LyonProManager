@@ -2255,6 +2255,26 @@ ${textoRegrasCompatibilidadePosicional()}
             return (especialidade && PERFIL_TENDENCIA_OFENSIVA[especialidade.perfil]) || 0;
         }
 
+        // Categoria "mais próxima" de cada posição — pedido do treinador: "precisa ter 9
+        // reservas, se não tiver opção suficiente, deve pegar a posição mais próxima". Só entra
+        // em jogo quando a(s) categoria(s) ideal(is) da vaga não têm mais ninguém disponível.
+        // Ordem de prioridade: da mais parecida taticamente pra menos. Goleiro fica de fora (não
+        // existe posição de linha "próxima" o bastante pra fazer sentido escalar um substituto
+        // de emergência ali).
+        const CATEGORIA_MAIS_PROXIMA = {
+            Zagueiro: ['Lateral', 'Volante', 'MeioCampo'],
+            Lateral: ['Zagueiro', 'Volante', 'Ponta'],
+            Volante: ['MeioCampo', 'Lateral', 'Ponta'],
+            MeioCampo: ['Volante', 'Ponta', 'Lateral'],
+            Ponta: ['MeioCampo', 'Volante', 'Atacante', 'Lateral'],
+            Atacante: ['Ponta', 'MeioCampo']
+        };
+        const PAPEL_POR_CATEGORIA = {
+            Goleiro: 'Reserva de Goleiro', Zagueiro: 'Reserva de Zagueiro', Lateral: 'Reserva de Lateral',
+            Volante: 'Reserva de Meio-Campo', MeioCampo: 'Reserva de Meio-Campo',
+            Ponta: 'Reserva de Ponta', Atacante: 'Reserva de Ataque'
+        };
+
         // Preenche as 9 vagas do banco a partir de uma lista de candidatos JÁ ORDENADA por
         // pontuação efetiva decrescente (e já sem os titulares) — usado por montarBancoReserva e
         // pelas duas diretrizes por cota (Oportunidade à Base/Jovens e Dar Ritmo de Jogo), que
@@ -2267,41 +2287,78 @@ ${textoRegrasCompatibilidadePosicional()}
                 usadosNoBanco.add(c.jogador.nome);
                 banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: papel });
             }
+            // Pega o melhor disponível nas categorias ideais da vaga; se não sobrar ninguém, tenta
+            // a categoria mais próxima (CATEGORIA_MAIS_PROXIMA) uma de cada vez; se AINDA assim não
+            // sobrar ninguém, pega qualquer jogador saudável que reste, de qualquer posição — bate
+            // os 9 sempre que o elenco tiver 9 jogadores disponíveis, mesmo que a composição ideal
+            // (1 zagueiro + 1 lateral + 1 flex + 2 meio + 2 ponta + 1 atacante) não caiba.
+            function melhorDisponivel(categoriasIdeais) {
+                let c = disponiveis(categoriasIdeais)[0];
+                if (c) return c;
+                let tentadas = new Set(categoriasIdeais);
+                for (let cat of (CATEGORIA_MAIS_PROXIMA[categoriasIdeais[0]] || [])) {
+                    if (tentadas.has(cat)) continue;
+                    tentadas.add(cat);
+                    c = disponiveis([cat])[0];
+                    if (c) return c;
+                }
+                return candidatosOrdenados.find(c => !usadosNoBanco.has(c.jogador.nome)) || null;
+            }
+            // O papel mostrado sempre reflete a posição REAL de quem entrou — uma vaga de Ponta
+            // preenchida por improviso com um Volante mostra "Reserva de Meio-Campo", nunca finge
+            // que ele é ponta.
+            let papelReal = (c) => PAPEL_POR_CATEGORIA[c.categoria] || `Reserva de ${c.categoria}`;
 
             let goleiro = disponiveis(['Goleiro'])[0];
             if (goleiro) adiciona(goleiro, 'Reserva de Goleiro');
 
-            let zagueiro = disponiveis(['Zagueiro'])[0];
-            if (zagueiro) adiciona(zagueiro, 'Reserva de Zagueiro');
-            let lateral = disponiveis(['Lateral'])[0];
-            if (lateral) adiciona(lateral, 'Reserva de Lateral');
-            let flexDefesa = disponiveis(['Zagueiro', 'Lateral'])[0];
-            if (flexDefesa) adiciona(flexDefesa, `Reserva de ${flexDefesa.categoria}`);
+            let zagueiro = melhorDisponivel(['Zagueiro']);
+            if (zagueiro) adiciona(zagueiro, papelReal(zagueiro));
+            let lateral = melhorDisponivel(['Lateral']);
+            if (lateral) adiciona(lateral, papelReal(lateral));
+            let flexDefesa = melhorDisponivel(['Zagueiro', 'Lateral']);
+            if (flexDefesa) adiciona(flexDefesa, papelReal(flexDefesa));
 
-            let primeiroMeio = disponiveis(['Volante', 'MeioCampo'])[0];
+            let primeiroMeio = melhorDisponivel(['Volante', 'MeioCampo']);
             if (primeiroMeio) {
-                adiciona(primeiroMeio, 'Reserva de Meio-Campo');
-                let tendPrimeiro = tendenciaOfensivaJogador(primeiroMeio.jogador);
-                let opostoOfensivo = tendPrimeiro <= 0;
+                adiciona(primeiroMeio, papelReal(primeiroMeio));
+                // A comparação de tendência ofensiva (pra rotular "mais defensivo"/"mais
+                // ofensivo") só faz sentido entre dois meio-campistas de verdade — um improviso
+                // (Lateral/Ponta preenchendo a vaga por falta de opção) não entra nessa conta.
+                let primeiroEhMeio = primeiroMeio.categoria === 'Volante' || primeiroMeio.categoria === 'MeioCampo';
                 let restanteMeio = disponiveis(['Volante', 'MeioCampo']);
-                let segundoMeio = restanteMeio.find(c => {
-                    let t = tendenciaOfensivaJogador(c.jogador);
-                    return opostoOfensivo ? t > tendPrimeiro : t < tendPrimeiro;
-                }) || restanteMeio[0];
+                let segundoMeio;
+                if (primeiroEhMeio && restanteMeio.length) {
+                    let tendPrimeiro = tendenciaOfensivaJogador(primeiroMeio.jogador);
+                    let opostoOfensivo = tendPrimeiro <= 0;
+                    segundoMeio = restanteMeio.find(c => {
+                        let t = tendenciaOfensivaJogador(c.jogador);
+                        return opostoOfensivo ? t > tendPrimeiro : t < tendPrimeiro;
+                    }) || restanteMeio[0];
+                } else {
+                    segundoMeio = melhorDisponivel(['Volante', 'MeioCampo']);
+                }
                 if (segundoMeio) {
-                    adiciona(segundoMeio, 'Reserva de Meio-Campo');
-                    let tendSegundo = tendenciaOfensivaJogador(segundoMeio.jogador);
-                    let idxPrimeiro = banco.findIndex(b => b.nome === primeiroMeio.jogador.nome);
-                    let idxSegundo = banco.findIndex(b => b.nome === segundoMeio.jogador.nome);
-                    let [idxDef, idxOf] = tendPrimeiro <= tendSegundo ? [idxPrimeiro, idxSegundo] : [idxSegundo, idxPrimeiro];
-                    banco[idxDef].papel = 'Reserva de Meio-Campo (mais defensivo)';
-                    banco[idxOf].papel = 'Reserva de Meio-Campo (mais ofensivo)';
+                    adiciona(segundoMeio, papelReal(segundoMeio));
+                    let segundoEhMeio = segundoMeio.categoria === 'Volante' || segundoMeio.categoria === 'MeioCampo';
+                    if (primeiroEhMeio && segundoEhMeio) {
+                        let tendPrimeiro = tendenciaOfensivaJogador(primeiroMeio.jogador);
+                        let tendSegundo = tendenciaOfensivaJogador(segundoMeio.jogador);
+                        let idxPrimeiro = banco.findIndex(b => b.nome === primeiroMeio.jogador.nome);
+                        let idxSegundo = banco.findIndex(b => b.nome === segundoMeio.jogador.nome);
+                        let [idxDef, idxOf] = tendPrimeiro <= tendSegundo ? [idxPrimeiro, idxSegundo] : [idxSegundo, idxPrimeiro];
+                        banco[idxDef].papel = 'Reserva de Meio-Campo (mais defensivo)';
+                        banco[idxOf].papel = 'Reserva de Meio-Campo (mais ofensivo)';
+                    }
                 }
             }
 
-            disponiveis(['Ponta']).slice(0, 2).forEach(c => adiciona(c, 'Reserva de Ponta'));
-            let atacante = disponiveis(['Atacante'])[0];
-            if (atacante) adiciona(atacante, 'Reserva de Ataque');
+            for (let i = 0; i < 2; i++) {
+                let ponta = melhorDisponivel(['Ponta']);
+                if (ponta) adiciona(ponta, papelReal(ponta));
+            }
+            let atacante = melhorDisponivel(['Atacante']);
+            if (atacante) adiciona(atacante, papelReal(atacante));
 
             return banco;
         }
