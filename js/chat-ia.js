@@ -1982,26 +1982,21 @@ ${textoRegrasCompatibilidadePosicional()}
             });
             if (!roles.length || !candidatos.length) return {};
 
-            // Elegibilidade pra função exigida: se a Afinidade Tática (0 a 5, ver AFINIDADE_TATICA em
-            // funcoes-ea.js) não tem entrada pro par (especialidade do jogador, função exigida ali), o
-            // jogador NÃO JOGA naquela função — não é "joga mal", é inelegível mesmo (confirmado pelo
-            // treinador: "oq n tiver, é pq n joga... agr n é só posição q conta, tem a posição e a
-            // função"). Sem função exigida (foco sem Matriz Dinâmica pra esse grupo), só a compatibilidade
-            // de grupo (posicaoCompativelComRole) decide.
-            function elegivelParaFuncao(role, jogador) {
-                let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
-                if (!funcaoExigida) return true;
-                let grupo = grupoFuncaoDoRole(role);
-                return afinidadeTatica(jogador.posicao, grupo, funcaoExigida) > 0;
-            }
+            // Elegibilidade real de posição/lado é só posicaoCompativelComRole (grupo + Lado Preferido).
+            // A Afinidade Tática (0 a 5, ver AFINIDADE_TATICA em funcoes-ea.js) entre a especialidade do
+            // jogador e a função exigida ali NUNCA bloqueia sozinha — quem joga numa posição, joga em
+            // qualquer função natural daquele grupo, só que com preferências e afinidades diferentes.
+            // Afinidade 0 (sem entrada na tabela pra esse par) vira só a penalidade máxima em peso(),
+            // igual a qualquer outra nota baixa, nunca inelegibilidade — do contrário um titular muito
+            // melhor (ex: 78 OVR) fica de fora pra um reserva bem pior (ex: 64 OVR) só porque a função
+            // exigida ali não está cadastrada pra especialidade dele, mesmo ele podendo jogar ali.
 
             // Peso de cada par (função-do-campinho, jogador): pontuação efetiva da diretriz, mais o
             // bônus de perfil alinhado ao Foco Tático da partida, menos uma penalidade graduada pela
             // Afinidade Tática entre a especialidade do jogador e a função exigida ali — afinidade 5
-            // (encaixe perfeito) não penaliza, afinidade 1 (o mínimo pra ser elegível) penaliza o mesmo
-            // tanto que a antiga regra binária ("não cobre" = -8, mas hoje isso já bloqueia antes de
-            // chegar aqui — ver elegivelParaFuncao), com gradação linear entre os dois extremos.
-            const _FATOR_PENALIDADE_AFINIDADE = 2; // (5 - afinidade) * 2 → 0 (afinidade 5) até 8 (afinidade 1)
+            // (encaixe perfeito) não penaliza, afinidade 0 (função fora do repertório da especialidade)
+            // penaliza o máximo, com gradação linear entre os dois extremos.
+            const _FATOR_PENALIDADE_AFINIDADE = 2; // (5 - afinidade) * 2 → 0 (afinidade 5) até 10 (afinidade 0)
             // Bônus leve de Lado Preferido — mesma ideia de bonusFocoPorPerfil: nunca penaliza quem
             // joga do lado oposto (isso já é papel da elegibilidade/afinidade), só dá uma pequena
             // vantagem extra pra quem calha de já jogar do lado que prefere.
@@ -2022,7 +2017,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 let linha = [];
                 for (let j = 0; j < m; j++) {
                     let jogador = candidatos[j];
-                    if (!jogador || !posicaoCompativelComRole(roles[i], jogador.posicao, jogador.ladoPreferido) || !elegivelParaFuncao(roles[i], jogador)) { linha.push(_CUSTO_INCOMPATIVEL_AFINIDADE); continue; }
+                    if (!jogador || !posicaoCompativelComRole(roles[i], jogador.posicao, jogador.ladoPreferido)) { linha.push(_CUSTO_INCOMPATIVEL_AFINIDADE); continue; }
                     linha.push(-peso(roles[i], jogador));
                 }
                 custo.push(linha);
