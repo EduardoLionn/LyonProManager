@@ -963,17 +963,21 @@ ${textoRegrasCompatibilidadePosicional()}
         }
 
         // Uma linha da tabela "por que ele foi escolhido" — "destaque" true só pro titular de
-        // verdade (as demais linhas são concorrentes que ficaram de fora dessa vaga).
+        // verdade (as demais linhas são concorrentes que ficaram de fora dessa vaga). Nome com
+        // "overflow:hidden + ellipsis" (não "white-space:nowrap" solto): junto do table-layout:fixed
+        // de _htmlMotivoEscolha, é isso que deixa a tabela inteira caber na largura do modal sem
+        // precisar rolar pro lado pra ver a Pontuação — nome comprido trunca com "...", nunca empurra
+        // as outras colunas pra fora (pedido do treinador: "não gosto do fato de rolar a tela").
         function _linhaMotivoEscolha(c, destaque) {
             let afinidadeTxt = (c.afinidade === null || c.afinidade === undefined) ? '—' : `${c.afinidade}/5`;
             let corLinha = destaque ? 'color:var(--primary); font-weight:bold;' : 'color:var(--text-muted);';
             return `<tr style="${corLinha}">
-                <td style="padding:3px 6px 3px 0; white-space:nowrap;">${destaque ? '✅ ' : ''}${c.nome}${c.ladoBate ? ' 🧭' : ''}</td>
-                <td style="padding:3px 6px; text-align:center;">${c.ovr}</td>
-                <td style="padding:3px 6px; text-align:center;">${c.notaMedia}</td>
-                <td style="padding:3px 6px; text-align:center;">${c.preparoFisico}%</td>
-                <td style="padding:3px 6px; text-align:center;">${afinidadeTxt}</td>
-                <td style="padding:3px 6px; text-align:right;">${c.pontuacao}</td>
+                <td style="padding:2px 2px 2px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${destaque ? '✅ ' : ''}${c.nome}${c.ladoBate ? ' 🧭' : ''}</td>
+                <td style="padding:2px; text-align:center;">${c.ovr}</td>
+                <td style="padding:2px; text-align:center;">${c.notaMedia}</td>
+                <td style="padding:2px; text-align:center;">${c.preparoFisico}%</td>
+                <td style="padding:2px; text-align:center;">${afinidadeTxt}</td>
+                <td style="padding:2px 0 2px 2px; text-align:right;">${c.pontuacao}</td>
             </tr>`;
         }
 
@@ -983,23 +987,28 @@ ${textoRegrasCompatibilidadePosicional()}
         // pontuação final de quem jogou ali, seguida dos concorrentes que ficaram de fora — pedido
         // do treinador: "quero o motivo dele ter sido escolhido... e seus concorrentes e pontuação
         // do concorrente, dessa forma fica mais claro". 🧭 marca quem já joga do Lado Preferido ali.
+        // table-layout:fixed + colgroup com largura fixa pras colunas numéricas (a coluna do
+        // Jogador é a única que sobra/encolhe) garante que a tabela cabe 100% na largura do modal —
+        // sem isso, tabela "auto" deixa cada coluna larga o bastante pro próprio conteúdo, estourando
+        // a largura do modal e obrigando a rolar pro lado só pra ver a Pontuação.
         function _htmlMotivoEscolha(detalhe) {
             if (!detalhe || !detalhe.escolhido) return '';
             let linhas = _linhaMotivoEscolha(detalhe.escolhido, true) + (detalhe.concorrentes || []).map(c => _linhaMotivoEscolha(c, false)).join('');
             return `<div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); margin-bottom:6px;">📊 Por que ele foi escolhido</div>
-                <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <table style="width:100%; table-layout:fixed; border-collapse:collapse; font-size:11px;">
+                    <colgroup>
+                        <col style="width:auto;"><col style="width:15%;"><col style="width:17%;"><col style="width:17%;"><col style="width:14%;"><col style="width:17%;">
+                    </colgroup>
                     <tr style="color:var(--text-muted); text-align:left; border-bottom:1px solid var(--border);">
-                        <th style="padding:0 6px 4px 0; font-weight:normal;">Jogador</th>
-                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">OVR</th>
-                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">Nota</th>
-                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">Físico</th>
-                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">Função</th>
-                        <th style="padding:0 6px 4px; font-weight:normal; text-align:right;">Pontuação</th>
+                        <th style="padding:0 2px 3px 0; font-weight:normal;">Jogador</th>
+                        <th style="padding:0 2px 3px; font-weight:normal; text-align:center;">OVR</th>
+                        <th style="padding:0 2px 3px; font-weight:normal; text-align:center;">Nota</th>
+                        <th style="padding:0 2px 3px; font-weight:normal; text-align:center;">Físico</th>
+                        <th style="padding:0 2px 3px; font-weight:normal; text-align:center;">Func.</th>
+                        <th style="padding:0 0 3px 2px; font-weight:normal; text-align:right;">Pont.</th>
                     </tr>
                     ${linhas}
                 </table>
-                </div>
                 ${(detalhe.concorrentes || []).length ? '' : '<div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Nenhum outro jogador disponível concorria por essa vaga.</div>'}`;
         }
 
