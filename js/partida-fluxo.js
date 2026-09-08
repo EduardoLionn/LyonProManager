@@ -403,6 +403,11 @@ function usarSugestaoDoAuxiliar() {
     // divergir do cálculo genérico por especialidade — ex: foco de Defesa contra um time de posse).
     if (sug.funcoesPorRole) criada.funcoesPorRoleSugeridas = JSON.parse(JSON.stringify(sug.funcoesPorRole));
 
+    // "Por que ele foi escolhido" (ver detalhesEscalacaoPorRole em chat-ia.js) — fica atrelado a
+    // esta fotografia original, igual escalacaoSugeridaAuxiliar: só é exibido pra quem o treinador
+    // manteve exatamente como sugerido, nunca pra uma troca manual (que não passou pelo algoritmo).
+    if (sug.detalhesEscalacao) criada.detalhesEscalacaoSugerida = JSON.parse(JSON.stringify(sug.detalhesEscalacao));
+
     salvarDados();
     renderizarAbaSalvarPartida();
 }
