@@ -959,6 +959,17 @@ ${textoRegrasCompatibilidadePosicional()}
             document.getElementById('modal-funcao-titulo').innerText = `⚽ ${r.nome} (banco)`;
             document.getElementById('modal-funcao-resumo').innerText = entradas.length ? 'Plano de entrada:' : 'Nenhuma posição do esquema atual combina com ele.';
             document.getElementById('modal-funcao-descricao').innerHTML = html;
+
+            // "Por que ele foi escolhido" é só pra quem JÁ está escalado numa vaga (compara o
+            // titular com os concorrentes que ficaram de fora dela) — um reserva no banco não tem
+            // uma vaga própria pra explicar assim, então esconde e limpa aqui. Sem isso, esse bloco
+            // ficava com o conteúdo do ÚLTIMO titular visto (ex: o goleiro) grudado embaixo de
+            // QUALQUER reserva clicado depois, porque esse modal é compartilhado com
+            // mostrarFuncaoJogadorSugestao e só ela mexia nesse bloco.
+            let boxMotivo = document.getElementById('modal-funcao-motivo');
+            boxMotivo.innerHTML = '';
+            boxMotivo.style.display = 'none';
+
             document.getElementById('modal-funcao-jogador').style.display = 'flex';
         }
 
