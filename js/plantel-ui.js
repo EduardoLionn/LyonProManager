@@ -107,8 +107,21 @@
 
         function toggleRaioXPlantel(nome, idx) {
             let painel = document.getElementById(`raiox-row-${idx}`);
-            if (painel.style.display === 'none') { document.querySelectorAll('#tabela-plantel .transfer-card-expand').forEach(el => el.style.display = 'none'); painel.style.display = 'block'; renderizarDadosRaioX(nome, `canvas-raiox-plantel-${idx}`, `raiox-dados-plantel-${idx}`); }
-            else { painel.style.display = 'none'; }
+            // O Elenco agora é uma grade de "quadrados" (3 por linha, ver #tabela-plantel em
+            // styles.css) — um cartão expandido pro Raio-X precisa ocupar a linha inteira sozinho,
+            // senão o gráfico fica espremido e os outros 2 cartões da mesma linha esticam vazios
+            // até a altura dele. Só pode ter 1 expandido por vez (a linha abaixo já fecha os
+            // outros), então isso nunca deixa 2 cartões "linha inteira" ao mesmo tempo.
+            document.querySelectorAll('#tabela-plantel .transfer-card.expandido').forEach(el => el.classList.remove('expandido'));
+            if (painel.style.display === 'none') {
+                document.querySelectorAll('#tabela-plantel .transfer-card-expand').forEach(el => el.style.display = 'none');
+                painel.style.display = 'block';
+                let card = painel.closest('.transfer-card');
+                if (card) card.classList.add('expandido');
+                renderizarDadosRaioX(nome, `canvas-raiox-plantel-${idx}`, `raiox-dados-plantel-${idx}`);
+            } else {
+                painel.style.display = 'none';
+            }
         }
 
         let ordemAtualMercado = { coluna: 'nome', ascendente: true };

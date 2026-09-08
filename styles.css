@@ -656,6 +656,28 @@
    expande DENTRO do próprio cartão (mesma ideia de "acordeão" já usada nos cards de partida do
    histórico), em vez de abrir uma linha de tabela solta embaixo. */
 .transfer-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* Elenco (Gestão do Elenco Atual): grade de "quadrados" 3 por linha, igual à do Departamento
+   Médico (.medico-grid) — pedido do treinador: "ao invés de ser esse espaço vazio do lado,
+   poderia ser igual o preparo físico, quadrados". Só o Elenco (#tabela-plantel) — a lista de
+   Transferências (#tabela-mercado) continua em linha única, que ainda precisa da largura toda
+   pra coluna de valor. flex-wrap (não CSS Grid) de propósito: cada linha de cartões precisa
+   poder ter uma altura PRÓPRIA, independente das outras — com Grid, a linha toda esticaria até
+   a altura do cartão mais alto (ex: um com mais badges que os vizinhos, ou o Raio-X aberto);
+   com flex-wrap, cada linha já é naturalmente independente. A ordem de exibição continua sendo
+   exatamente a ordenação escolhida (Posição/Nome/OVR/Idade) — só passa a fluir da esquerda pra
+   direita, linha por linha, em vez de um cartão embaixo do outro. */
+#tabela-plantel.transfer-list { flex-direction: row; flex-wrap: wrap; }
+#tabela-plantel .transfer-card { flex: 1 1 calc(33.333% - 7px); max-width: calc(33.333% - 7px); }
+/* Cartão com o Raio-X aberto ocupa a linha inteira sozinho — só existe 1 expandido por vez (ver
+   toggleRaioXPlantel, js/plantel-ui.js), senão o gráfico ficaria espremido em ~1/3 da largura. */
+#tabela-plantel .transfer-card.expandido { flex-basis: 100%; max-width: 100%; }
+@media (max-width: 900px) {
+    #tabela-plantel .transfer-card { flex-basis: calc(50% - 5px); max-width: calc(50% - 5px); }
+}
+@media (max-width: 560px) {
+    #tabela-plantel .transfer-card { flex-basis: 100%; max-width: 100%; }
+}
 .transfer-card {
     background: var(--input-bg); border: 1px solid var(--border); border-left: 4px solid var(--border);
     border-radius: 12px; padding: 14px 16px;
