@@ -78,8 +78,8 @@ const PLAYSTYLE_PRESETS = [
                 ajustes: ['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (sair rápido pro ataque assim que recupera a bola).']
             },
             segura_o_jogo: {
-                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 45,
-                estrategiaFormacao: 'equilibrada'
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 15,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -122,8 +122,8 @@ const PLAYSTYLE_PRESETS = [
                 estrategiaFormacao: 'defensiva'
             },
             segura_o_jogo: {
-                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 50,
-                estrategiaFormacao: 'equilibrada'
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 20,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -164,8 +164,8 @@ const PLAYSTYLE_PRESETS = [
                 estrategiaFormacao: 'defensiva'
             },
             segura_o_jogo: {
-                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 50,
-                estrategiaFormacao: 'equilibrada'
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 20,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -209,7 +209,7 @@ const PLAYSTYLE_PRESETS = [
                 ajustes: ['Armação: o pedido citava "Ligação Direta" de novo aqui — mesmo caso do Foco Tudo ou Nada, usei "Contra-ataque".']
             },
             segura_o_jogo: {
-                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 15,
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 5,
                 estrategiaFormacao: 'defensiva'
             }
         }
@@ -253,8 +253,8 @@ const PLAYSTYLE_PRESETS = [
                 ajustes: ['Armação: o pedido citava "Ligação Direta" de novo aqui — mesmo caso do Foco Tudo ou Nada, usei "Contra-ataque" ("rebate a bola pros pontas correrem" é literalmente uma transição rápida).']
             },
             segura_o_jogo: {
-                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 45,
-                estrategiaFormacao: 'equilibrada'
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 20,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -293,8 +293,16 @@ const PLAYSTYLE_PRESETS = [
                 ajustes: ['Armação: o pedido citava "Ligação Direta" mais uma vez — mesmo caso das outras 2 faixas, usei "Contra-ataque" (a Retranca Total já trava a linha recuada; o time ainda sai rápido assim que rouba a bola).']
             },
             segura_o_jogo: {
-                predefinicao: 'ligacao-direta', estiloArmacao: 'equilibrado', abordagemDefensiva: 40,
-                estrategiaFormacao: 'equilibrada'
+                // "Ligação Direta" (a predefinição-base deste preset) só permite abordagem
+                // "Equilibrada" no jogo de verdade (ver regra.abordagensPermitidas em
+                // PREDEFINICOES_TATICAS, js/taticas.js) — corrigirTatica() SEMPRE puxa o número de
+                // volta pra essa faixa, então pedir uma abordagem recuada com essa predefinição é
+                // inútil (o Extremamente Defensivo logo abaixo já resolveu isso trocando pra
+                // "Retranca Total" — mesma solução aqui, senão Segurar o Jogo nunca conseguiria
+                // ficar mais defensivo que ele).
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 10,
+                estrategiaFormacao: 'defensiva',
+                ajustes: ['Armação: "Ligação Direta" (a predefinição-base do preset) só permite abordagem defensiva na faixa "Equilibrada" — incompatível com Segurar o Jogo (a postura mais recuada de todas). Troquei pra "Retranca Total", igual ao Foco Extremamente Defensivo.']
             }
         }
     },
@@ -331,9 +339,8 @@ const PLAYSTYLE_PRESETS = [
                 estrategiaFormacao: 'defensiva'
             },
             segura_o_jogo: {
-                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 45,
-                estrategiaFormacao: 'equilibrada',
-                ajustes: ['Segura o Jogo não foi mencionado na Matriz Dinâmica de Funções (seção 3) do pedido — como a Seleção de Formação (seção 1) já agrupa esse Foco com Equilibrado, usei a mesma Matriz da faixa Equilibrado/Ofensivo.']
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 15,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -369,9 +376,8 @@ const PLAYSTYLE_PRESETS = [
                 estrategiaFormacao: 'defensiva'
             },
             segura_o_jogo: {
-                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 60,
-                estrategiaFormacao: 'equilibrada',
-                ajustes: ['Segura o Jogo não foi mencionado na Matriz Dinâmica de Funções (seção 3) do pedido — como a Seleção de Formação (seção 1) já agrupa esse Foco com Equilibrado, usei a mesma Matriz da faixa Equilibrado/Ofensivo.']
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 25,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -409,9 +415,8 @@ const PLAYSTYLE_PRESETS = [
                 ajustes: ['Armação: "Ligação Direta" foi citada como se fosse um Estilo de Armação, mas na verdade é uma Predefinição Tática (id: ligacao-direta) — os 3 Estilos de Armação reais são só Passe Curto/Equilibrado/Contra-ataque. Usei Contra-ataque, o mais próximo em espírito de "recuar e sair rápido pro ataque quando a bola é roubada".']
             },
             segura_o_jogo: {
-                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 60,
-                estrategiaFormacao: 'equilibrada',
-                ajustes: ['Segura o Jogo não foi mencionado na Matriz Dinâmica de Funções (seção 3) do pedido — como a Seleção de Formação (seção 1) já agrupa esse Foco com Equilibrado, usei a mesma Matriz da faixa Equilibrado/Ofensivo.']
+                predefinicao: 'padrao', estiloArmacao: 'equilibrado', abordagemDefensiva: 25,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -447,9 +452,8 @@ const PLAYSTYLE_PRESETS = [
                 estrategiaFormacao: 'defensiva'
             },
             segura_o_jogo: {
-                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 50,
-                estrategiaFormacao: 'equilibrada',
-                ajustes: ['Segura o Jogo não foi mencionado na Matriz Dinâmica de Funções (seção 3) do pedido — como a Seleção de Formação (seção 1) já agrupa esse Foco com Equilibrado, usei a mesma Matriz da faixa Equilibrado/Ofensivo. A predefinição "Posse de Bola" trava o estilo de armação em Passe Curto — exatamente o que o pedido já pedia pra esse Foco.']
+                predefinicao: 'posse-de-bola', estiloArmacao: 'passe-curto', abordagemDefensiva: 25,
+                estrategiaFormacao: 'defensiva'
             }
         }
     },
@@ -476,9 +480,14 @@ const PLAYSTYLE_PRESETS = [
                 ajustes: ['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (chutão pra frente e sair rápido assim que sobra a bola).']
             },
             tudo_ou_nada: {
-                predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 1,
-                estrategiaFormacao: 'defensiva',
-                ajustes: ['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (chutão pra frente e sair rápido assim que sobra a bola).']
+                // "Tudo ou Nada" é a exceção que quebra a identidade do próprio preset — mesmo um
+                // time montado pra "Estacionar o Ônibus" joga tudo pra frente numa situação de
+                // desespero puro (perdendo nos acréscimos, precisa do gol a qualquer custo). Os
+                // outros focos deste preset (mesmo Extremamente Ofensivo) ainda respeitam a
+                // identidade defensiva do time — só este realmente a abandona, igual em todo
+                // outro preset (pedido do treinador: "deve ser o máximo de ofensividade").
+                predefinicao: 'pressao-alta', estiloArmacao: 'contra-ataque', abordagemDefensiva: 100,
+                estrategiaFormacao: 'ofensiva'
             },
             defensivo: {
                 predefinicao: 'retranca-total', estiloArmacao: 'contra-ataque', abordagemDefensiva: 20,
@@ -491,7 +500,7 @@ const PLAYSTYLE_PRESETS = [
                 ajustes: ['Armação: o pedido citava "Ligação Direta", mas isso é uma PREDEFINIÇÃO tática diferente no jogo, não um dos 3 Estilos de Armação reais — usei "Contra-ataque", o mais parecido em espírito (chutão pra frente e sair rápido assim que sobra a bola).']
             },
             segura_o_jogo: {
-                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 10,
+                predefinicao: 'retranca-total', estiloArmacao: 'passe-curto', abordagemDefensiva: 5,
                 estrategiaFormacao: 'defensiva'
             }
         }
