@@ -1243,7 +1243,7 @@ ${textoRegrasCompatibilidadePosicional()}
             tudo_ou_nada: 2.5,
             defensivo: -1,
             extremamente_defensivo: -2,
-            segura_o_jogo: -1.5
+            segura_o_jogo: -2.5
         };
         function bonusFocoPorPerfil(especialidadeJogador, focoId) {
             let intensidade = FOCO_INTENSIDADE_TATICA[focoId];
@@ -2081,18 +2081,73 @@ ${textoRegrasCompatibilidadePosicional()}
         }
 
         // Estrutura FIXA do banco de reservas — vale pra QUALQUER diretriz (pedido do treinador:
-        // "isso serve pra todas as diretrizes"): 1 goleiro, 2 de defesa (zagueiro), 1 lateral, 2 de
-        // meio-campo/volante, 2 pontas e 1 atacante — 9 reservas no total. O que muda de diretriz
-        // pra diretriz é só QUEM preenche cada vaga (calculado com a mesma pontuação efetiva da
-        // diretriz ativa) — a composição do banco em si nunca muda.
-        const BANCO_RESERVA_ESTRUTURA = [
-            { rotulo: 'Goleiro', categorias: ['Goleiro'], vagas: 1 },
-            { rotulo: 'Defesa', categorias: ['Zagueiro'], vagas: 2 },
-            { rotulo: 'Lateral', categorias: ['Lateral'], vagas: 1 },
-            { rotulo: 'Meio-Campo/Volante', categorias: ['Volante', 'MeioCampo'], vagas: 2 },
-            { rotulo: 'Ponta', categorias: ['Ponta'], vagas: 2 },
-            { rotulo: 'Ataque', categorias: ['Atacante'], vagas: 1 }
-        ];
+        // "isso serve pra todas as diretrizes"): 1 goleiro, 3 defensores (1 zagueiro fixo + 1
+        // lateral fixo + 1 vaga flex pro que pontuar mais entre os dois — nunca mais "2 zagueiros"
+        // custa fixo, que empurrava um meio-campista pro lugar que devia ser de um lateral), 2
+        // meio-campistas (1 mais defensivo + 1 mais ofensivo, pela tendência de perfil da
+        // especialidade — não os 2 melhores crus, que podiam sair os dois do mesmo lado do jogo),
+        // 2 pontas e 1 atacante — 9 reservas no total. O que muda de diretriz pra diretriz é só
+        // QUEM preenche cada vaga (calculado com a mesma pontuação efetiva da diretriz ativa) — a
+        // composição do banco em si nunca muda.
+        const VAGAS_BANCO_TOTAL = 9;
+
+        // Devolve a tendência ofensiva (-2 a +2) da especialidade do jogador — mesma escala de
+        // PERFIL_TENDENCIA_OFENSIVA usada no bônus de Foco, 0 (neutro) se não encontrar.
+        function tendenciaOfensivaJogador(jogador) {
+            let especialidade = ESPECIALIDADES_JOGADOR[jogador.posicao];
+            return (especialidade && PERFIL_TENDENCIA_OFENSIVA[especialidade.perfil]) || 0;
+        }
+
+        // Preenche as 9 vagas do banco a partir de uma lista de candidatos JÁ ORDENADA por
+        // pontuação efetiva decrescente (e já sem os titulares) — usado por montarBancoReserva e
+        // pelas duas diretrizes por cota (Oportunidade à Base/Jovens e Dar Ritmo de Jogo), que
+        // montam esse pool à própria maneira antes de chamar aqui.
+        function preencherBancoPadrao(candidatosOrdenados) {
+            let banco = [];
+            let usadosNoBanco = new Set();
+            let disponiveis = (categorias) => candidatosOrdenados.filter(c => categorias.includes(c.categoria) && !usadosNoBanco.has(c.jogador.nome));
+            function adiciona(c, papel) {
+                usadosNoBanco.add(c.jogador.nome);
+                banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: papel });
+            }
+
+            let goleiro = disponiveis(['Goleiro'])[0];
+            if (goleiro) adiciona(goleiro, 'Reserva de Goleiro');
+
+            let zagueiro = disponiveis(['Zagueiro'])[0];
+            if (zagueiro) adiciona(zagueiro, 'Reserva de Zagueiro');
+            let lateral = disponiveis(['Lateral'])[0];
+            if (lateral) adiciona(lateral, 'Reserva de Lateral');
+            let flexDefesa = disponiveis(['Zagueiro', 'Lateral'])[0];
+            if (flexDefesa) adiciona(flexDefesa, `Reserva de ${flexDefesa.categoria}`);
+
+            let primeiroMeio = disponiveis(['Volante', 'MeioCampo'])[0];
+            if (primeiroMeio) {
+                adiciona(primeiroMeio, 'Reserva de Meio-Campo');
+                let tendPrimeiro = tendenciaOfensivaJogador(primeiroMeio.jogador);
+                let opostoOfensivo = tendPrimeiro <= 0;
+                let restanteMeio = disponiveis(['Volante', 'MeioCampo']);
+                let segundoMeio = restanteMeio.find(c => {
+                    let t = tendenciaOfensivaJogador(c.jogador);
+                    return opostoOfensivo ? t > tendPrimeiro : t < tendPrimeiro;
+                }) || restanteMeio[0];
+                if (segundoMeio) {
+                    adiciona(segundoMeio, 'Reserva de Meio-Campo');
+                    let tendSegundo = tendenciaOfensivaJogador(segundoMeio.jogador);
+                    let idxPrimeiro = banco.findIndex(b => b.nome === primeiroMeio.jogador.nome);
+                    let idxSegundo = banco.findIndex(b => b.nome === segundoMeio.jogador.nome);
+                    let [idxDef, idxOf] = tendPrimeiro <= tendSegundo ? [idxPrimeiro, idxSegundo] : [idxSegundo, idxPrimeiro];
+                    banco[idxDef].papel = 'Reserva de Meio-Campo (mais defensivo)';
+                    banco[idxOf].papel = 'Reserva de Meio-Campo (mais ofensivo)';
+                }
+            }
+
+            disponiveis(['Ponta']).slice(0, 2).forEach(c => adiciona(c, 'Reserva de Ponta'));
+            let atacante = disponiveis(['Atacante'])[0];
+            if (atacante) adiciona(atacante, 'Reserva de Ataque');
+
+            return banco;
+        }
 
         // Monta o banco de reservas (9 jogadores, na estrutura fixa acima) usando a pontuação
         // efetiva da diretriz ativa: dentro de cada linha (defesa/lateral/meio/ponta/ataque), quem
@@ -2119,18 +2174,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(p.posicao, focoPartidaId)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
-            let banco = [];
-            let usadosNoBanco = new Set();
-            BANCO_RESERVA_ESTRUTURA.forEach(grupo => {
-                candidatosBase
-                    .filter(c => grupo.categorias.includes(c.categoria) && !usadosNoBanco.has(c.jogador.nome))
-                    .slice(0, grupo.vagas)
-                    .forEach(c => {
-                        usadosNoBanco.add(c.jogador.nome);
-                        banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: `Reserva de ${grupo.rotulo}` });
-                    });
-            });
-            return banco;
+            return preencherBancoPadrao(candidatosBase);
         }
 
         // =====================================================================================
@@ -2141,10 +2185,10 @@ ${textoRegrasCompatibilidadePosicional()}
         // define seu próprio "selecionarEscalacaoEBanco(esquema) => {escalacao, banco}".
         // =====================================================================================
 
-        // "vagas_totais" do pedido: a estrutura do banco (BANCO_RESERVA_ESTRUTURA) é sempre fixa
-        // em 9 vagas pra QUALQUER diretriz, então aqui vagas_totais é sempre 11 titulares + 9
-        // reservas = 20 (o "18 = 11+7" do pedido era só um exemplo ilustrativo do mecanismo).
-        const VAGAS_TOTAIS_RELACIONADOS_JOVENS = 11 + BANCO_RESERVA_ESTRUTURA.reduce((soma, g) => soma + g.vagas, 0);
+        // "vagas_totais" do pedido: a estrutura do banco (VAGAS_BANCO_TOTAL) é sempre fixa em 9
+        // vagas pra QUALQUER diretriz, então aqui vagas_totais é sempre 11 titulares + 9 reservas
+        // = 20 (o "18 = 11+7" do pedido era só um exemplo ilustrativo do mecanismo).
+        const VAGAS_TOTAIS_RELACIONADOS_JOVENS = 11 + VAGAS_BANCO_TOTAL;
 
         // Quantas partidas da temporada atual o jogador já disputou — a "partidas_jogadas" do
         // pedido, usada só nesta diretriz pra medir minutagem.
@@ -2266,17 +2310,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 .map(c => ({ jogador: c.jogador, categoria: String(c.jogador.posicao).split('/')[0], pontuacaoEfetiva: c.pontuacaoEfetiva }));
             let candidatosBanco = paraCategoria(poolRelacionados).concat(paraCategoria(poolResto));
 
-            let banco = [];
-            let usadosNoBanco = new Set();
-            BANCO_RESERVA_ESTRUTURA.forEach(grupo => {
-                candidatosBanco
-                    .filter(c => grupo.categorias.includes(c.categoria) && !usadosNoBanco.has(c.jogador.nome))
-                    .slice(0, grupo.vagas)
-                    .forEach(c => {
-                        usadosNoBanco.add(c.jogador.nome);
-                        banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: `Reserva de ${grupo.rotulo}` });
-                    });
-            });
+            let banco = preencherBancoPadrao(candidatosBanco);
 
             return { escalacao, banco, relacionados, listaJovens, listaVeteranos };
         }
@@ -2391,17 +2425,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 .map(c => ({ jogador: c.jogador, categoria: String(c.jogador.posicao).split('/')[0], pontuacaoEfetiva: c.pontuacaoEfetiva }));
             let candidatosBanco = paraCategoria(poolRelacionados).concat(paraCategoria(poolResto));
 
-            let banco = [];
-            let usadosNoBanco = new Set();
-            BANCO_RESERVA_ESTRUTURA.forEach(grupo => {
-                candidatosBanco
-                    .filter(c => grupo.categorias.includes(c.categoria) && !usadosNoBanco.has(c.jogador.nome))
-                    .slice(0, grupo.vagas)
-                    .forEach(c => {
-                        usadosNoBanco.add(c.jogador.nome);
-                        banco.push({ nome: c.jogador.nome, posicao: c.jogador.posicao, papel: `Reserva de ${grupo.rotulo}` });
-                    });
-            });
+            let banco = preencherBancoPadrao(candidatosBanco);
 
             return { escalacao, banco, relacionados, listaDespreparados, listaPreparados };
         }
