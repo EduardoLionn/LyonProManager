@@ -738,7 +738,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     </div>
                 </div>`;
 
-            renderizarCampinhoEspelhoLeitura(t.esquema, sug.escalacao, sug.reservas, sug.tatica, null, sug.funcoesPorRole);
+            renderizarCampinhoEspelhoLeitura(t.esquema, sug.escalacao, sug.reservas, sug.tatica, null, sug.funcoesPorRole, sug.detalhesEscalacao);
             renderizarRelatoriosAuxiliar();
         }
 
@@ -783,7 +783,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     </div>
                 </div>`;
 
-            renderizarCampinhoEspelhoLeitura(partida.formacaoEscolhida, partida.titulares, partida.banco, partida.tatica, partida.substituicoes, partida.funcoesPorRoleSugeridas);
+            renderizarCampinhoEspelhoLeitura(partida.formacaoEscolhida, partida.titulares, partida.banco, partida.tatica, partida.substituicoes, partida.funcoesPorRoleSugeridas, partida.detalhesEscalacaoSugerida);
         }
 
         // -------------------------------------------------------------------------------------
@@ -797,9 +797,9 @@ ${textoRegrasCompatibilidadePosicional()}
         let _ultimoRenderEspelho = null; // guarda os parâmetros pra toggleSubBadgeEspelho conseguir redesenhar
         let pitchToggleSubViewEspelho = {}; // igual ao pitchToggleSubView do campinho editável, mas pro espelho
 
-        function renderizarCampinhoEspelhoLeitura(formacao, escalacaoMap, reservas, tatica, substituicoes, funcoesPorRoleOverride) {
-            _fonteCampinhoAuxiliarLeitura = { escalacao: escalacaoMap || {}, tatica: tatica, reservas: reservas || [], funcoesPorRoleOverride: funcoesPorRoleOverride };
-            _ultimoRenderEspelho = { formacao, escalacaoMap, reservas, tatica, substituicoes, funcoesPorRoleOverride };
+        function renderizarCampinhoEspelhoLeitura(formacao, escalacaoMap, reservas, tatica, substituicoes, funcoesPorRoleOverride, detalhesEscalacao) {
+            _fonteCampinhoAuxiliarLeitura = { escalacao: escalacaoMap || {}, tatica: tatica, reservas: reservas || [], funcoesPorRoleOverride: funcoesPorRoleOverride, detalhesEscalacao: detalhesEscalacao || {} };
+            _ultimoRenderEspelho = { formacao, escalacaoMap, reservas, tatica, substituicoes, funcoesPorRoleOverride, detalhesEscalacao };
 
             let campo = document.getElementById('campo-sugestao-auxiliar');
             if (!campo) return;
@@ -869,7 +869,7 @@ ${textoRegrasCompatibilidadePosicional()}
             pitchToggleSubViewEspelho[role] = !pitchToggleSubViewEspelho[role];
             if (_ultimoRenderEspelho) {
                 let p = _ultimoRenderEspelho;
-                renderizarCampinhoEspelhoLeitura(p.formacao, p.escalacaoMap, p.reservas, p.tatica, p.substituicoes);
+                renderizarCampinhoEspelhoLeitura(p.formacao, p.escalacaoMap, p.reservas, p.tatica, p.substituicoes, p.funcoesPorRoleOverride, p.detalhesEscalacao);
             }
         }
 
@@ -962,6 +962,47 @@ ${textoRegrasCompatibilidadePosicional()}
             document.getElementById('modal-funcao-jogador').style.display = 'flex';
         }
 
+        // Uma linha da tabela "por que ele foi escolhido" — "destaque" true só pro titular de
+        // verdade (as demais linhas são concorrentes que ficaram de fora dessa vaga).
+        function _linhaMotivoEscolha(c, destaque) {
+            let afinidadeTxt = (c.afinidade === null || c.afinidade === undefined) ? '—' : `${c.afinidade}/5`;
+            let corLinha = destaque ? 'color:var(--primary); font-weight:bold;' : 'color:var(--text-muted);';
+            return `<tr style="${corLinha}">
+                <td style="padding:3px 6px 3px 0; white-space:nowrap;">${destaque ? '✅ ' : ''}${c.nome}${c.ladoBate ? ' 🧭' : ''}</td>
+                <td style="padding:3px 6px; text-align:center;">${c.ovr}</td>
+                <td style="padding:3px 6px; text-align:center;">${c.notaMedia}</td>
+                <td style="padding:3px 6px; text-align:center;">${c.preparoFisico}%</td>
+                <td style="padding:3px 6px; text-align:center;">${afinidadeTxt}</td>
+                <td style="padding:3px 6px; text-align:right;">${c.pontuacao}</td>
+            </tr>`;
+        }
+
+        // Monta a tabela "Por que ele foi escolhido": OVR, nota média, preparo físico, afinidade
+        // com a função ("—" quando essa diretriz não usa função pra decidir, ver
+        // detalhesConcorrenciaRole em selecionarEscalacaoPorPontuacao/PorAfinidadeTatica) e a
+        // pontuação final de quem jogou ali, seguida dos concorrentes que ficaram de fora — pedido
+        // do treinador: "quero o motivo dele ter sido escolhido... e seus concorrentes e pontuação
+        // do concorrente, dessa forma fica mais claro". 🧭 marca quem já joga do Lado Preferido ali.
+        function _htmlMotivoEscolha(detalhe) {
+            if (!detalhe || !detalhe.escolhido) return '';
+            let linhas = _linhaMotivoEscolha(detalhe.escolhido, true) + (detalhe.concorrentes || []).map(c => _linhaMotivoEscolha(c, false)).join('');
+            return `<div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); margin-bottom:6px;">📊 Por que ele foi escolhido</div>
+                <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <tr style="color:var(--text-muted); text-align:left; border-bottom:1px solid var(--border);">
+                        <th style="padding:0 6px 4px 0; font-weight:normal;">Jogador</th>
+                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">OVR</th>
+                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">Nota</th>
+                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">Físico</th>
+                        <th style="padding:0 6px 4px; font-weight:normal; text-align:center;">Função</th>
+                        <th style="padding:0 6px 4px; font-weight:normal; text-align:right;">Pontuação</th>
+                    </tr>
+                    ${linhas}
+                </table>
+                </div>
+                ${(detalhe.concorrentes || []).length ? '' : '<div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Nenhum outro jogador disponível concorria por essa vaga.</div>'}`;
+        }
+
         // Clique num jogador do campinho só-leitura (plano ou espelho ao vivo): só mostra a
         // função, não abre troca.
         function mostrarFuncaoJogadorSugestao(role) {
@@ -977,6 +1018,21 @@ ${textoRegrasCompatibilidadePosicional()}
             document.getElementById('modal-funcao-titulo').innerText = `⚽ ${info.nome || 'Vaga'} (${role})`;
             document.getElementById('modal-funcao-resumo').innerText = escolha ? resumoFuncaoJogador(escolha) : 'Sem função definida.';
             document.getElementById('modal-funcao-descricao').innerText = escolha ? descricaoFuncaoJogador(escolha) : '';
+
+            // Só mostra "por que foi escolhido" se o jogador em campo AGORA é exatamente quem o
+            // algoritmo escalou ali — uma troca manual não passou por essa pontuação, então não
+            // tem motivo pra exibir (mesma cautela de "seguiuSugestao" no campinho editável).
+            let detalheMotivo = fonte.detalhesEscalacao && fonte.detalhesEscalacao[role];
+            let motivoValido = detalheMotivo && detalheMotivo.escolhido && detalheMotivo.escolhido.nome === info.nome;
+            let boxMotivo = document.getElementById('modal-funcao-motivo');
+            if (motivoValido) {
+                boxMotivo.innerHTML = _htmlMotivoEscolha(detalheMotivo);
+                boxMotivo.style.display = 'block';
+            } else {
+                boxMotivo.innerHTML = '';
+                boxMotivo.style.display = 'none';
+            }
+
             document.getElementById('modal-funcao-jogador').style.display = 'flex';
         }
 
@@ -1962,6 +2018,67 @@ ${textoRegrasCompatibilidadePosicional()}
         // deixa a posição de fora do resultado).
         const _CUSTO_INCOMPATIVEL_AFINIDADE = 1e6;
 
+        // Penalidade graduada por Afinidade Tática e bônus de Lado Preferido — extraídos aqui (fora
+        // de selecionarEscalacaoPorAfinidadeTatica) porque detalhesConcorrenciaRole, abaixo, também
+        // precisa deles pra recalcular a MESMA pontuação fora do motor de escalação, só pra exibir
+        // "por que ele foi escolhido" no campinho (pedido do treinador).
+        const _FATOR_PENALIDADE_AFINIDADE = 2; // (5 - afinidade) * 2 → 0 (afinidade 5) até 10 (afinidade 0)
+        const _BONUS_LADO_PREFERIDO = 1.5;
+
+        // Recalcula, pra um role específico, a pontuação de TODO candidato elegível (mesma fórmula
+        // que decidiu a escalação de verdade — nunca influencia a escolha, só explica ela depois).
+        // "funcaoExigida" opcional: só as diretrizes com Matriz Dinâmica de função (Afinidade Tática)
+        // penalizam por afinidade; as demais (pontuação pura) ficam sem essa coluna, porque a função
+        // realmente não pesa nada na escolha delas. "incluirBonusLado": só o motor de Afinidade
+        // Tática (Húngaro) soma esse bônus na pontuação de verdade — o motor de pontuação pura
+        // (Kuhn) usa o Lado Preferido só pra decidir a ORDEM de tentativa, nunca pra somar pontos,
+        // então exibir o bônus ali mentiria sobre o que realmente decidiu a escalação (mas o badge
+        // "ladoBate" continua aparecendo nos dois, só como informação). Devolve a lista ordenada por
+        // pontuação decrescente — quem chamar decide quem é o "escolhido" e quem são os "concorrentes".
+        function detalhesConcorrenciaRole(role, funcaoExigida, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId, incluirBonusLado) {
+            if (!db[currentSave] || !calcularPontuacaoEfetivaFn) return [];
+            let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
+            let pesoPreparo = typeof pesoPreparoFisico === 'number' ? pesoPreparoFisico : 0.35;
+            let grupo = grupoFuncaoDoRole(role);
+            return db[currentSave].plantel.filter(p => {
+                if (p.status !== 'Ativo') return false;
+                if (p.diasLesao > 0 || p.suspensoVermelho) return false;
+                if (currentSave === 'selecao' && p.convocado === false) return false;
+                return posicaoCompativelComRole(role, p.posicao, p.ladoPreferido);
+            }).map(p => {
+                let notaMedia = obterNotaMedia(p);
+                let ladoBate = !!(p.ladoPreferido && LADO_DA_SIGLA[role] === p.ladoPreferido);
+                let afinidade = funcaoExigida ? afinidadeTatica(p.posicao, grupo, funcaoExigida) : null;
+                let pontuacao = calcularPontuacaoEfetivaFn(p.ovr, notaMedia, p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(p.posicao, focoPartidaId);
+                if (ladoBate && incluirBonusLado) pontuacao += _BONUS_LADO_PREFERIDO;
+                if (afinidade !== null) pontuacao -= (5 - afinidade) * _FATOR_PENALIDADE_AFINIDADE;
+                return {
+                    nome: p.nome, ovr: p.ovr, notaMedia: Math.round(notaMedia * 10) / 10,
+                    preparoFisico: p.preparoFisico, afinidade: afinidade, ladoBate: ladoBate,
+                    pontuacao: Math.round(pontuacao * 10) / 10
+                };
+            }).sort((a, b) => b.pontuacao - a.pontuacao);
+        }
+
+        // Monta {escolhido, concorrentes} pra cada role de uma escalação já pronta — usado logo
+        // depois de decidir "quem joga onde" pra guardar, junto da sugestão, o "porquê" de cada
+        // escolha (OVR, nota média, preparo físico, afinidade e pontuação final de quem jogou ali
+        // E de quem ficou de fora), pro treinador ver isso ao clicar no jogador. "concorrentes"
+        // corta em 5 pra não virar uma lista do elenco inteiro. "funcoesPorRole" null/omitido pro
+        // motor de pontuação pura (ver detalhesConcorrenciaRole acima).
+        function detalhesEscalacaoPorRole(escalacao, funcoesPorRole, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId) {
+            let incluirBonusLado = !!funcoesPorRole; // só o motor de Afinidade Tática passa funcoesPorRole
+            let detalhes = {};
+            Object.entries(escalacao || {}).forEach(([role, nomeEscolhido]) => {
+                let funcaoExigida = funcoesPorRole && funcoesPorRole[role] && funcoesPorRole[role].funcao;
+                let lista = detalhesConcorrenciaRole(role, funcaoExigida, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId, incluirBonusLado);
+                let escolhido = lista.find(c => c.nome === nomeEscolhido);
+                if (!escolhido) return; // não deveria acontecer, mas nunca quebra a exibição por causa disso
+                detalhes[role] = { escolhido: escolhido, concorrentes: lista.filter(c => c.nome !== nomeEscolhido).slice(0, 5) };
+            });
+            return detalhes;
+        }
+
         // Monta os 11 titulares cruzando a pontuação efetiva da diretriz ativa (empilhada, nunca
         // substituída — "empilhar" foi a decisão confirmada) com a penalidade de -8 por posição
         // sempre que a especialidade do jogador não cobrir a função exigida ali (funcoesPorRole,
@@ -1969,7 +2086,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // par (função-do-campinho, jogador) tem seu PRÓPRIO peso — daí o Húngaro em vez do Kuhn.
         function selecionarEscalacaoPorAfinidadeTatica(esquema, funcoesPorRole, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId) {
             let coords = coordsFormacoes[esquema];
-            if (!coords || !db[currentSave]) return null;
+            if (!coords || !db[currentSave]) return { escalacao: null, detalhes: {} };
             let roles = coords.map(c => c.role);
             let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
             let pesoPreparo = typeof pesoPreparoFisico === 'number' ? pesoPreparoFisico : 0.35;
@@ -1980,7 +2097,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 if (currentSave === 'selecao' && p.convocado === false) return false;
                 return true;
             });
-            if (!roles.length || !candidatos.length) return {};
+            if (!roles.length || !candidatos.length) return { escalacao: {}, detalhes: {} };
 
             // Elegibilidade real de posição/lado é só posicaoCompativelComRole (grupo + Lado Preferido).
             // A Afinidade Tática (0 a 5, ver AFINIDADE_TATICA em funcoes-ea.js) entre a especialidade do
@@ -1995,12 +2112,9 @@ ${textoRegrasCompatibilidadePosicional()}
             // bônus de perfil alinhado ao Foco Tático da partida, menos uma penalidade graduada pela
             // Afinidade Tática entre a especialidade do jogador e a função exigida ali — afinidade 5
             // (encaixe perfeito) não penaliza, afinidade 0 (função fora do repertório da especialidade)
-            // penaliza o máximo, com gradação linear entre os dois extremos.
-            const _FATOR_PENALIDADE_AFINIDADE = 2; // (5 - afinidade) * 2 → 0 (afinidade 5) até 10 (afinidade 0)
-            // Bônus leve de Lado Preferido — mesma ideia de bonusFocoPorPerfil: nunca penaliza quem
-            // joga do lado oposto (isso já é papel da elegibilidade/afinidade), só dá uma pequena
-            // vantagem extra pra quem calha de já jogar do lado que prefere.
-            const _BONUS_LADO_PREFERIDO = 1.5;
+            // penaliza o máximo, com gradação linear entre os dois extremos. _FATOR_PENALIDADE_AFINIDADE
+            // e _BONUS_LADO_PREFERIDO agora são compartilhados com detalhesConcorrenciaRole (acima),
+            // pra "por que ele foi escolhido" no campinho usar exatamente a mesma fórmula daqui.
             function peso(role, jogador) {
                 let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0) - penalidadePorPreparoFisico(jogador.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(jogador.posicao, focoPartidaId);
                 if (jogador.ladoPreferido && LADO_DA_SIGLA[role] === jogador.ladoPreferido) base += _BONUS_LADO_PREFERIDO;
@@ -2032,7 +2146,8 @@ ${textoRegrasCompatibilidadePosicional()}
                 if (!jogador || custo[i - 1][j - 1] >= _CUSTO_INCOMPATIVEL_AFINIDADE) continue; // ninguém compatível de verdade
                 escalacao[roles[i - 1]] = jogador.nome;
             }
-            return escalacao;
+            let detalhes = detalhesEscalacaoPorRole(escalacao, funcoesPorRole, calcularPontuacaoEfetivaFn, obterNotaMedia, pesoPreparo, focoPartidaId);
+            return { escalacao, detalhes };
         }
 
         // Pra cada titular escalado, verifica se ele realmente cobre a função exigida ali —
@@ -2063,7 +2178,7 @@ ${textoRegrasCompatibilidadePosicional()}
         // nada, pra atalhos antigos/testes que ainda não sabem desse parâmetro continuarem funcionando.
         function selecionarEscalacaoPorPontuacao(esquema, calcularPontuacaoEfetivaFn, notaMediaFn, pesoPreparoFisico, focoPartidaId) {
             let coords = coordsFormacoes[esquema];
-            if (!coords || !db[currentSave]) return null;
+            if (!coords || !db[currentSave]) return { escalacao: null, detalhes: {} };
             let roles = coords.map(c => c.role);
             let obterNotaMedia = notaMediaFn || notaMediaEscaladaJogador;
             let pesoPreparo = typeof pesoPreparoFisico === 'number' ? pesoPreparoFisico : 0.35;
@@ -2078,7 +2193,12 @@ ${textoRegrasCompatibilidadePosicional()}
                 pontuacaoEfetiva: calcularPontuacaoEfetivaFn(p.ovr, obterNotaMedia(p), p.fadiga || 0) - penalidadePorPreparoFisico(p.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(p.posicao, focoPartidaId)
             })).sort((a, b) => b.pontuacaoEfetiva - a.pontuacaoEfetiva);
 
-            return alocarPorPosicaoKuhn(candidatos, roles, focoPartidaId);
+            let escalacao = alocarPorPosicaoKuhn(candidatos, roles, focoPartidaId);
+            // Sem funcoesPorRole aqui de propósito: essa diretriz decide só por pontuação (OVR, nota
+            // média, preparo físico, foco) — função/afinidade nunca pesou na escolha, então não
+            // inventa uma coluna de afinidade que não influenciou nada.
+            let detalhes = detalhesEscalacaoPorRole(escalacao, null, calcularPontuacaoEfetivaFn, obterNotaMedia, pesoPreparo, focoPartidaId);
+            return { escalacao, detalhes };
         }
 
         // Atalhos diretos pra cada diretriz — usados pelos testes e por quem quiser calcular uma
@@ -2566,14 +2686,16 @@ ${textoRegrasCompatibilidadePosicional()}
             // no lugar — o banco dela também já sai pronto aqui, junto com a escalação.
             let escalacoesFixasPorFormacao = {};
             let bancosFixosPorFormacao = {};
+            let detalhesEscalacaoPorFormacao = {};
             let alertasAfinidadeAtivos = [];
             if (pacoteRefinado && diretrizInfo.calcularPontuacaoEfetiva) {
                 // Gegenpressing Dinâmico decidiu a formação sozinho — só ELA entra como fixa (a IA
                 // não escolhe entre as outras preferidas nesse caso, a formação já não é dela).
-                let fixaAfinidade = selecionarEscalacaoPorAfinidadeTatica(pacoteRefinado.esquemaEscolhido, pacoteRefinado.funcoesPorRole, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
+                let { escalacao: fixaAfinidade, detalhes: detalhesAfinidade } = selecionarEscalacaoPorAfinidadeTatica(pacoteRefinado.esquemaEscolhido, pacoteRefinado.funcoesPorRole, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
                 if (fixaAfinidade && Object.keys(fixaAfinidade).length) {
                     escalacoesFixasPorFormacao[pacoteRefinado.esquemaEscolhido] = fixaAfinidade;
                     bancosFixosPorFormacao[pacoteRefinado.esquemaEscolhido] = montarBancoReserva(Object.values(fixaAfinidade), diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
+                    detalhesEscalacaoPorFormacao[pacoteRefinado.esquemaEscolhido] = detalhesAfinidade;
                     alertasAfinidadeAtivos = alertasAfinidadeTatica(fixaAfinidade, pacoteRefinado.funcoesPorRole);
                 }
             } else if (diretrizInfo.selecionarEscalacaoEBanco) {
@@ -2586,8 +2708,11 @@ ${textoRegrasCompatibilidadePosicional()}
                 });
             } else if (diretrizInfo.calcularPontuacaoEfetiva) {
                 formacoesPreferidasIA.forEach(esq => {
-                    let fixa = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
-                    if (fixa) escalacoesFixasPorFormacao[esq] = fixa;
+                    let { escalacao: fixa, detalhes: detalhesFixa } = selecionarEscalacaoPorPontuacao(esq, diretrizInfo.calcularPontuacaoEfetiva, diretrizInfo.notaMediaFn, diretrizInfo.pesoPreparoFisico, focoPartidaId);
+                    if (fixa) {
+                        escalacoesFixasPorFormacao[esq] = fixa;
+                        detalhesEscalacaoPorFormacao[esq] = detalhesFixa;
+                    }
                 });
             }
             let blocoTitularesFixos = Object.keys(escalacoesFixasPorFormacao).length ? `
@@ -2697,6 +2822,10 @@ ${textoRegrasCompatibilidadePosicional()}
                     // lateral, 2 meio-campo/volante, 2 pontas, 1 atacante), preenchida por quem
                     // pontua mais em cada linha usando a fórmula DESTA diretriz.
                     let escalacaoFixaEscolhida = escalacoesFixasPorFormacao[res.formacaoEscolhida];
+                    // "Por que ele foi escolhido" (OVR/nota média/preparo físico/afinidade/pontuação
+                    // dele e dos concorrentes que ficaram de fora) — calculado junto da escalação
+                    // fixa acima, só precisa achar a entrada da formação que a IA de fato escolheu.
+                    let detalhesEscalacaoEscolhida = detalhesEscalacaoPorFormacao[res.formacaoEscolhida] || {};
                     if (escalacaoFixaEscolhida) {
                         res.escalacao = res.escalacao || {};
                         Object.entries(escalacaoFixaEscolhida).forEach(([role, nomeFixo]) => {
@@ -2773,6 +2902,12 @@ ${textoRegrasCompatibilidadePosicional()}
                         ajustesTaticos: normalizada.ajustes,
                         escalacao: res.escalacao,
                         funcoesPorRole: funcoesPorRole,
+                        // "Por que ele foi escolhido" pra cada titular fixado pelo algoritmo (ver
+                        // detalhesEscalacaoPorRole) — chave por role, com o jogador escalado e os
+                        // concorrentes que ficaram de fora, cada um com OVR/nota média/preparo
+                        // físico/afinidade/pontuação. Vazio pras diretrizes por cota (Oportunidade
+                        // à Base/Jovens) que não passam por essa fórmula.
+                        detalhesEscalacao: detalhesEscalacaoEscolhida,
                         reservas: (() => {
                             // Rede de segurança final: um titular NUNCA pode aparecer no banco também —
                             // seja porque a IA (texto livre) escreveu o mesmo nome nos dois campos, seja
