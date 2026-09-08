@@ -267,7 +267,7 @@
             </div>
             <div class="linha-form">
     <label>Posição</label>
-    <select id="edit-jog-pos">
+    <select id="edit-jog-pos" onchange="alternarCampoLadoPreferido('edit-jog-pos','edit-jog-lado-wrapper')">
         <optgroup label="Goleiros">
             <option value="Goleiro/Tradicional">Goleiro/Tradicional</option>
             <option value="Goleiro/Construtor">Goleiro/Construtor</option>
@@ -280,14 +280,10 @@
             <option value="Zagueiro/Híbrido">Zagueiro/Híbrido</option>
         </optgroup>
         <optgroup label="Laterais">
-            <option value="Lateral/Defensivo Direito">Lateral/Defensivo Direito</option>
-            <option value="Lateral/Defensivo Esquerdo">Lateral/Defensivo Esquerdo</option>
-            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
-            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
-            <option value="Lateral/Ala Clássico Direito">Lateral/Ala Clássico Direito</option>
-            <option value="Lateral/Ala Clássico Esquerdo">Lateral/Ala Clássico Esquerdo</option>
-            <option value="Lateral/Ala Ofensivo Direito">Lateral/Ala Ofensivo Direito</option>
-            <option value="Lateral/Ala Ofensivo Esquerdo">Lateral/Ala Ofensivo Esquerdo</option>
+            <option value="Lateral/Defensivo">Lateral/Defensivo</option>
+            <option value="Lateral/Construtor">Lateral/Construtor</option>
+            <option value="Lateral/Ala Clássico">Lateral/Ala Clássico</option>
+            <option value="Lateral/Ala Ofensivo">Lateral/Ala Ofensivo</option>
         </optgroup>
         <optgroup label="Volantes">
             <option value="Volante/Cão de Guarda">Volante/Cão de Guarda</option>
@@ -298,18 +294,13 @@
             <option value="MeioCampo/Dinâmico">MeioCampo/Dinâmico</option>
             <option value="MeioCampo/Armador Clássico">MeioCampo/Armador Clássico</option>
             <option value="MeioCampo/Infiltrador">MeioCampo/Infiltrador</option>
-            <option value="MeioCampo/Aberto Direito">MeioCampo/Aberto Direito</option>
-            <option value="MeioCampo/Aberto Esquerdo">MeioCampo/Aberto Esquerdo</option>
+            <option value="MeioCampo/Aberto">MeioCampo/Aberto</option>
         </optgroup>
         <optgroup label="Pontas">
-            <option value="Ponta/Operário Direito">Ponta/Operário Direito</option>
-            <option value="Ponta/Operário Esquerdo">Ponta/Operário Esquerdo</option>
-            <option value="Ponta/Clássico Direito">Ponta/Clássico Direito</option>
-            <option value="Ponta/Clássico Esquerdo">Ponta/Clássico Esquerdo</option>
-            <option value="Ponta/Invertido Direito">Ponta/Invertido Direito</option>
-            <option value="Ponta/Invertido Esquerdo">Ponta/Invertido Esquerdo</option>
-            <option value="Ponta/Construtor Direito">Ponta/Construtor Direito</option>
-            <option value="Ponta/Construtor Esquerdo">Ponta/Construtor Esquerdo</option>
+            <option value="Ponta/Operário">Ponta/Operário</option>
+            <option value="Ponta/Clássico">Ponta/Clássico</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Construtor">Ponta/Construtor</option>
         </optgroup>
         <optgroup label="Atacantes">
             <option value="Atacante/Pivô">Atacante/Pivô</option>
@@ -317,6 +308,13 @@
             <option value="Atacante/Falso 9">Atacante/Falso 9</option>
             <option value="Atacante/Móvel">Atacante/Móvel</option>
         </optgroup>
+    </select>
+</div>
+            <div class="linha-form" id="edit-jog-lado-wrapper">
+    <label>Lado Preferido</label>
+    <select id="edit-jog-lado">
+        <option value="D">Direito</option>
+        <option value="E">Esquerdo</option>
     </select>
 </div>
             <div class="linha-form">
@@ -646,7 +644,11 @@
                     </div>
                     <div class="linha-form">
                         <label>Posição</label>
-                        <select id="wiz-jog-pos"></select>
+                        <select id="wiz-jog-pos" onchange="alternarCampoLadoPreferido('wiz-jog-pos','wiz-jog-lado-wrapper')"></select>
+                    </div>
+                    <div class="linha-form" id="wiz-jog-lado-wrapper">
+                        <label>Lado Preferido</label>
+                        <select id="wiz-jog-lado"></select>
                     </div>
                     <div class="linha-form">
                         <label>Overall (OVR)</label>
@@ -1021,7 +1023,7 @@
                         <div class="grid-2" style="margin-bottom: 12px;">
     <div class="linha-form">
         <label>Posição</label>
-        <select id="jog-pos">
+        <select id="jog-pos" onchange="alternarCampoLadoPreferido('jog-pos','jog-lado-wrapper')">
         <optgroup label="Goleiros">
             <option value="Goleiro/Tradicional">Goleiro/Tradicional</option>
             <option value="Goleiro/Construtor">Goleiro/Construtor</option>
@@ -1034,14 +1036,10 @@
             <option value="Zagueiro/Híbrido">Zagueiro/Híbrido</option>
         </optgroup>
         <optgroup label="Laterais">
-            <option value="Lateral/Defensivo Direito">Lateral/Defensivo Direito</option>
-            <option value="Lateral/Defensivo Esquerdo">Lateral/Defensivo Esquerdo</option>
-            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
-            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
-            <option value="Lateral/Ala Clássico Direito">Lateral/Ala Clássico Direito</option>
-            <option value="Lateral/Ala Clássico Esquerdo">Lateral/Ala Clássico Esquerdo</option>
-            <option value="Lateral/Ala Ofensivo Direito">Lateral/Ala Ofensivo Direito</option>
-            <option value="Lateral/Ala Ofensivo Esquerdo">Lateral/Ala Ofensivo Esquerdo</option>
+            <option value="Lateral/Defensivo">Lateral/Defensivo</option>
+            <option value="Lateral/Construtor">Lateral/Construtor</option>
+            <option value="Lateral/Ala Clássico">Lateral/Ala Clássico</option>
+            <option value="Lateral/Ala Ofensivo">Lateral/Ala Ofensivo</option>
         </optgroup>
         <optgroup label="Volantes">
             <option value="Volante/Cão de Guarda">Volante/Cão de Guarda</option>
@@ -1052,18 +1050,13 @@
             <option value="MeioCampo/Dinâmico">MeioCampo/Dinâmico</option>
             <option value="MeioCampo/Armador Clássico">MeioCampo/Armador Clássico</option>
             <option value="MeioCampo/Infiltrador">MeioCampo/Infiltrador</option>
-            <option value="MeioCampo/Aberto Direito">MeioCampo/Aberto Direito</option>
-            <option value="MeioCampo/Aberto Esquerdo">MeioCampo/Aberto Esquerdo</option>
+            <option value="MeioCampo/Aberto">MeioCampo/Aberto</option>
         </optgroup>
         <optgroup label="Pontas">
-            <option value="Ponta/Operário Direito">Ponta/Operário Direito</option>
-            <option value="Ponta/Operário Esquerdo">Ponta/Operário Esquerdo</option>
-            <option value="Ponta/Clássico Direito">Ponta/Clássico Direito</option>
-            <option value="Ponta/Clássico Esquerdo">Ponta/Clássico Esquerdo</option>
-            <option value="Ponta/Invertido Direito">Ponta/Invertido Direito</option>
-            <option value="Ponta/Invertido Esquerdo">Ponta/Invertido Esquerdo</option>
-            <option value="Ponta/Construtor Direito">Ponta/Construtor Direito</option>
-            <option value="Ponta/Construtor Esquerdo">Ponta/Construtor Esquerdo</option>
+            <option value="Ponta/Operário">Ponta/Operário</option>
+            <option value="Ponta/Clássico">Ponta/Clássico</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Construtor">Ponta/Construtor</option>
         </optgroup>
         <optgroup label="Atacantes">
             <option value="Atacante/Pivô">Atacante/Pivô</option>
@@ -1072,6 +1065,13 @@
             <option value="Atacante/Móvel">Atacante/Móvel</option>
         </optgroup>
     </select>
+    </div>
+    <div class="linha-form" id="jog-lado-wrapper">
+        <label>Lado Preferido</label>
+        <select id="jog-lado">
+            <option value="D">Direito</option>
+            <option value="E">Esquerdo</option>
+        </select>
     </div>
     <!-- AQUI ESTÁ O CAMPO DE NOTA E O FECHAMENTO DA DIV QUE HAVIAM SUMIDO -->
     <div class="linha-form"><label>Nota (0-10)</label><input type="number" step="0.1" id="jog-nota" value="7.0"></div>
@@ -1195,7 +1195,7 @@
                 <div class="grid-3">
                     <div class="linha-form">
     <label>Posição</label>
-    <select id="cad-pos">
+    <select id="cad-pos" onchange="alternarCampoLadoPreferido('cad-pos','cad-lado-wrapper')">
         <optgroup label="Goleiros">
             <option value="Goleiro/Tradicional">Goleiro/Tradicional</option>
             <option value="Goleiro/Construtor">Goleiro/Construtor</option>
@@ -1208,14 +1208,10 @@
             <option value="Zagueiro/Híbrido">Zagueiro/Híbrido</option>
         </optgroup>
         <optgroup label="Laterais">
-            <option value="Lateral/Defensivo Direito">Lateral/Defensivo Direito</option>
-            <option value="Lateral/Defensivo Esquerdo">Lateral/Defensivo Esquerdo</option>
-            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
-            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
-            <option value="Lateral/Ala Clássico Direito">Lateral/Ala Clássico Direito</option>
-            <option value="Lateral/Ala Clássico Esquerdo">Lateral/Ala Clássico Esquerdo</option>
-            <option value="Lateral/Ala Ofensivo Direito">Lateral/Ala Ofensivo Direito</option>
-            <option value="Lateral/Ala Ofensivo Esquerdo">Lateral/Ala Ofensivo Esquerdo</option>
+            <option value="Lateral/Defensivo">Lateral/Defensivo</option>
+            <option value="Lateral/Construtor">Lateral/Construtor</option>
+            <option value="Lateral/Ala Clássico">Lateral/Ala Clássico</option>
+            <option value="Lateral/Ala Ofensivo">Lateral/Ala Ofensivo</option>
         </optgroup>
         <optgroup label="Volantes">
             <option value="Volante/Cão de Guarda">Volante/Cão de Guarda</option>
@@ -1226,18 +1222,13 @@
             <option value="MeioCampo/Dinâmico">MeioCampo/Dinâmico</option>
             <option value="MeioCampo/Armador Clássico">MeioCampo/Armador Clássico</option>
             <option value="MeioCampo/Infiltrador">MeioCampo/Infiltrador</option>
-            <option value="MeioCampo/Aberto Direito">MeioCampo/Aberto Direito</option>
-            <option value="MeioCampo/Aberto Esquerdo">MeioCampo/Aberto Esquerdo</option>
+            <option value="MeioCampo/Aberto">MeioCampo/Aberto</option>
         </optgroup>
         <optgroup label="Pontas">
-            <option value="Ponta/Operário Direito">Ponta/Operário Direito</option>
-            <option value="Ponta/Operário Esquerdo">Ponta/Operário Esquerdo</option>
-            <option value="Ponta/Clássico Direito">Ponta/Clássico Direito</option>
-            <option value="Ponta/Clássico Esquerdo">Ponta/Clássico Esquerdo</option>
-            <option value="Ponta/Invertido Direito">Ponta/Invertido Direito</option>
-            <option value="Ponta/Invertido Esquerdo">Ponta/Invertido Esquerdo</option>
-            <option value="Ponta/Construtor Direito">Ponta/Construtor Direito</option>
-            <option value="Ponta/Construtor Esquerdo">Ponta/Construtor Esquerdo</option>
+            <option value="Ponta/Operário">Ponta/Operário</option>
+            <option value="Ponta/Clássico">Ponta/Clássico</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Construtor">Ponta/Construtor</option>
         </optgroup>
         <optgroup label="Atacantes">
             <option value="Atacante/Pivô">Atacante/Pivô</option>
@@ -1245,6 +1236,13 @@
             <option value="Atacante/Falso 9">Atacante/Falso 9</option>
             <option value="Atacante/Móvel">Atacante/Móvel</option>
         </optgroup>
+    </select>
+</div>
+                    <div class="linha-form" id="cad-lado-wrapper">
+    <label>Lado Preferido</label>
+    <select id="cad-lado">
+        <option value="D">Direito</option>
+        <option value="E">Esquerdo</option>
     </select>
 </div>
                     <div class="linha-form"><label>Overall (OVR)</label><input type="number" id="cad-ovr" value="70"></div>
@@ -1341,7 +1339,7 @@
                     <div class="grid-2">
                         <div class="linha-form">
     <label>Posição</label>
-    <select id="add-pos">
+    <select id="add-pos" onchange="alternarCampoLadoPreferido('add-pos','add-lado-wrapper')">
         <optgroup label="Goleiros">
             <option value="Goleiro/Tradicional">Goleiro/Tradicional</option>
             <option value="Goleiro/Construtor">Goleiro/Construtor</option>
@@ -1354,14 +1352,10 @@
             <option value="Zagueiro/Híbrido">Zagueiro/Híbrido</option>
         </optgroup>
         <optgroup label="Laterais">
-            <option value="Lateral/Defensivo Direito">Lateral/Defensivo Direito</option>
-            <option value="Lateral/Defensivo Esquerdo">Lateral/Defensivo Esquerdo</option>
-            <option value="Lateral/Construtor Direito">Lateral/Construtor Direito</option>
-            <option value="Lateral/Construtor Esquerdo">Lateral/Construtor Esquerdo</option>
-            <option value="Lateral/Ala Clássico Direito">Lateral/Ala Clássico Direito</option>
-            <option value="Lateral/Ala Clássico Esquerdo">Lateral/Ala Clássico Esquerdo</option>
-            <option value="Lateral/Ala Ofensivo Direito">Lateral/Ala Ofensivo Direito</option>
-            <option value="Lateral/Ala Ofensivo Esquerdo">Lateral/Ala Ofensivo Esquerdo</option>
+            <option value="Lateral/Defensivo">Lateral/Defensivo</option>
+            <option value="Lateral/Construtor">Lateral/Construtor</option>
+            <option value="Lateral/Ala Clássico">Lateral/Ala Clássico</option>
+            <option value="Lateral/Ala Ofensivo">Lateral/Ala Ofensivo</option>
         </optgroup>
         <optgroup label="Volantes">
             <option value="Volante/Cão de Guarda">Volante/Cão de Guarda</option>
@@ -1372,18 +1366,13 @@
             <option value="MeioCampo/Dinâmico">MeioCampo/Dinâmico</option>
             <option value="MeioCampo/Armador Clássico">MeioCampo/Armador Clássico</option>
             <option value="MeioCampo/Infiltrador">MeioCampo/Infiltrador</option>
-            <option value="MeioCampo/Aberto Direito">MeioCampo/Aberto Direito</option>
-            <option value="MeioCampo/Aberto Esquerdo">MeioCampo/Aberto Esquerdo</option>
+            <option value="MeioCampo/Aberto">MeioCampo/Aberto</option>
         </optgroup>
         <optgroup label="Pontas">
-            <option value="Ponta/Operário Direito">Ponta/Operário Direito</option>
-            <option value="Ponta/Operário Esquerdo">Ponta/Operário Esquerdo</option>
-            <option value="Ponta/Clássico Direito">Ponta/Clássico Direito</option>
-            <option value="Ponta/Clássico Esquerdo">Ponta/Clássico Esquerdo</option>
-            <option value="Ponta/Invertido Direito">Ponta/Invertido Direito</option>
-            <option value="Ponta/Invertido Esquerdo">Ponta/Invertido Esquerdo</option>
-            <option value="Ponta/Construtor Direito">Ponta/Construtor Direito</option>
-            <option value="Ponta/Construtor Esquerdo">Ponta/Construtor Esquerdo</option>
+            <option value="Ponta/Operário">Ponta/Operário</option>
+            <option value="Ponta/Clássico">Ponta/Clássico</option>
+            <option value="Ponta/Invertido">Ponta/Invertido</option>
+            <option value="Ponta/Construtor">Ponta/Construtor</option>
         </optgroup>
         <optgroup label="Atacantes">
             <option value="Atacante/Pivô">Atacante/Pivô</option>
@@ -1391,6 +1380,13 @@
             <option value="Atacante/Falso 9">Atacante/Falso 9</option>
             <option value="Atacante/Móvel">Atacante/Móvel</option>
         </optgroup>
+    </select>
+</div>
+                        <div class="linha-form" id="add-lado-wrapper">
+    <label>Lado Preferido</label>
+    <select id="add-lado">
+        <option value="D">Direito</option>
+        <option value="E">Esquerdo</option>
     </select>
 </div>
                         <div class="linha-form">
