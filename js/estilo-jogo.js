@@ -742,7 +742,7 @@ function _ordenarSlotsDoGrupo(grupoKey, coordsFormacao) {
 function _jogadorProvavelDoSlot(role) {
     let plantel = (db[currentSave] && db[currentSave].plantel) || [];
     if (!plantel.length || typeof posicaoCompativelComRole !== 'function') return null;
-    let compativeis = plantel.filter(p => p.status === 'Ativo' && posicaoCompativelComRole(role, p.posicao));
+    let compativeis = plantel.filter(p => p.status === 'Ativo' && posicaoCompativelComRole(role, p.posicao, p.ladoPreferido));
     if (!compativeis.length) return null;
     return compativeis.slice().sort((a, b) => (b.ovr || 0) - (a.ovr || 0))[0];
 }

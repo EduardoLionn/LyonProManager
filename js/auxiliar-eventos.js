@@ -205,7 +205,14 @@ Retorne APENAS um array JSON puro, sem marcação markdown, com um item por joga
                 let classificados = JSON.parse(jsonMatch[0]);
                 classificados.forEach(c => {
                     let idxLote = Number(c.indice) - 1;
-                    if (idxLote >= 0 && idxLote < lote.length) resultado[inicio + idxLote] = c.posicao;
+                    if (idxLote >= 0 && idxLote < lote.length) {
+                        // Lado Preferido não é mais parte da especialidade (a IA não escolhe mais
+                        // entre "Direito"/"Esquerdo") — calculado direto da Posição Base lida na tela.
+                        resultado[inicio + idxLote] = {
+                            posicao: c.posicao,
+                            ladoPreferido: ladoPreferidoDaPosicaoBase(lote[idxLote].posicaoBase)
+                        };
+                    }
                 });
             }
         } catch (e) {
@@ -297,7 +304,9 @@ Exemplo do formato exigido:
             extraidos.forEach((j, idx) => {
                 let nomeExtraido = String(j.nome || '').trim();
                 if (!nomeExtraido) return;
-                let posExtraida = ESPECIALIDADES_JOGADOR[classificacoes[idx]] ? classificacoes[idx] : "MeioCampo/Dinâmico";
+                let classificacao = classificacoes[idx];
+                let posExtraida = (classificacao && ESPECIALIDADES_JOGADOR[classificacao.posicao]) ? classificacao.posicao : "MeioCampo/Dinâmico";
+                let ladoExtraido = (classificacao && classificacao.ladoPreferido) || ladoPreferidoDaPosicaoBase(j.posicaoBase);
                 let ovrExtraido = Number(j.ovr) || 70;
                 let idadeExtraida = j.idade ? Number(j.idade) : null;
 
@@ -307,11 +316,13 @@ Exemplo do formato exigido:
                 if (jogadorExistente) {
                     jogadorExistente.ovr = ovrExtraido;
                     jogadorExistente.posicao = posExtraida;
+                    jogadorExistente.ladoPreferido = ladoExtraido;
                     if (idadeExtraida) jogadorExistente.idade = idadeExtraida;
                 } else {
                     let novoJog = {
                         nome: nomeExtraido,
                         posicao: posExtraida,
+                        ladoPreferido: ladoExtraido,
                         ovr: ovrExtraido,
                         status: 'Ativo',
                         jogosAvaliacao: 0

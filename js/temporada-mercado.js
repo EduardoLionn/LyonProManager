@@ -269,7 +269,7 @@ ${blocoAvaliacao}
             if(currentSave !== 'clube') return;
             let nome = document.getElementById('cad-nome').value.trim(); if(!nome) return;
             let idadeVal = document.getElementById('cad-idade').value;
-            let novoJog = { nome: nome, posicao: document.getElementById('cad-pos').value, ovr: Number(document.getElementById('cad-ovr').value), status: 'Ativo', jogosAvaliacao: 0 };
+            let novoJog = { nome: nome, posicao: document.getElementById('cad-pos').value, ladoPreferido: document.getElementById('cad-lado').value, ovr: Number(document.getElementById('cad-ovr').value), status: 'Ativo', jogosAvaliacao: 0 };
             if (idadeVal) novoJog.idade = Number(idadeVal);
             if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoJog);
             db.clube.plantel.push(novoJog);
@@ -375,6 +375,8 @@ ${blocoAvaliacao}
             }
 
             document.getElementById('add-pos').value = (typeof SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA !== 'undefined' && SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA[achado.posicao]) || 'MeioCampo/Dinâmico';
+            document.getElementById('add-lado').value = (typeof scoutLadoPreferidoDaSigla === 'function') ? scoutLadoPreferidoDaSigla(achado.posicao) : 'D';
+            if (typeof alternarCampoLadoPreferido === 'function') alternarCampoLadoPreferido('add-pos', 'add-lado-wrapper');
             document.getElementById('add-idade').value = achado.idade;
             if (status) { status.style.color = 'var(--primary)'; status.innerText = `✅ Encontrado no ${achado.clube} (${achado.liga}) — posição e idade preenchidas.`; }
             if (btnRevelar) { btnRevelar.style.display = 'inline-block'; btnRevelar.dataset.ovrReal = achado.ovr; }
@@ -422,12 +424,14 @@ ${blocoAvaliacao}
                 jogadorExistente.origem = tipoTransicao;
                 jogadorExistente.ovr = Number(document.getElementById('add-ovr').value);
                 jogadorExistente.posicao = document.getElementById('add-pos').value;
+                jogadorExistente.ladoPreferido = document.getElementById('add-lado').value;
                 jogadorExistente.valor = custo;
                 if (idadeVal) jogadorExistente.idade = Number(idadeVal);
                 if (tipoTransicao === 'EmprestadoIn') jogadorExistente.temporadasEmprestimo = duracao;
             } else {
                 let novoJog = {
                     nome: nomeNovo, posicao: document.getElementById('add-pos').value,
+                    ladoPreferido: document.getElementById('add-lado').value,
                     ovr: Number(document.getElementById('add-ovr').value), status: 'Ativo',
                     origem: tipoTransicao, valor: custo, jogosAvaliacao: 0
                 };
@@ -613,6 +617,8 @@ ${blocoAvaliacao}
                 document.getElementById('edit-jog-nome-original').value = jog.nome; document.getElementById('edit-jog-nome').value = jog.nome;
                 document.getElementById('edit-jog-pos').value = jog.posicao; document.getElementById('edit-jog-ovr').value = jog.ovr;
                 document.getElementById('edit-jog-idade').value = jog.idade || '';
+                document.getElementById('edit-jog-lado').value = jog.ladoPreferido || 'D';
+                if (typeof alternarCampoLadoPreferido === 'function') alternarCampoLadoPreferido('edit-jog-pos', 'edit-jog-lado-wrapper');
                 document.getElementById('modal-editar-jogador').style.display = 'flex';
             }
         }
@@ -627,6 +633,7 @@ ${blocoAvaliacao}
                     db[currentSave].partidas.forEach(partida => { let jogPartida = partida.jogadores.find(j => j.nome === nomeOriginal); if(jogPartida) jogPartida.nome = novoNome; });
                 }
                 jog.nome = novoNome; jog.posicao = document.getElementById('edit-jog-pos').value; jog.ovr = Number(document.getElementById('edit-jog-ovr').value);
+                jog.ladoPreferido = document.getElementById('edit-jog-lado').value;
                 let idadeVal = document.getElementById('edit-jog-idade').value;
                 if (idadeVal) jog.idade = Number(idadeVal); else delete jog.idade;
                 salvarDados(); atualizarPlantelUI(); preencherDatalistJogadores(); document.getElementById('modal-editar-jogador').style.display = 'none';

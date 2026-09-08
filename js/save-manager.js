@@ -87,6 +87,30 @@ function _migrarPosicoesAntigasDoSave(dbObj) {
     });
 }
 
+// Reformulação do Lado Preferido (set/2026): lado deixou de ser parte do NOME da especialidade
+// (ver merge das variantes Direito/Esquerdo em ESPECIALIDADES_JOGADOR, js/funcoes-ea.js) e virou
+// um campo próprio do jogador — vale pra todo mundo, menos Goleiro. Roda DEPOIS de
+// _migrarPosicoesAntigasDoSave (que ainda produz os nomes antigos com sufixo Direito/Esquerdo),
+// separando "Lateral/Defensivo Direito" em posicao "Lateral/Defensivo" + ladoPreferido "D". Quem
+// nunca teve lado nenhum (Zagueiro/Volante/MeioCampo-Dinâmico/Atacante, especialidades sem
+// sufixo) ganha um padrão 'D' — o campo é só uma preferência leve pra essas posições, nunca
+// bloqueia escalação, e o treinador pode corrigir a qualquer momento editando o jogador.
+function _migrarLadoPreferidoDoSave(dbObj) {
+    [dbObj.clube, dbObj.selecao].forEach(save => {
+        (save && save.plantel || []).forEach(p => {
+            if (typeof p.posicao !== 'string' || p.posicao.startsWith('Goleiro/')) return;
+            if (p.posicao.endsWith(' Direito')) {
+                p.posicao = p.posicao.slice(0, -' Direito'.length);
+                if (!p.ladoPreferido) p.ladoPreferido = 'D';
+            } else if (p.posicao.endsWith(' Esquerdo')) {
+                p.posicao = p.posicao.slice(0, -' Esquerdo'.length);
+                if (!p.ladoPreferido) p.ladoPreferido = 'E';
+            }
+            if (!p.ladoPreferido) p.ladoPreferido = 'D';
+        });
+    });
+}
+
 // Carrega um save existente pelo id, substituindo o `db` em memória, e marca como ativo.
 function carregarSave(id) {
     let raw = localStorage.getItem(_chaveDadosSave(id));
@@ -98,6 +122,7 @@ function carregarSave(id) {
     if (carregado.clube) Object.assign(db.clube, carregado.clube);
     if (carregado.selecao) Object.assign(db.selecao, carregado.selecao);
     _migrarPosicoesAntigasDoSave(db);
+    _migrarLadoPreferidoDoSave(db);
     saveAtualId = id;
     localStorage.setItem(ACTIVE_SAVE_KEY, id);
     return true;
@@ -136,6 +161,7 @@ function importarSaveDeBackup(dbImportado, nomeSugerido) {
     if (dbImportado.clube) Object.assign(dbNovo.clube, dbImportado.clube);
     if (dbImportado.selecao) Object.assign(dbNovo.selecao, dbImportado.selecao);
     _migrarPosicoesAntigasDoSave(dbNovo);
+    _migrarLadoPreferidoDoSave(dbNovo);
 
     let id = _gerarIdSave();
     let agora = Date.now();

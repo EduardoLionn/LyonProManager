@@ -160,10 +160,14 @@ function wizardIniciar() {
         .forEach(id => { let el = document.getElementById(id); if (el) el.value = ''; });
     wizardLigaSelecionada = null;
 
-    // Copia as opções de posição do formulário de elenco principal (fonte única de verdade)
+    // Copia as opções de posição (e de Lado Preferido) do formulário de elenco principal
+    // (fonte única de verdade)
     let wizPos = document.getElementById('wiz-jog-pos');
     let cadPos = document.getElementById('cad-pos');
     if (wizPos && cadPos) wizPos.innerHTML = cadPos.innerHTML;
+    let wizLado = document.getElementById('wiz-jog-lado');
+    let cadLado = document.getElementById('cad-lado');
+    if (wizLado && cadLado) wizLado.innerHTML = cadLado.innerHTML;
 
     wizardEtapas = currentSave === 'clube'
         ? ['perfil', 'liga', 'clube', 'diretoria', 'tatica', 'elenco', 'resumo']
@@ -422,8 +426,10 @@ async function wizardCarregarElencoReal() {
     let classificacoes = await classificarEspecialidadesEmLote(lote);
 
     db.clube.plantel = elencoReal.map((p, idx) => {
-        let posicaoClassificada = ESPECIALIDADES_JOGADOR[classificacoes[idx]] ? classificacoes[idx] : 'MeioCampo/Dinâmico';
-        let jogador = { nome: p.nome, posicao: posicaoClassificada, ovr: p.ovr, idade: p.idade, status: 'Ativo', jogosAvaliacao: 0 };
+        let classificacao = classificacoes[idx];
+        let posicaoClassificada = (classificacao && ESPECIALIDADES_JOGADOR[classificacao.posicao]) ? classificacao.posicao : 'MeioCampo/Dinâmico';
+        let ladoClassificado = (classificacao && classificacao.ladoPreferido) || ladoPreferidoDaPosicaoBase(lote[idx].posicaoBase);
+        let jogador = { nome: p.nome, posicao: posicaoClassificada, ladoPreferido: ladoClassificado, ovr: p.ovr, idade: p.idade, status: 'Ativo', jogosAvaliacao: 0 };
         if (typeof garantirCamposElenco === 'function') garantirCamposElenco(jogador);
         return jogador;
     });
@@ -458,10 +464,11 @@ function wizardAdicionarJogador() {
     let nome = document.getElementById('wiz-jog-nome').value.trim();
     if (!nome) return alert("Digite o nome do jogador!");
     let posicao = document.getElementById('wiz-jog-pos').value;
+    let ladoPreferido = document.getElementById('wiz-jog-lado').value;
     let ovr = Number(document.getElementById('wiz-jog-ovr').value) || 70;
     let idadeVal = document.getElementById('wiz-jog-idade').value;
 
-    let jogador = { nome: nome, posicao: posicao, ovr: ovr, status: 'Ativo', jogosAvaliacao: 0 };
+    let jogador = { nome: nome, posicao: posicao, ladoPreferido: ladoPreferido, ovr: ovr, status: 'Ativo', jogosAvaliacao: 0 };
     if (idadeVal) jogador.idade = Number(idadeVal);
     if (typeof garantirCamposElenco === 'function') garantirCamposElenco(jogador);
     db.clube.plantel.push(jogador);

@@ -25,14 +25,24 @@ const SCOUT_GRUPOS_POSICAO = {
 const SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA = {
     GK: 'Goleiro/Tradicional',
     CB: 'Zagueiro/Híbrido', LCB: 'Zagueiro/Híbrido', RCB: 'Zagueiro/Híbrido',
-    LB: 'Lateral/Construtor Esquerdo', RB: 'Lateral/Construtor Direito',
+    LB: 'Lateral/Construtor', RB: 'Lateral/Construtor',
     CDM: 'Volante/Organizador', LDM: 'Volante/Organizador', RDM: 'Volante/Organizador',
     CM: 'MeioCampo/Dinâmico', LCM: 'MeioCampo/Dinâmico', RCM: 'MeioCampo/Dinâmico',
     CAM: 'MeioCampo/Armador Clássico', LAM: 'MeioCampo/Armador Clássico', RAM: 'MeioCampo/Armador Clássico',
-    LM: 'Ponta/Clássico Esquerdo', RM: 'Ponta/Clássico Direito',
-    LW: 'Ponta/Invertido Esquerdo', RW: 'Ponta/Invertido Direito',
+    LM: 'Ponta/Clássico', RM: 'Ponta/Clássico',
+    LW: 'Ponta/Invertido', RW: 'Ponta/Invertido',
     LS: 'Atacante/Móvel', RS: 'Atacante/Móvel', ST: 'Atacante/Matador'
 };
+
+// Lado Preferido a partir da sigla EA (L* = Esquerdo, R* = Direito) — a especialidade não indica
+// mais o lado sozinha (ver merge em ESPECIALIDADES_JOGADOR), então esse é o segundo pedaço da
+// mesma tradução que SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA já fazia sozinha antes.
+function scoutLadoPreferidoDaSigla(siglaEA) {
+    let s = String(siglaEA || '').toUpperCase();
+    if (s.startsWith('L')) return 'E';
+    if (s.startsWith('R')) return 'D';
+    return 'D';
+}
 
 // Quantos candidatos (no máximo) entram no pool de cada grupo de posição — controla o tamanho
 // do prompt enviado à IA. Setor prioritário (curto ou fraco) ganha mais opções; os outros ganham
@@ -326,6 +336,8 @@ function scoutUsarNomeNoFormularioCompra(nome, siglaEA, idade) {
 
     document.getElementById('add-nome').value = nome;
     document.getElementById('add-pos').value = SCOUT_ESPECIALIDADE_PADRAO_POR_SIGLA[siglaEA] || 'MeioCampo/Dinâmico';
+    document.getElementById('add-lado').value = scoutLadoPreferidoDaSigla(siglaEA);
+    if (typeof alternarCampoLadoPreferido === 'function') alternarCampoLadoPreferido('add-pos', 'add-lado-wrapper');
     document.getElementById('add-idade').value = idade;
 
     let campoNome = document.getElementById('add-nome');

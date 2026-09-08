@@ -43,13 +43,13 @@ function _montarTitularesAutomaticos(formacao) {
 
     // Funções mais específicas primeiro (menos candidatos) pra não sobrar buraco no fim
     let ordemRoles = coords.map(c => c.role).sort((a, b) => {
-        let na = elenco.filter(p => posicaoCompativelComRole(a, p.posicao)).length;
-        let nb = elenco.filter(p => posicaoCompativelComRole(b, p.posicao)).length;
+        let na = elenco.filter(p => posicaoCompativelComRole(a, p.posicao, p.ladoPreferido)).length;
+        let nb = elenco.filter(p => posicaoCompativelComRole(b, p.posicao, p.ladoPreferido)).length;
         return na - nb;
     });
 
     ordemRoles.forEach(role => {
-        let candidatos = elenco.filter(p => !usados.has(p.nome) && posicaoCompativelComRole(role, p.posicao));
+        let candidatos = elenco.filter(p => !usados.has(p.nome) && posicaoCompativelComRole(role, p.posicao, p.ladoPreferido));
         let saudaveis = candidatos.filter(p => !_jogadorIndisponivel(p));
         let pool = saudaveis.length ? saudaveis : candidatos;
         if (!pool.length) {
@@ -306,7 +306,7 @@ function aplicarEscalacaoLida(res, loader) {
 
     lidos.forEach(jogador => {
         if (usados.has(jogador.nome)) return;
-        let role = rolesLivres.find(r => posicaoCompativelComRole(r, jogador.posicao));
+        let role = rolesLivres.find(r => posicaoCompativelComRole(r, jogador.posicao, jogador.ladoPreferido));
         if (role) {
             titulares[role] = { nome: jogador.nome, instrucao: '' };
             usados.add(jogador.nome);

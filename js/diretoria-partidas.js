@@ -576,7 +576,11 @@
         function preencherDadosJogador() {
             let nome = document.getElementById('jog-nome-input').value.trim();
             let jog = db[currentSave].plantel.find(p => p.nome === nome);
-            if(jog) { document.getElementById('jog-ovr-atual').value = jog.ovr; document.getElementById('jog-pos').value = jog.posicao; }
+            if(jog) {
+                document.getElementById('jog-ovr-atual').value = jog.ovr; document.getElementById('jog-pos').value = jog.posicao;
+                document.getElementById('jog-lado').value = jog.ladoPreferido || 'D';
+                if (typeof alternarCampoLadoPreferido === 'function') alternarCampoLadoPreferido('jog-pos', 'jog-lado-wrapper');
+            }
         }
 
         function addJogadorPartida() {
@@ -590,9 +594,10 @@
             };
             jogadoresPartidaTemp.push(dadosJogador);
             let o = Number(document.getElementById('jog-ovr-atual').value) || 70; let pos = document.getElementById('jog-pos').value;
+            let lado = document.getElementById('jog-lado').value;
             let p = db[currentSave].plantel.find(x => x.nome === nome);
-            if(p) { p.ovr = o; p.posicao = pos; } else {
-                let novoP = { nome: nome, posicao: pos, ovr: o, status: 'Ativo', jogosAvaliacao: 0 };
+            if(p) { p.ovr = o; p.posicao = pos; p.ladoPreferido = lado; } else {
+                let novoP = { nome: nome, posicao: pos, ladoPreferido: lado, ovr: o, status: 'Ativo', jogosAvaliacao: 0 };
                 if (typeof garantirCamposElenco === 'function') garantirCamposElenco(novoP);
                 db[currentSave].plantel.push(novoP);
             }

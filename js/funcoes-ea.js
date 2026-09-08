@@ -274,116 +274,97 @@ function _semAcento(txt) {
 // ativa) fica pra depois — por ora a primeira da lista é sempre a função padrão.
 // =====================================================================================
 const ESPECIALIDADES_JOGADOR = {
-    'Goleiro/Tradicional': { perfil: 'equilibrado', lado: null, gruposFuncao: {
+    'Goleiro/Tradicional': { perfil: 'equilibrado', gruposFuncao: {
         goleiro: ['goleiro']
     }},
-    'Goleiro/Construtor': { perfil: 'criacao', lado: null, gruposFuncao: {
+    'Goleiro/Construtor': { perfil: 'criacao', gruposFuncao: {
         goleiro: ['gl-sai-jogando', 'goleiro']
     }},
-    'Goleiro/Líbero': { perfil: 'ataque', lado: null, gruposFuncao: {
+    'Goleiro/Líbero': { perfil: 'ataque', gruposFuncao: {
         goleiro: ['goleiro-libero', 'goleiro']
     }},
 
-    'Zagueiro/Rebatedor': { perfil: 'defesa', lado: null, gruposFuncao: {
+    'Zagueiro/Rebatedor': { perfil: 'defesa', gruposFuncao: {
         zagueiro: ['defesa', 'marcador']
     }},
-    'Zagueiro/Construtor': { perfil: 'criacao', lado: null, gruposFuncao: {
+    'Zagueiro/Construtor': { perfil: 'criacao', gruposFuncao: {
         zagueiro: ['sai-jogando', 'marcador', 'defesa'], volante: ['zaga', 'armador-recuado']
     }},
-    'Zagueiro/Cobertura': { perfil: 'defesa', lado: 'ambos', gruposFuncao: {
+    'Zagueiro/Cobertura': { perfil: 'defesa', gruposFuncao: {
         zagueiro: ['marcador', 'zagueiro-aberto', 'defesa'], lateral: ['lateral']
     }},
-    'Zagueiro/Híbrido': { perfil: 'equilibrado', lado: 'ambos', gruposFuncao: {
+    'Zagueiro/Híbrido': { perfil: 'equilibrado', gruposFuncao: {
         zagueiro: ['defesa', 'marcador', 'zagueiro-aberto', 'sai-jogando'],
         volante: ['contencao', 'zaga', 'armador-recuado'], meio_campo_central: ['contencao'], lateral: ['lateral']
     }},
 
-    'Lateral/Defensivo Direito': { perfil: 'defesa', lado: 'D', gruposFuncao: {
+    // Lado (Direito/Esquerdo) não é mais parte do nome da especialidade — vem do campo
+    // "Lado Preferido" do jogador (ver LADO_DA_SIGLA/posicaoCompativelComRole, mais abaixo).
+    'Lateral/Defensivo': { perfil: 'defesa', gruposFuncao: {
         lateral: ['lateral'], zagueiro: ['zagueiro-aberto', 'marcador']
     }},
-    'Lateral/Defensivo Esquerdo': { perfil: 'defesa', lado: 'E', gruposFuncao: {
-        lateral: ['lateral'], zagueiro: ['zagueiro-aberto', 'marcador']
-    }},
-    'Lateral/Construtor Direito': { perfil: 'criacao', lado: 'D', gruposFuncao: {
+    // "flexivelLado": pedido do treinador — Construtor tem mais facilidade de jogar no lado
+    // oposto ao preferido (o "invertido" já é parte do repertório dele), então o lado
+    // preferido continua valendo pra elegibilidade, mas nunca bloqueia o lado oposto.
+    'Lateral/Construtor': { perfil: 'criacao', flexivelLado: true, gruposFuncao: {
         lateral: ['lateral-invertido', 'lateral'], volante: ['meia-pelas-laterais', 'armador-recuado'], meio_campo_central: ['armador-recuado']
     }},
-    'Lateral/Construtor Esquerdo': { perfil: 'criacao', lado: 'E', gruposFuncao: {
-        lateral: ['lateral-invertido', 'lateral'], volante: ['meia-pelas-laterais', 'armador-recuado'], meio_campo_central: ['armador-recuado']
-    }},
-    'Lateral/Ala Clássico Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+    'Lateral/Ala Clássico': { perfil: 'amplitude', gruposFuncao: {
         lateral: ['ala', 'lateral'], meia_lateral: ['ala', 'meia-aberto']
     }},
-    'Lateral/Ala Clássico Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
-        lateral: ['ala', 'lateral'], meia_lateral: ['ala', 'meia-aberto']
-    }},
-    'Lateral/Ala Ofensivo Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
-        lateral: ['ala-atacante', 'ala-invertido', 'ala'], ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
-    }},
-    'Lateral/Ala Ofensivo Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
+    'Lateral/Ala Ofensivo': { perfil: 'amplitude', gruposFuncao: {
         lateral: ['ala-atacante', 'ala-invertido', 'ala'], ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
     }},
 
-    'Volante/Cão de Guarda': { perfil: 'defesa', lado: null, gruposFuncao: {
+    'Volante/Cão de Guarda': { perfil: 'defesa', gruposFuncao: {
         volante: ['contencao', 'zaga'], zagueiro: ['defesa', 'marcador', 'zagueiro-aberto'], meio_campo_central: ['contencao']
     }},
-    'Volante/Organizador': { perfil: 'criacao', lado: null, gruposFuncao: {
+    'Volante/Organizador': { perfil: 'criacao', gruposFuncao: {
         volante: ['armador-recuado'], meio_campo_central: ['armador-recuado', 'armador'], zagueiro: ['sai-jogando']
     }},
-    'Volante/Motorzinho': { perfil: 'equilibrado', lado: 'ambos', gruposFuncao: {
+    'Volante/Motorzinho': { perfil: 'equilibrado', gruposFuncao: {
         volante: ['volante-oportunista', 'contencao'], meio_campo_central: ['box-to-box', 'contencao'], meia_lateral: ['meia-aberto']
     }},
 
-    'MeioCampo/Dinâmico': { perfil: 'equilibrado', lado: null, gruposFuncao: {
+    'MeioCampo/Dinâmico': { perfil: 'equilibrado', gruposFuncao: {
         meio_campo_central: ['box-to-box', 'contencao', 'armador-recuado'], volante: ['volante-oportunista', 'armador-recuado']
     }},
-    'MeioCampo/Armador Clássico': { perfil: 'criacao', lado: 'ambos', gruposFuncao: {
+    'MeioCampo/Armador Clássico': { perfil: 'criacao', gruposFuncao: {
         meia_atacante: ['camisa-10-classico', 'armador'], meio_campo_central: ['armador', 'armador-recuado'], meia_lateral: ['armador-aberto']
     }},
-    'MeioCampo/Infiltrador': { perfil: 'ataque', lado: 'ambos', gruposFuncao: {
+    'MeioCampo/Infiltrador': { perfil: 'ataque', gruposFuncao: {
         meia_atacante: ['atacante-sombra'], meio_campo_central: ['box-to-box'], atacante: ['falso-9'], ponta: ['corta-pra-dentro']
     }},
-    'MeioCampo/Aberto Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
-        meio_campo_central: ['meia-pelas-pontas'], meia_atacante: ['meia-pelas-pontas'], meia_lateral: ['meia-aberto'], lateral: ['lateral']
-    }},
-    'MeioCampo/Aberto Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
+    'MeioCampo/Aberto': { perfil: 'amplitude', gruposFuncao: {
         meio_campo_central: ['meia-pelas-pontas'], meia_atacante: ['meia-pelas-pontas'], meia_lateral: ['meia-aberto'], lateral: ['lateral']
     }},
 
-    'Ponta/Operário Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+    'Ponta/Operário': { perfil: 'amplitude', gruposFuncao: {
         meia_lateral: ['meia-aberto', 'ala'], lateral: ['ala-atacante', 'ala', 'lateral'], ponta: ['ala']
     }},
-    'Ponta/Operário Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
-        meia_lateral: ['meia-aberto', 'ala'], lateral: ['ala-atacante', 'ala', 'lateral'], ponta: ['ala']
-    }},
-    'Ponta/Clássico Direito': { perfil: 'amplitude', lado: 'D', gruposFuncao: {
+    'Ponta/Clássico': { perfil: 'amplitude', gruposFuncao: {
         ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
     }},
-    'Ponta/Clássico Esquerdo': { perfil: 'amplitude', lado: 'E', gruposFuncao: {
-        ponta: ['ala'], meia_lateral: ['ala', 'meia-aberto']
-    }},
-    'Ponta/Invertido Direito': { perfil: 'ataque', lado: 'D', gruposFuncao: {
+    // Invertido e Construtor: os dois "tem mais facilidade de fazer os dois lados" que o
+    // treinador citou — flexivelLado nunca bloqueia o lado oposto ao preferido, só continua
+    // dando prioridade pro lado preferido (ver bônus de lado em selecionarEscalacaoPorAfinidadeTatica).
+    'Ponta/Invertido': { perfil: 'ataque', flexivelLado: true, gruposFuncao: {
         ponta: ['corta-pra-dentro'], meia_lateral: ['corta-pra-dentro'], atacante: ['oportunista', 'falso-9']
     }},
-    'Ponta/Invertido Esquerdo': { perfil: 'ataque', lado: 'E', gruposFuncao: {
-        ponta: ['corta-pra-dentro'], meia_lateral: ['corta-pra-dentro'], atacante: ['oportunista', 'falso-9']
-    }},
-    'Ponta/Construtor Direito': { perfil: 'criacao', lado: 'D', gruposFuncao: {
-        ponta: ['armador-aberto'], meia_lateral: ['armador-aberto'], meia_atacante: ['meia-pelas-pontas', 'armador'], meio_campo_central: ['armador']
-    }},
-    'Ponta/Construtor Esquerdo': { perfil: 'criacao', lado: 'E', gruposFuncao: {
+    'Ponta/Construtor': { perfil: 'criacao', flexivelLado: true, gruposFuncao: {
         ponta: ['armador-aberto'], meia_lateral: ['armador-aberto'], meia_atacante: ['meia-pelas-pontas', 'armador'], meio_campo_central: ['armador']
     }},
 
-    'Atacante/Pivô': { perfil: 'fisico', lado: null, gruposFuncao: {
+    'Atacante/Pivô': { perfil: 'fisico', gruposFuncao: {
         atacante: ['pivo', 'centroavante']
     }},
-    'Atacante/Matador': { perfil: 'ataque', lado: null, gruposFuncao: {
+    'Atacante/Matador': { perfil: 'ataque', gruposFuncao: {
         atacante: ['oportunista', 'centroavante']
     }},
-    'Atacante/Falso 9': { perfil: 'criacao', lado: null, gruposFuncao: {
+    'Atacante/Falso 9': { perfil: 'criacao', gruposFuncao: {
         atacante: ['falso-9', 'centroavante'], meia_atacante: ['atacante-sombra', 'camisa-10-classico', 'armador']
     }},
-    'Atacante/Móvel': { perfil: 'ataque', lado: 'ambos', gruposFuncao: {
+    'Atacante/Móvel': { perfil: 'ataque', gruposFuncao: {
         atacante: ['oportunista', 'falso-9', 'centroavante', 'pivo'], ponta: ['corta-pra-dentro'], meia_atacante: ['atacante-sombra']
     }}
 };
@@ -427,38 +408,20 @@ const AFINIDADE_TATICA = {
         lateral: { lateral: 3, 'lateral-invertido': 2 }
     },
 
-    'Lateral/Defensivo Direito': {
+    'Lateral/Defensivo': {
         lateral: { lateral: 5 },
         zagueiro: { defesa: 3, marcador: 4, 'zagueiro-aberto': 4 }
     },
-    'Lateral/Defensivo Esquerdo': {
-        lateral: { lateral: 5 },
-        zagueiro: { defesa: 3, marcador: 4, 'zagueiro-aberto': 4 }
-    },
-    'Lateral/Construtor Direito': {
+    'Lateral/Construtor': {
         lateral: { lateral: 4, 'lateral-invertido': 5, 'ala-invertido': 5 },
         volante: { contencao: 2, 'armador-recuado': 3, 'meia-pelas-laterais': 3 },
         meio_campo_central: { contencao: 1, 'armador-recuado': 2, 'meia-pelas-pontas': 2 }
     },
-    'Lateral/Construtor Esquerdo': {
-        lateral: { lateral: 4, 'lateral-invertido': 5, 'ala-invertido': 5 },
-        volante: { contencao: 2, 'armador-recuado': 3, 'meia-pelas-laterais': 3 },
-        meio_campo_central: { contencao: 1, 'armador-recuado': 2, 'meia-pelas-pontas': 2 }
-    },
-    'Lateral/Ala Clássico Direito': {
+    'Lateral/Ala Clássico': {
         lateral: { ala: 5, lateral: 4 },
         meia_lateral: { 'meia-aberto': 4, ala: 3 }
     },
-    'Lateral/Ala Clássico Esquerdo': {
-        lateral: { ala: 5, lateral: 4 },
-        meia_lateral: { 'meia-aberto': 4, ala: 3 }
-    },
-    'Lateral/Ala Ofensivo Direito': {
-        lateral: { ala: 4, 'ala-atacante': 5, 'ala-invertido': 3 },
-        meia_lateral: { ala: 4, 'meia-aberto': 4 },
-        ponta: { ala: 2 }
-    },
-    'Lateral/Ala Ofensivo Esquerdo': {
+    'Lateral/Ala Ofensivo': {
         lateral: { ala: 4, 'ala-atacante': 5, 'ala-invertido': 3 },
         meia_lateral: { ala: 4, 'meia-aberto': 4 },
         ponta: { ala: 2 }
@@ -496,56 +459,29 @@ const AFINIDADE_TATICA = {
         atacante: { 'falso-9': 3 },
         ponta: { 'corta-pra-dentro': 4 }
     },
-    'MeioCampo/Aberto Direito': {
-        meio_campo_central: { 'box-to-box': 4, 'meia-pelas-pontas': 5 },
-        meia_lateral: { 'armador-aberto': 4, ala: 1, 'meia-aberto': 2 },
-        meia_atacante: { 'meia-pelas-pontas': 4 },
-        lateral: { lateral: 3 }
-    },
-    'MeioCampo/Aberto Esquerdo': {
+    'MeioCampo/Aberto': {
         meio_campo_central: { 'box-to-box': 4, 'meia-pelas-pontas': 5 },
         meia_lateral: { 'armador-aberto': 4, ala: 1, 'meia-aberto': 2 },
         meia_atacante: { 'meia-pelas-pontas': 4 },
         lateral: { lateral: 3 }
     },
 
-    'Ponta/Operário Direito': {
+    'Ponta/Operário': {
         meia_lateral: { 'meia-aberto': 5, ala: 5 },
         lateral: { ala: 4, 'ala-atacante': 5, lateral: 4 },
         ponta: { ala: 4 }
     },
-    'Ponta/Operário Esquerdo': {
-        meia_lateral: { 'meia-aberto': 5, ala: 5 },
-        lateral: { ala: 4, 'ala-atacante': 5, lateral: 4 },
-        ponta: { ala: 4 }
-    },
-    'Ponta/Clássico Direito': {
+    'Ponta/Clássico': {
         meia_lateral: { ala: 5, 'meia-aberto': 3 },
         ponta: { ala: 4 }
     },
-    'Ponta/Clássico Esquerdo': {
-        meia_lateral: { ala: 5, 'meia-aberto': 3 },
-        ponta: { ala: 4 }
-    },
-    'Ponta/Invertido Direito': {
+    'Ponta/Invertido': {
         ponta: { 'corta-pra-dentro': 5, 'armador-aberto': 3 },
         meia_lateral: { 'corta-pra-dentro': 4, 'armador-aberto': 2 },
         meia_atacante: { 'meia-pelas-pontas': 2, 'atacante-sombra': 3 },
         atacante: { 'falso-9': 3, oportunista: 3 }
     },
-    'Ponta/Invertido Esquerdo': {
-        ponta: { 'corta-pra-dentro': 5, 'armador-aberto': 3 },
-        meia_lateral: { 'corta-pra-dentro': 4, 'armador-aberto': 2 },
-        meia_atacante: { 'meia-pelas-pontas': 2, 'atacante-sombra': 3 },
-        atacante: { 'falso-9': 3, oportunista: 3 }
-    },
-    'Ponta/Construtor Direito': {
-        meia_lateral: { 'armador-aberto': 5 },
-        ponta: { 'armador-aberto': 4 },
-        meia_atacante: { armador: 3, 'camisa-10-classico': 3, 'meia-pelas-pontas': 4 },
-        meio_campo_central: { armador: 3 }
-    },
-    'Ponta/Construtor Esquerdo': {
+    'Ponta/Construtor': {
         meia_lateral: { 'armador-aberto': 5 },
         ponta: { 'armador-aberto': 4 },
         meia_atacante: { armador: 3, 'camisa-10-classico': 3, 'meia-pelas-pontas': 4 },
@@ -587,23 +523,40 @@ function afinidadeTatica(posicaoJogador, grupoKey, funcaoId) {
 function _especialidadesComPrefixo(prefixo) {
     return Object.keys(ESPECIALIDADES_JOGADOR).filter(k => k.startsWith(prefixo + '/'));
 }
-function _especialidadesComSufixo(prefixo, sufixo) {
-    return _especialidadesComPrefixo(prefixo).filter(k => k.endsWith(sufixo));
+
+// Lado Preferido ('D'/'E') a partir da Posição Base lida na tela — só existe informação de
+// verdade nas siglas de Lateral/Ponta/Meia-Lateral (LD/LAD, MD, PD = Direito; LE/LAE, ME, PE =
+// Esquerdo); as demais (ZAG, VOL, MC, ATA...) não indicam lado nenhum, então caem no padrão
+// 'D' — o campo é só uma preferência leve pra essas posições (nunca bloqueia escalação), e o
+// treinador pode corrigir a qualquer momento editando o jogador.
+const LADO_PREFERIDO_POR_POSICAO_BASE = {
+    LD: 'D', LAD: 'D', MD: 'D', PD: 'D',
+    LE: 'E', LAE: 'E', ME: 'E', PE: 'E'
+};
+function ladoPreferidoDaPosicaoBase(posicaoBase) {
+    return LADO_PREFERIDO_POR_POSICAO_BASE[String(posicaoBase || '').toUpperCase()] || 'D';
 }
 
-const PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA = `Você é um Analista de Desempenho e Scout de Futebol de elite. Sua função é, pra CADA jogador, receber os dados básicos dele (Nome, Posição Base — a sigla mostrada na tela — e OVR) e classificá-lo na especialidade exata que melhor descreve seu estilo de jogo na vida real e no banco de dados do SoFifa (atributos de ritmo, passe, defesa, físico, pé bom etc.). Classifique CADA jogador em OBRIGATORIAMENTE APENAS UMA das especialidades abaixo, correspondente à Posição Base dele — nunca invente uma especialidade fora da lista daquele grupo. Se o jogador for desconhecido (regen/base), deduza a especialidade mais provável só pela Posição Base e pelo OVR.
+// Esconde o campo "Lado Preferido" nos formulários de cadastro/edição de jogador quando a
+// posição escolhida é Goleiro — o único que fica de fora do Lado Preferido (pedido do
+// treinador: "isso eu quero pra todos os jogadores, menos goleiro"). Chamada no onchange do
+// select de posição de cada formulário, e uma vez ao abrir/preencher o formulário na mão.
+function alternarCampoLadoPreferido(idSelectPosicao, idWrapperLado) {
+    let selectPos = document.getElementById(idSelectPosicao);
+    let wrapper = document.getElementById(idWrapperLado);
+    if (!selectPos || !wrapper) return;
+    wrapper.style.display = selectPos.value.startsWith('Goleiro/') ? 'none' : '';
+}
+
+const PROMPT_CLASSIFICACAO_ESPECIALIDADE_IA = `Você é um Analista de Desempenho e Scout de Futebol de elite. Sua função é, pra CADA jogador, receber os dados básicos dele (Nome, Posição Base — a sigla mostrada na tela — e OVR) e classificá-lo na especialidade exata que melhor descreve seu estilo de jogo na vida real e no banco de dados do SoFifa (atributos de ritmo, passe, defesa, físico, pé bom etc.). Classifique CADA jogador em OBRIGATORIAMENTE APENAS UMA das especialidades abaixo, correspondente à Posição Base dele — nunca invente uma especialidade fora da lista daquele grupo. Se o jogador for desconhecido (regen/base), deduza a especialidade mais provável só pela Posição Base e pelo OVR. O lado (Direito/Esquerdo) do jogador NÃO faz mais parte da especialidade — é um campo à parte, calculado automaticamente pela Posição Base.
 
 Mapeamento de Posição Base e especialidades permitidas:
 - Posição Base "GL": escolha entre ${_especialidadesComPrefixo('Goleiro').join(', ')}. Critério: bom passe = Construtor; alta velocidade/saída = Líbero; resto = Tradicional.
 - Posição Base "ZAG", "ZAD", "ZAE" ou "ZAC": escolha entre ${_especialidadesComPrefixo('Zagueiro').join(', ')}. Critério: passe alto = Construtor; ritmo alto = Cobertura; muito físico/defesa e baixo passe = Rebatedor; bons status gerais = Híbrido.
-- Posição Base "LD" ou "LAD": escolha entre ${_especialidadesComSufixo('Lateral', 'Direito').join(', ')}.
-- Posição Base "LE" ou "LAE": escolha entre ${_especialidadesComSufixo('Lateral', 'Esquerdo').join(', ')}.
-  Critério (nos dois lados): alto passe/visão = Construtor; alto ritmo/cruzamento = Ala Clássico; muito ofensivo, quase não volta pra defender = Ala Ofensivo; foco em defesa = Defensivo.
+- Posição Base "LD", "LAD", "LE" ou "LAE": escolha entre ${_especialidadesComPrefixo('Lateral').join(', ')}. Critério: alto passe/visão = Construtor; alto ritmo/cruzamento = Ala Clássico; muito ofensivo, quase não volta pra defender = Ala Ofensivo; foco em defesa = Defensivo.
 - Posição Base "VOL": escolha entre ${_especialidadesComPrefixo('Volante').join(', ')}. Critério: alta defesa/físico = Cão de Guarda; alto passe = Organizador; alto fôlego, ataque e defesa = Motorzinho.
-- Posição Base "MC", "MCD", "MCE", "MEI", "MEID" ou "MEIE": escolha entre ${_especialidadesComPrefixo('MeioCampo').join(', ')}. Critério: alta finalização/posicionamento = Infiltrador; alto passe/visão = Armador Clássico; atributos equilibrados = Dinâmico; alto ritmo/cruzamento pelas pontas = Aberto (escolha o lado — Direito ou Esquerdo — pelo pé bom do jogador; sem essa informação visível, use Direito).
-- Posição Base "MD" ou "PD": escolha entre ${_especialidadesComSufixo('Ponta', 'Direito').join(', ')}.
-- Posição Base "ME" ou "PE": escolha entre ${_especialidadesComSufixo('Ponta', 'Esquerdo').join(', ')}.
-  Critério (nos dois lados): pé bom oposto ao lado que joga (ex: canhoto jogando na direita) e alta finalização = Invertido; alta defesa/fôlego = Operário; alto passe = Construtor; alto ritmo/cruzamento = Clássico.
+- Posição Base "MC", "MCD", "MCE", "MEI", "MEID" ou "MEIE": escolha entre ${_especialidadesComPrefixo('MeioCampo').join(', ')}. Critério: alta finalização/posicionamento = Infiltrador; alto passe/visão = Armador Clássico; atributos equilibrados = Dinâmico; alto ritmo/cruzamento pelas pontas = Aberto.
+- Posição Base "MD", "PD", "ME" ou "PE": escolha entre ${_especialidadesComPrefixo('Ponta').join(', ')}. Critério: pé bom oposto ao lado que joga (ex: canhoto jogando na direita) e alta finalização = Invertido; alta defesa/fôlego = Operário; alto passe = Construtor; alto ritmo/cruzamento = Clássico.
 - Posição Base "ATA", "ATD" ou "ATE": escolha entre ${_especialidadesComPrefixo('Atacante').join(', ')}. Critério: alto físico/força = Pivô; alta finalização pura = Matador; alto passe = Falso 9; alto ritmo/drible = Móvel.`;
 
 // Grupo de função -> lista de siglas do campinho que usam aquele catálogo (inverso de
@@ -614,35 +567,47 @@ Object.entries(GRUPO_POR_ROLE).forEach(([sigla, grupo]) => {
 });
 
 // Grupos onde o lado (D/E) muda a elegibilidade de verdade — um lateral/ponta/meia-lateral
-// direito não cobre o lado esquerdo. Nos demais grupos (zagueiro/volante/meio-campo/meia-
-// atacante/atacante) o lado da sigla é só geometria, então uma especialidade sem lado fixo
-// (lado: null) já cobre todas as siglas daquele grupo.
+// com Lado Preferido Direito não joga bem do lado esquerdo (pedido do treinador: "pra lateral
+// e ponta o lado preferido passa a ter mais peso"). Nos demais grupos (zagueiro/volante/meio-
+// campo/meia-atacante/atacante) o lado é só uma PREFERÊNCIA leve — nunca bloqueia elegibilidade,
+// só influencia qual sigla (D/E) a escalação tenta primeiro pra cada jogador (ver a ordem de
+// tentativa em alocarPorPosicaoKuhn e o bônus de lado em selecionarEscalacaoPorAfinidadeTatica,
+// js/chat-ia.js). "flexivelLado" (Lateral/Construtor, Ponta/Invertido, Ponta/Construtor) tem
+// mais facilidade nos dois lados — o lado preferido nunca bloqueia essas especialidades.
 const GRUPOS_COM_LADO = new Set(['lateral', 'ponta', 'meia_lateral']);
-const LADO_DA_SIGLA = { LAD: 'D', ALD: 'D', LAE: 'E', ALE: 'E', MD: 'D', ME: 'E', PD: 'D', PE: 'E' };
+// Sigla do campinho -> lado geométrico ('D'/'E') — cobre TODO grupo com variante D/E, mesmo os
+// que hoje só usam isso como preferência leve (zagueiro/volante/meio-campo/meia-atacante/
+// atacante). Siglas sem lado (GOL, ZAC, e as versões "sem D/E" como VOL/MC/MEI/ATA) ficam de
+// fora — geometria neutra, nenhuma preferência se aplica.
+const LADO_DA_SIGLA = {
+    LAD: 'D', ALD: 'D', LAE: 'E', ALE: 'E', MD: 'D', ME: 'E', PD: 'D', PE: 'E',
+    ZAD: 'D', ZAE: 'E', VOLD: 'D', VOLE: 'E', MCD: 'D', MCE: 'E', MEID: 'D', MEIE: 'E', ATD: 'D', ATE: 'E'
+};
 
-// Pra cada especialidade, pré-computa o conjunto de siglas do campinho em que ela é aceita —
-// evita recalcular isso toda vez que o seletor de troca ou a escalação automática precisam
-// checar compatibilidade (o que acontece bastante vezes por partida).
+// Pra cada especialidade, pré-computa o conjunto de siglas do campinho em que ela é aceita EM
+// TESE — sem considerar ainda o Lado Preferido do jogador, que agora é atributo do JOGADOR, não
+// da especialidade, e por isso só entra depois, dinamicamente, dentro de posicaoCompativelComRole.
 Object.values(ESPECIALIDADES_JOGADOR).forEach(especialidade => {
     let siglas = new Set();
     Object.keys(especialidade.gruposFuncao).forEach(grupoKey => {
-        let todasSiglas = SIGLAS_POR_GRUPO_FUNCAO[grupoKey] || [];
-        if (GRUPOS_COM_LADO.has(grupoKey)) {
-            todasSiglas.forEach(sigla => {
-                if (especialidade.lado === 'ambos' || especialidade.lado === LADO_DA_SIGLA[sigla]) siglas.add(sigla);
-            });
-        } else {
-            todasSiglas.forEach(sigla => siglas.add(sigla));
-        }
+        (SIGLAS_POR_GRUPO_FUNCAO[grupoKey] || []).forEach(sigla => siglas.add(sigla));
     });
     especialidade._siglasCompativeis = siglas;
 });
 
 // true se a posição de carteirinha do jogador é aceita na função do campinho (sigla) informada.
 // Fonte única pra escalação automática, pro seletor de troca e pro prompt de escalação da IA.
-function posicaoCompativelComRole(role, posicaoJogador) {
+// "ladoPreferido" ('D'/'E', opcional): nos 3 grupos com lado de verdade (GRUPOS_COM_LADO), uma
+// especialidade sem "flexivelLado" só é aceita no lado que bate com o preferido do jogador.
+// Chamadas sem ladoPreferido (nenhum jogador real em jogo — ex: "quais especialidades cobrem
+// esta função em geral") continuam permissivas, sem restringir por lado.
+function posicaoCompativelComRole(role, posicaoJogador, ladoPreferido) {
     let especialidade = ESPECIALIDADES_JOGADOR[posicaoJogador];
-    return !!(especialidade && especialidade._siglasCompativeis.has(role));
+    if (!especialidade || !especialidade._siglasCompativeis.has(role)) return false;
+    let grupo = GRUPO_POR_ROLE[role];
+    if (!GRUPOS_COM_LADO.has(grupo) || especialidade.flexivelLado || !ladoPreferido) return true;
+    let ladoDaSigla = LADO_DA_SIGLA[role];
+    return !ladoDaSigla || ladoDaSigla === ladoPreferido;
 }
 
 // Texto curto de classificação da especialidade (defesa/criacao/ataque/fisico/amplitude/

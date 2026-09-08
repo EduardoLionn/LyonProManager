@@ -924,7 +924,7 @@ ${textoRegrasCompatibilidadePosicional()}
             let positions = (_ultimoRenderEspelho && _ultimoRenderEspelho.formacao) ? coordsFormacoes[_ultimoRenderEspelho.formacao] : null;
 
             let brutas = (jogBD && positions) ? positions
-                .filter(p => posicaoCompativelComRole(p.role, jogBD.posicao))
+                .filter(p => posicaoCompativelComRole(p.role, jogBD.posicao, jogBD.ladoPreferido))
                 .map(p => {
                     let grupoKey = grupoFuncaoDoRole(p.role);
                     let escolha = escolherFuncaoJogador(p.role, jogBD.posicao, fonte.tatica);
@@ -1280,8 +1280,8 @@ ${textoRegrasCompatibilidadePosicional()}
             let prefixo = String(posicaoJogador || '').split('/')[0];
             return GRUPO_PRIMARIO_POR_PREFIXO[prefixo] || null;
         }
-        function posicaoCompativelComRoleAutomatico(role, posicaoJogador, focoPartidaId) {
-            if (!posicaoCompativelComRole(role, posicaoJogador)) return false;
+        function posicaoCompativelComRoleAutomatico(role, posicaoJogador, focoPartidaId, ladoPreferido) {
+            if (!posicaoCompativelComRole(role, posicaoJogador, ladoPreferido)) return false;
             let grupoDoRole = grupoFuncaoDoRole(role);
             let grupoPrimario = grupoPrimarioDaPosicao(posicaoJogador);
             if (!grupoPrimario || grupoDoRole === grupoPrimario) return true; // posição de carteirinha — sempre livre
@@ -1857,18 +1857,35 @@ ${textoRegrasCompatibilidadePosicional()}
         // diretriz "Dar Oportunidade à Base/Jovens" (candidatos = só quem entrou na cota).
         function alocarPorPosicaoKuhn(candidatosOrdenados, roles, focoPartidaId) {
             let posicaoPorNome = {};
-            candidatosOrdenados.forEach(c => { posicaoPorNome[c.jogador.nome] = c.jogador.posicao; });
+            let ladoPorNome = {};
+            candidatosOrdenados.forEach(c => { posicaoPorNome[c.jogador.nome] = c.jogador.posicao; ladoPorNome[c.jogador.nome] = c.jogador.ladoPreferido; });
 
             let ocupantePorRole = {}; // role -> nome do jogador titular naquela função
 
+            // Ordena as siglas pro lado preferido do jogador vir primeiro — preferência LEVE, nunca
+            // bloqueia (quem bloqueia de verdade, pros 3 grupos com lado forte, é
+            // posicaoCompativelComRoleAutomatico/posicaoCompativelComRole). Sigla sem lado (GOL, ou
+            // a sigla "central" sem variante D/E) fica no meio, sem preferência nenhuma.
+            function rolesNaOrdemDoLado(ladoPreferido) {
+                if (!ladoPreferido) return roles;
+                return roles.slice().sort((a, b) => {
+                    let pa = LADO_DA_SIGLA[a] ? (LADO_DA_SIGLA[a] === ladoPreferido ? 0 : 2) : 1;
+                    let pb = LADO_DA_SIGLA[b] ? (LADO_DA_SIGLA[b] === ladoPreferido ? 0 : 2) : 1;
+                    return pa - pb;
+                });
+            }
+
             // Caminho aumentante clássico de Kuhn: tenta alocar "nomeJogador" numa função livre
             // compatível (posição de carteirinha sempre, improviso só em foco extremo alinhado —
-            // ver posicaoCompativelComRoleAutomatico); se todas as compatíveis já estiverem
-            // ocupadas, tenta primeiro liberar uma delas realocando o ocupante atual pra outra
-            // função compatível dele.
+            // ver posicaoCompativelComRoleAutomatico), tentando primeiro a sigla do lado preferido
+            // dele; se todas as compatíveis já estiverem ocupadas, tenta primeiro liberar uma delas
+            // realocando o ocupante atual pra outra função compatível dele — é esse "empurra pro
+            // outro lado" que faz dois jogadores com o mesmo lado preferido jogarem os dois, só que
+            // um de cada lado (pedido do treinador).
             function tentarAlocar(nomeJogador, visitadas) {
-                for (let role of roles) {
-                    if (visitadas.has(role) || !posicaoCompativelComRoleAutomatico(role, posicaoPorNome[nomeJogador], focoPartidaId)) continue;
+                let ladoPreferido = ladoPorNome[nomeJogador];
+                for (let role of rolesNaOrdemDoLado(ladoPreferido)) {
+                    if (visitadas.has(role) || !posicaoCompativelComRoleAutomatico(role, posicaoPorNome[nomeJogador], focoPartidaId, ladoPreferido)) continue;
                     visitadas.add(role);
                     let ocupanteAtual = ocupantePorRole[role];
                     if (!ocupanteAtual || tentarAlocar(ocupanteAtual, visitadas)) {
@@ -1985,8 +2002,13 @@ ${textoRegrasCompatibilidadePosicional()}
             // tanto que a antiga regra binária ("não cobre" = -8, mas hoje isso já bloqueia antes de
             // chegar aqui — ver elegivelParaFuncao), com gradação linear entre os dois extremos.
             const _FATOR_PENALIDADE_AFINIDADE = 2; // (5 - afinidade) * 2 → 0 (afinidade 5) até 8 (afinidade 1)
+            // Bônus leve de Lado Preferido — mesma ideia de bonusFocoPorPerfil: nunca penaliza quem
+            // joga do lado oposto (isso já é papel da elegibilidade/afinidade), só dá uma pequena
+            // vantagem extra pra quem calha de já jogar do lado que prefere.
+            const _BONUS_LADO_PREFERIDO = 1.5;
             function peso(role, jogador) {
                 let base = calcularPontuacaoEfetivaFn(jogador.ovr, obterNotaMedia(jogador), jogador.fadiga || 0) - penalidadePorPreparoFisico(jogador.preparoFisico, pesoPreparo) + bonusFocoPorPerfil(jogador.posicao, focoPartidaId);
+                if (jogador.ladoPreferido && LADO_DA_SIGLA[role] === jogador.ladoPreferido) base += _BONUS_LADO_PREFERIDO;
                 let grupo = grupoFuncaoDoRole(role);
                 let funcaoExigida = funcoesPorRole[role] && funcoesPorRole[role].funcao;
                 if (!funcaoExigida) return base; // Foco sem função definida pra esse grupo — sem penalidade
@@ -2000,7 +2022,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 let linha = [];
                 for (let j = 0; j < m; j++) {
                     let jogador = candidatos[j];
-                    if (!jogador || !posicaoCompativelComRole(roles[i], jogador.posicao) || !elegivelParaFuncao(roles[i], jogador)) { linha.push(_CUSTO_INCOMPATIVEL_AFINIDADE); continue; }
+                    if (!jogador || !posicaoCompativelComRole(roles[i], jogador.posicao, jogador.ladoPreferido) || !elegivelParaFuncao(roles[i], jogador)) { linha.push(_CUSTO_INCOMPATIVEL_AFINIDADE); continue; }
                     linha.push(-peso(roles[i], jogador));
                 }
                 custo.push(linha);
@@ -2936,7 +2958,7 @@ ${textoRegrasCompatibilidadePosicional()}
                     if (p.status !== 'Ativo') return false;
                     if (currentSave === 'selecao' && p.convocado === false) return false;
                     if (p.diasLesao > 0 || p.suspensoVermelho) return false;
-                    if (!posicaoCompativelComRole(role, p.posicao)) return false;
+                    if (!posicaoCompativelComRole(role, p.posicao, p.ladoPreferido)) return false;
                     let c = (typeof condicaoJogador === 'function') ? condicaoJogador(p) : { nivel: 'ok' };
                     return c.nivel === 'ok' || c.nivel === 'alerta';
                 });
@@ -3069,9 +3091,9 @@ ${textoRegrasCompatibilidadePosicional()}
                 .filter(([r, j]) => r !== role && j.nome && j.nome !== '???')
                 .map(([r, j]) => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
-                    return { nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : r, tag: 'Trocar de posição (' + r + ')', onSelect: () => trocarPosicaoTitulares(role, r), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
+                    return { nome: j.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : r, ladoPreferido: jogBD ? jogBD.ladoPreferido : null, tag: 'Trocar de posição (' + r + ')', onSelect: () => trocarPosicaoTitulares(role, r), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
                 });
-            let posRelevantes = opcoesPosicao.filter(o => posicaoCompativelComRole(role, o.posicao));
+            let posRelevantes = opcoesPosicao.filter(o => posicaoCompativelComRole(role, o.posicao, o.ladoPreferido));
 
             let opcoesRecomendados, opcoesTodos, subtitulo;
 
@@ -3080,8 +3102,8 @@ ${textoRegrasCompatibilidadePosicional()}
                 let titularesNomes = Object.values(partida.titulares).map(j => j.nome);
                 let bancoNomes = (partida.banco || []).map(b => b.nome);
                 let candidatosBanco = db[currentSave].plantel.filter(p => p.status === 'Ativo' && !titularesNomes.includes(p.nome) && bancoNomes.includes(p.nome));
-                let opcoesBanco = candidatosBanco.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, tag: 'Banco', onSelect: () => trocarJogadorNoCampo(role, p.nome), _ordemPos: ordemPosicoes[p.posicao] || 8 }));
-                let bancoRelevantes = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
+                let opcoesBanco = candidatosBanco.map(p => ({ nome: p.nome, ovr: p.ovr, posicao: p.posicao, ladoPreferido: p.ladoPreferido, tag: 'Banco', onSelect: () => trocarJogadorNoCampo(role, p.nome), _ordemPos: ordemPosicoes[p.posicao] || 8 }));
+                let bancoRelevantes = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao, o.ladoPreferido));
                 bancoRelevantes.sort((a, b) => b.ovr - a.ovr);
                 posRelevantes.sort((a, b) => b.ovr - a.ovr);
                 // O que o treinador mais quer aqui é escalar alguém do banco — isso vem primeiro.
@@ -3106,9 +3128,9 @@ ${textoRegrasCompatibilidadePosicional()}
                 let travadoAqui = jogadorTravadoPorJaTerEntrado(partida, nomeAtual);
                 let opcoesBanco = (subsUsadas < 5 && !expulsoAqui && !travadoAqui) ? (partida.banco || []).filter(b => b.nome && !fora.includes(b.nome)).map(b => {
                     let jogBD = db[currentSave].plantel.find(p => p.nome === b.nome);
-                    return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), tag: `Banco — declara substituição (${subsUsadas}/5)`, onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
+                    return { nome: b.nome, ovr: jogBD ? jogBD.ovr : '?', posicao: jogBD ? jogBD.posicao : (b.posicao || ''), ladoPreferido: jogBD ? jogBD.ladoPreferido : null, tag: `Banco — declara substituição (${subsUsadas}/5)`, onSelect: () => iniciarDeclaracaoSubstituicao(role, b.nome), _ordemPos: jogBD ? (ordemPosicoes[jogBD.posicao] || 8) : 8 };
                 }) : [];
-                let bancoRelevantesVivo = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao));
+                let bancoRelevantesVivo = opcoesBanco.filter(o => posicaoCompativelComRole(role, o.posicao, o.ladoPreferido));
                 bancoRelevantesVivo.sort((a, b) => b.ovr - a.ovr);
                 posRelevantes.sort((a, b) => b.ovr - a.ovr);
 
@@ -3225,8 +3247,9 @@ ${textoRegrasCompatibilidadePosicional()}
                     };
                 });
 
-            let relevantes = opcoesSlots.filter(o => posicaoCompativelComRole(o._role, posicaoAtual));
-            let outros = opcoesSlots.filter(o => !posicaoCompativelComRole(o._role, posicaoAtual));
+            let ladoAtual = jogBDAtual ? jogBDAtual.ladoPreferido : null;
+            let relevantes = opcoesSlots.filter(o => posicaoCompativelComRole(o._role, posicaoAtual, ladoAtual));
+            let outros = opcoesSlots.filter(o => !posicaoCompativelComRole(o._role, posicaoAtual, ladoAtual));
             relevantes.sort((a, b) => b.ovr - a.ovr);
             outros.sort((a, b) => b.ovr - a.ovr);
 
@@ -3429,7 +3452,7 @@ ${textoRegrasCompatibilidadePosicional()}
                 .map(([r, j]) => {
                     let posObj = velhasPos.find(p => p.role === r);
                     let jogBD = db[currentSave].plantel.find(p => p.nome === j.nome);
-                    return { nome: j.nome, instrucao: j.instrucao, roleAntigo: r, posicaoJogador: jogBD ? jogBD.posicao : '', topNum: posObj ? parseFloat(posObj.top) : 50 };
+                    return { nome: j.nome, instrucao: j.instrucao, roleAntigo: r, posicaoJogador: jogBD ? jogBD.posicao : '', ladoJogador: jogBD ? jogBD.ladoPreferido : null, topNum: posObj ? parseFloat(posObj.top) : 50 };
                 })
                 .sort((a, b) => b.topNum - a.topNum);
 
@@ -3453,7 +3476,7 @@ ${textoRegrasCompatibilidadePosicional()}
             // próxima em profundidade primeiro, pra manter quem jogava mais atrás/mais à frente coerente.
             vagasAbertas.slice().forEach(vaga => {
                 if (!restantes.length) return;
-                let candidato = restantes.find(j => posicaoCompativelComRole(vaga.role, j.posicaoJogador));
+                let candidato = restantes.find(j => posicaoCompativelComRole(vaga.role, j.posicaoJogador, j.ladoJogador));
                 if (candidato) ocupar(vaga, candidato);
             });
 
