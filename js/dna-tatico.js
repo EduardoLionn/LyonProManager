@@ -436,6 +436,10 @@ const REGRAS_FUNCAO_POR_DNA = {
         { se: { comportamento_laterais: ['invertidos', 'presos_base'] }, eixos: ['comportamento_laterais'],
           porque: 'Como o lateral não dá largura, é o ala quem fica colado na linha.',
           funcoes: [_papel('ala', 'ataque'), _papel('meia-aberto', 'apoio')] },
+        { se: { comportamento_laterais: 'amplitude_externa', ocupacao_espacos: 'posicional_amplo', saida_bola: 'mista', mobilidade: 'posicional' },
+          eixos: ['comportamento_laterais', 'ocupacao_espacos', 'saida_bola', 'mobilidade'],
+          porque: 'Sobrecarga total pelas pontas: os dois pontas ficam colados na linha de cal pra dobrar com o lateral e cruzar — ninguém corta pra dentro.',
+          funcoes: [_papel('ala', 'ataque'), _papel('ala', 'ataque')] },
         { se: null, eixos: ['comportamento_laterais'],
           porque: 'Ala de ida e volta: sobe pra apoiar e volta pra compor a linha.',
           funcoes: [_papel('ala', 'equilibrado'), _papel('corta-pra-dentro', 'ataque')] }
@@ -461,6 +465,10 @@ const REGRAS_FUNCAO_POR_DNA = {
         { se: { comportamento_laterais: ['invertidos', 'presos_base'] }, eixos: ['comportamento_laterais'],
           porque: 'Sem lateral por fora, é o ponta quem fica colado na linha esticando a defesa.',
           funcoes: [_papel('ala', 'equilibrado'), _papel('corta-pra-dentro', 'ataque')] },
+        { se: { comportamento_laterais: 'amplitude_externa', ocupacao_espacos: 'posicional_amplo', saida_bola: 'mista', mobilidade: 'posicional' },
+          eixos: ['comportamento_laterais', 'ocupacao_espacos', 'saida_bola', 'mobilidade'],
+          porque: 'Sobrecarga total pelas pontas: os dois pontas ficam colados na linha de cal pra dobrar com o lateral e cruzar — ninguém corta pra dentro.',
+          funcoes: [_papel('ala', 'ataque'), _papel('ala', 'ataque')] },
         { se: { ocupacao_espacos: 'posicional_amplo' }, eixos: ['ocupacao_espacos'],
           porque: 'Jogo de posição amplo: o ponta pisa na linha de cal pra esticar a defesa adversária.',
           funcoes: [_papel('ala', 'ataque'), _papel('corta-pra-dentro', 'ataque')] },
@@ -639,7 +647,7 @@ const AJUSTES_DNA_POR_FOCO = {
         }
     },
     tudo_ou_nada: {
-        rotulo: 'abre mão do equilíbrio: tudo à frente, bola pro gol em linha reta',
+        rotulo: 'abre mão do equilíbrio: tudo à frente, bola pro gol em linha reta — a postura mais ofensiva de todas',
         aplicar: (d) => {
             d.altura_bloco = 'alto';
             d.comportamento_laterais = 'amplitude_externa';
@@ -647,6 +655,8 @@ const AJUSTES_DNA_POR_FOCO = {
             d.reacao_recuperacao = 'vertical';
             d.mobilidade = 'funcional';
             d.compactacao = 'esticado';
+            d.saida_bola = 'direta';
+            d.ocupacao_espacos = 'posicional_amplo';
             return d;
         }
     },
@@ -673,14 +683,15 @@ const AJUSTES_DNA_POR_FOCO = {
         }
     },
     segura_o_jogo: {
-        rotulo: 'tira o pé do acelerador: prende a bola e mata o ritmo do jogo',
+        rotulo: 'controle total: prende a bola, fecha os espaços e mata o ritmo do jogo — a postura mais defensiva de todas',
         aplicar: (d) => {
+            d.altura_bloco = 'baixo';
+            d.comportamento_laterais = 'presos_base';
+            d.reacao_perda = 'recomposicao';
+            d.compactacao = 'muito_compacto';
             d.reacao_recuperacao = 'manutencao';
-            if (d.saida_bola === 'direta') d.saida_bola = 'mista';
-            if (d.altura_bloco === 'alto') d.altura_bloco = 'medio';
-            if (d.reacao_perda === 'gegenpressing') d.reacao_perda = 'equilibrio_transicao';
-            if (d.compactacao === 'esticado') d.compactacao = 'compacto';
             d.mobilidade = 'posicional';
+            d.saida_bola = 'mista';
             return d;
         }
     }
@@ -688,9 +699,9 @@ const AJUSTES_DNA_POR_FOCO = {
 
 // Estratégia de formação de cada Foco (alimenta a "regra de ouro" escolherEsquemaPorFoco).
 const ESTRATEGIA_FORMACAO_POR_FOCO = {
-    equilibrado: 'equilibrada', segura_o_jogo: 'equilibrada',
+    equilibrado: 'equilibrada',
     ofensivo: 'ofensiva', extremamente_ofensivo: 'ofensiva', tudo_ou_nada: 'ofensiva',
-    defensivo: 'defensiva', extremamente_defensivo: 'defensiva'
+    defensivo: 'defensiva', extremamente_defensivo: 'defensiva', segura_o_jogo: 'defensiva'
 };
 
 function dnaAjustadoPorFoco(dna, focoId) {

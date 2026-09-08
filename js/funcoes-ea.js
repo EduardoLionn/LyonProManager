@@ -412,28 +412,28 @@ const AFINIDADE_TATICA = {
 
     'Zagueiro/Rebatedor': { zagueiro: { defesa: 5, marcador: 4 } },
     'Zagueiro/Construtor': {
-        zagueiro: { defesa: 3, 'sai-jogando': 5 },
-        volante: { contencao: 2, zaga: 3 },
+        zagueiro: { defesa: 3, marcador: 2, 'sai-jogando': 5 },
+        volante: { contencao: 2, zaga: 3, 'armador-recuado': 3 },
         meio_campo_central: { contencao: 2 }
     },
     'Zagueiro/Cobertura': {
-        zagueiro: { defesa: 4, 'zagueiro-aberto': 5 },
+        zagueiro: { defesa: 4, marcador: 4, 'zagueiro-aberto': 5 },
         lateral: { lateral: 3 }
     },
     'Zagueiro/Híbrido': {
         zagueiro: { defesa: 4, marcador: 4, 'sai-jogando': 5, 'zagueiro-aberto': 4 },
-        volante: { contencao: 3, zaga: 3 },
+        volante: { contencao: 3, zaga: 3, 'armador-recuado': 3 },
         meio_campo_central: { contencao: 3 },
         lateral: { lateral: 3, 'lateral-invertido': 2 }
     },
 
     'Lateral/Defensivo Direito': {
         lateral: { lateral: 5 },
-        zagueiro: { defesa: 3, 'zagueiro-aberto': 4 }
+        zagueiro: { defesa: 3, marcador: 4, 'zagueiro-aberto': 4 }
     },
     'Lateral/Defensivo Esquerdo': {
         lateral: { lateral: 5 },
-        zagueiro: { defesa: 3, 'zagueiro-aberto': 4 }
+        zagueiro: { defesa: 3, marcador: 4, 'zagueiro-aberto': 4 }
     },
     'Lateral/Construtor Direito': {
         lateral: { lateral: 4, 'lateral-invertido': 5, 'ala-invertido': 5 },
@@ -454,23 +454,24 @@ const AFINIDADE_TATICA = {
         meia_lateral: { 'meia-aberto': 4, ala: 3 }
     },
     'Lateral/Ala Ofensivo Direito': {
-        lateral: { ala: 4, 'ala-atacante': 5 },
+        lateral: { ala: 4, 'ala-atacante': 5, 'ala-invertido': 3 },
         meia_lateral: { ala: 4, 'meia-aberto': 4 },
         ponta: { ala: 2 }
     },
     'Lateral/Ala Ofensivo Esquerdo': {
-        lateral: { ala: 4, 'ala-atacante': 5 },
+        lateral: { ala: 4, 'ala-atacante': 5, 'ala-invertido': 3 },
         meia_lateral: { ala: 4, 'meia-aberto': 4 },
         ponta: { ala: 2 }
     },
 
     'Volante/Cão de Guarda': {
         volante: { contencao: 5, zaga: 5 },
-        zagueiro: { defesa: 3, marcador: 4, 'sai-jogando': 4 }
+        zagueiro: { defesa: 3, marcador: 4, 'sai-jogando': 4, 'zagueiro-aberto': 3 },
+        meio_campo_central: { contencao: 4 }
     },
     'Volante/Organizador': {
         volante: { 'armador-recuado': 5, contencao: 4 },
-        meio_campo_central: { 'armador-recuado': 5, contencao: 3 },
+        meio_campo_central: { 'armador-recuado': 5, contencao: 3, armador: 4 },
         zagueiro: { 'sai-jogando': 2 }
     },
     'Volante/Motorzinho': {
@@ -486,32 +487,37 @@ const AFINIDADE_TATICA = {
     },
     'MeioCampo/Armador Clássico': {
         meio_campo_central: { armador: 5, 'box-to-box': 4, 'armador-recuado': 4 },
-        meia_atacante: { armador: 4, 'camisa-10-classico': 2 }
+        meia_atacante: { armador: 4, 'camisa-10-classico': 2 },
+        meia_lateral: { 'armador-aberto': 3 }
     },
     'MeioCampo/Infiltrador': {
         meia_atacante: { 'camisa-10-classico': 5, 'atacante-sombra': 5 },
-        meio_campo_central: { armador: 4 },
-        atacante: { 'falso-9': 3 }
+        meio_campo_central: { armador: 4, 'box-to-box': 4 },
+        atacante: { 'falso-9': 3 },
+        ponta: { 'corta-pra-dentro': 4 }
     },
-    // MeioCampo/Aberto: o treinador não pontuou o grupo lateral que o catálogo antigo
-    // (ESPECIALIDADES_JOGADOR.gruposFuncao) ainda lista pra ele — regra confirmada: sem nota aqui =
-    // não joga ali, mesmo que o catálogo antigo permita de forma mais ampla.
     'MeioCampo/Aberto Direito': {
         meio_campo_central: { 'box-to-box': 4, 'meia-pelas-pontas': 5 },
-        meia_lateral: { 'armador-aberto': 4, ala: 1, 'meia-aberto': 2 }
+        meia_lateral: { 'armador-aberto': 4, ala: 1, 'meia-aberto': 2 },
+        meia_atacante: { 'meia-pelas-pontas': 4 },
+        lateral: { lateral: 3 }
     },
     'MeioCampo/Aberto Esquerdo': {
         meio_campo_central: { 'box-to-box': 4, 'meia-pelas-pontas': 5 },
-        meia_lateral: { 'armador-aberto': 4, ala: 1, 'meia-aberto': 2 }
+        meia_lateral: { 'armador-aberto': 4, ala: 1, 'meia-aberto': 2 },
+        meia_atacante: { 'meia-pelas-pontas': 4 },
+        lateral: { lateral: 3 }
     },
 
     'Ponta/Operário Direito': {
         meia_lateral: { 'meia-aberto': 5, ala: 5 },
-        lateral: { ala: 4, 'ala-atacante': 5 }
+        lateral: { ala: 4, 'ala-atacante': 5, lateral: 4 },
+        ponta: { ala: 4 }
     },
     'Ponta/Operário Esquerdo': {
         meia_lateral: { 'meia-aberto': 5, ala: 5 },
-        lateral: { ala: 4, 'ala-atacante': 5 }
+        lateral: { ala: 4, 'ala-atacante': 5, lateral: 4 },
+        ponta: { ala: 4 }
     },
     'Ponta/Clássico Direito': {
         meia_lateral: { ala: 5, 'meia-aberto': 3 },
@@ -525,35 +531,35 @@ const AFINIDADE_TATICA = {
         ponta: { 'corta-pra-dentro': 5, 'armador-aberto': 3 },
         meia_lateral: { 'corta-pra-dentro': 4, 'armador-aberto': 2 },
         meia_atacante: { 'meia-pelas-pontas': 2, 'atacante-sombra': 3 },
-        atacante: { 'falso-9': 3 }
+        atacante: { 'falso-9': 3, oportunista: 3 }
     },
     'Ponta/Invertido Esquerdo': {
         ponta: { 'corta-pra-dentro': 5, 'armador-aberto': 3 },
         meia_lateral: { 'corta-pra-dentro': 4, 'armador-aberto': 2 },
         meia_atacante: { 'meia-pelas-pontas': 2, 'atacante-sombra': 3 },
-        atacante: { 'falso-9': 3 }
+        atacante: { 'falso-9': 3, oportunista: 3 }
     },
-    // Ponta/Construtor: a tabela nova dobrou o grupo meio_campo_central (que o catálogo antigo listava
-    // à parte) em meia_atacante — sem nota em meio_campo_central aqui, então não joga lá.
     'Ponta/Construtor Direito': {
         meia_lateral: { 'armador-aberto': 5 },
         ponta: { 'armador-aberto': 4 },
-        meia_atacante: { armador: 3, 'camisa-10-classico': 3 }
+        meia_atacante: { armador: 3, 'camisa-10-classico': 3, 'meia-pelas-pontas': 4 },
+        meio_campo_central: { armador: 3 }
     },
     'Ponta/Construtor Esquerdo': {
         meia_lateral: { 'armador-aberto': 5 },
         ponta: { 'armador-aberto': 4 },
-        meia_atacante: { armador: 3, 'camisa-10-classico': 3 }
+        meia_atacante: { armador: 3, 'camisa-10-classico': 3, 'meia-pelas-pontas': 4 },
+        meio_campo_central: { armador: 3 }
     },
 
     'Atacante/Pivô': { atacante: { pivo: 5, centroavante: 4 } },
     'Atacante/Matador': { atacante: { oportunista: 5, centroavante: 4 } },
     'Atacante/Falso 9': {
-        atacante: { 'falso-9': 5, oportunista: 3 },
-        meia_atacante: { 'atacante-sombra': 4 }
+        atacante: { 'falso-9': 5, oportunista: 3, centroavante: 3 },
+        meia_atacante: { 'atacante-sombra': 4, 'camisa-10-classico': 3, armador: 3 }
     },
     'Atacante/Móvel': {
-        atacante: { centroavante: 5, oportunista: 5, 'falso-9': 5 },
+        atacante: { centroavante: 5, oportunista: 5, 'falso-9': 5, pivo: 4 },
         meia_atacante: { 'atacante-sombra': 4, 'meia-pelas-pontas': 3 },
         ponta: { 'corta-pra-dentro': 3 }
     }
